@@ -1,10 +1,23 @@
 import Foundation
 
-enum ShellPlatform: Sendable {
+/// A supported operating-system family used to derive shell execution defaults.
+///
+/// Use ``ShellPlatform`` when you need to choose platform-specific executable
+/// search paths while building custom command families or contexts.
+///
+/// ```swift
+/// let platform = ShellPlatform.current
+/// let paths = platform.defaultSearchPaths
+/// let context = ShellContext(searchPaths: paths)
+/// ```
+public enum ShellPlatform: Sendable {
+    /// The macOS platform family.
     case macOS
+    /// The Linux platform family.
     case linux
 
-    static let current: Self = {
+    /// The platform for the current compilation target.
+    public static let current: Self = {
         #if os(macOS)
         .macOS
         #elseif os(Linux)
@@ -14,7 +27,8 @@ enum ShellPlatform: Sendable {
         #endif
     }()
 
-    var defaultSearchPaths: [String] {
+    /// The default executable search paths for this platform.
+    public var defaultSearchPaths: [String] {
         switch self {
         case .macOS:
             ["/usr/bin", "/bin", "/usr/sbin", "/sbin", "/usr/local/bin"]
@@ -25,6 +39,18 @@ enum ShellPlatform: Sendable {
 }
 
 /// Default execution settings shared by commands and pipelines.
+///
+/// Use ``ShellContext`` to provide shared environment variables, executable search
+/// paths, working-directory defaults, and execution limits for one or more shell
+/// operations.
+///
+/// ```swift
+/// let context = ShellContext(
+///     searchPaths: ShellPlatform.current.defaultSearchPaths,
+///     workingDirectory: "/tmp"
+/// )
+/// let output = try await Command("pwd").run(in: context)
+/// ```
 public struct ShellContext: Sendable {
     /// Default search paths used to resolve executables by name.
     public static let defaultSearchPaths: [String] = defaultSearchPaths(environment: ProcessInfo.processInfo.environment)
@@ -43,6 +69,13 @@ public struct ShellContext: Sendable {
     public let defaultOutputLimit: Int
 
     /// Creates a shell context with execution defaults.
+    ///
+    /// - Parameter executor: The executor responsible for running commands and pipelines.
+    /// - Parameter searchPaths: The search paths used to resolve executable names.
+    /// - Parameter environment: The base environment variables used for command execution.
+    /// - Parameter workingDirectory: The default working directory for commands that do not override it.
+    /// - Parameter defaultTimeout: The default timeout in seconds for commands that do not override it.
+    /// - Parameter defaultOutputLimit: The maximum captured output size in bytes for commands that do not override it.
     public init(
         executor: any CommandExecutor = SubprocessExecutor(),
         searchPaths: [String] = ShellContext.defaultSearchPaths,
@@ -59,7 +92,18 @@ public struct ShellContext: Sendable {
         self.defaultOutputLimit = defaultOutputLimit
     }
 
-    static func defaultSearchPaths(environment: [String: String], platform: ShellPlatform = .current) -> [String] {
+    /// Resolves executable search paths from an environment dictionary.
+    ///
+    /// This uses the `PATH` entry when it is present and non-empty. Otherwise it
+    /// falls back to the default paths for the supplied platform.
+    ///
+    /// - Parameter environment: The environment dictionary to inspect.
+    /// - Parameter platform: The platform whose default paths should be used when `PATH` is missing or empty.
+    /// - Returns: The resolved executable search paths.
+    public static func defaultSearchPaths(
+        environment: [String: String],
+        platform: ShellPlatform = .current
+    ) -> [String] {
         guard let path = environment["PATH"], path.isEmpty == false else {
             return platform.defaultSearchPaths
         }

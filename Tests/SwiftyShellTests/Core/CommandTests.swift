@@ -3,6 +3,10 @@ import Testing
 @testable import SwiftyShell
 
 struct CommandTests {
+    @Test func shellPlatformCurrentProvidesDefaultSearchPaths() {
+        #expect(ShellPlatform.current.defaultSearchPaths.isEmpty == false)
+    }
+
     @Test func defaultSearchPathsUsePathEnvironmentWhenPresent() {
         let searchPaths = ShellContext.defaultSearchPaths(environment: ["PATH": "/opt/homebrew/bin:/usr/bin"])
         #expect(searchPaths == ["/opt/homebrew/bin", "/usr/bin"])

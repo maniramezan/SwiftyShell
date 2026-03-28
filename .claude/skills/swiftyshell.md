@@ -31,8 +31,21 @@ Before writing any code, follow this decision tree:
 #### ShellContext
 
 ```swift
+public enum ShellPlatform: Sendable {
+    case macOS
+    case linux
+
+    public static let current: ShellPlatform
+    public var defaultSearchPaths: [String] { get }
+}
+
 public struct ShellContext: Sendable {
     public static let defaultSearchPaths: [String]
+
+    public static func defaultSearchPaths(
+        environment: [String: String],
+        platform: ShellPlatform = .current
+    ) -> [String]
 
     public init(
         executor: any CommandExecutor = SubprocessExecutor(),

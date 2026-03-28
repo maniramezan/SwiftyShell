@@ -50,6 +50,30 @@ public enum ShellError: Error, LocalizedError, Sendable {
     }
 }
 
+extension ShellError: CustomStringConvertible {
+    /// Returns the localized error description.
+    public var description: String {
+        errorDescription ?? localizedDescription
+    }
+}
+
+extension ShellError: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        switch self {
+        case let .exitFailure(command, output):
+            return "ShellError.exitFailure(command: \(command.debugDescription), exitCode: \(output.exitCode), stderr: \(output.stderr.debugDescription))"
+        case let .timeout(command, duration, partialOutput):
+            return "ShellError.timeout(command: \(command.debugDescription), duration: \(duration)s, partialOutput: \(partialOutput.debugDescription))"
+        case let .outputLimitExceeded(command, limit, partialOutput):
+            return "ShellError.outputLimitExceeded(command: \(command.debugDescription), limit: \(limit), partialOutput: \(partialOutput.debugDescription))"
+        case let .cancelled(command, partialOutput):
+            return "ShellError.cancelled(command: \(command.debugDescription), partialOutput: \(partialOutput.debugDescription))"
+        default:
+            return "ShellError(\(errorDescription ?? localizedDescription))"
+        }
+    }
+}
+
 extension StreamKind: CustomStringConvertible {
     /// A lowercase string representation of the stream kind.
     public var description: String {

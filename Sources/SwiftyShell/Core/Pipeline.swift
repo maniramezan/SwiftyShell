@@ -19,3 +19,16 @@ public struct Pipeline: Sendable {
         try await context.executor.execute(self, in: context)
     }
 }
+
+extension Pipeline: CustomStringConvertible {
+    /// Returns the pipeline as it would appear on the command line.
+    public var description: String {
+        stages.map(\.description).joined(separator: " | ")
+    }
+}
+
+extension Pipeline: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        "Pipeline(\(stages.map(\.debugDescription).joined(separator: " | ")))"
+    }
+}

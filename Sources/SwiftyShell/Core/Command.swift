@@ -118,13 +118,13 @@ public struct Command: Sendable {
         try await context.executor.execute(self, in: context)
     }
 
-    internal func displayString(using resolvedExecutable: String? = nil) -> String {
+    public func displayString(using resolvedExecutable: String? = nil) -> String {
         ([resolvedExecutable ?? executableOverride ?? executableName] + arguments)
             .map(Self.quoteIfNeeded)
             .joined(separator: " ")
     }
 
-    private static func quoteIfNeeded(_ component: String) -> String {
+    internal static func quoteIfNeeded(_ component: String) -> String {
         if component.contains(where: \.isWhitespace) {
             return "\"\(component.replacingOccurrences(of: "\"", with: "\\\""))\""
         }
@@ -153,5 +153,26 @@ public struct Command: Sendable {
             stdoutDestination: stdoutDestination ?? self.stdoutDestination,
             stderrDestination: stderrDestination ?? self.stderrDestination
         )
+    }
+}
+
+extension Command: CustomStringConvertible {
+    /// Returns the shell command as it would appear on the command line.
+    public var description: String {
+        displayString()
+    }
+}
+
+extension Command: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        var parts = ["Command(\(displayString().debugDescription)"]
+        if let override = executableOverride { parts.append("executable: \(override.debugDescription)") }
+        if !environmentOverrides.isEmpty { parts.append("env: \(environmentOverrides)") }
+        if let wd = workingDirectoryOverride { parts.append("workingDirectory: \(wd.debugDescription)") }
+        if let timeout = timeoutOverride { parts.append("timeout: \(timeout)s") }
+        if let limit = outputLimitOverride { parts.append("outputLimit: \(limit)") }
+        if stdoutDestination != .capture { parts.append("stdout: \(stdoutDestination)") }
+        if stderrDestination != .capture { parts.append("stderr: \(stderrDestination)") }
+        return parts.joined(separator: ", ") + ")"
     }
 }

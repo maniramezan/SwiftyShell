@@ -1,12 +1,33 @@
 import Foundation
 
+enum ShellPlatform: Sendable {
+    case macOS
+    case linux
+
+    static let current: Self = {
+        #if os(macOS)
+        .macOS
+        #elseif os(Linux)
+        .linux
+        #else
+        .macOS
+        #endif
+    }()
+
+    var defaultSearchPaths: [String] {
+        switch self {
+        case .macOS:
+            ["/usr/bin", "/bin", "/usr/sbin", "/sbin", "/usr/local/bin"]
+        case .linux:
+            ["/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"]
+        }
+    }
+}
+
 /// Default execution settings shared by commands and pipelines.
 public struct ShellContext: Sendable {
     /// Default search paths used to resolve executables by name.
-    public static let defaultSearchPaths: [String] = {
-        let path = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin"
-        return path.split(separator: ":").map(String.init)
-    }()
+    public static let defaultSearchPaths: [String] = defaultSearchPaths(environment: ProcessInfo.processInfo.environment)
 
     /// The executor responsible for running commands and pipelines.
     public let executor: any CommandExecutor
@@ -36,5 +57,13 @@ public struct ShellContext: Sendable {
         self.workingDirectory = workingDirectory
         self.defaultTimeout = defaultTimeout
         self.defaultOutputLimit = defaultOutputLimit
+    }
+
+    static func defaultSearchPaths(environment: [String: String], platform: ShellPlatform = .current) -> [String] {
+        guard let path = environment["PATH"], path.isEmpty == false else {
+            return platform.defaultSearchPaths
+        }
+
+        return path.split(separator: ":").map(String.init)
     }
 }

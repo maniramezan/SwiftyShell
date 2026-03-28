@@ -3,6 +3,21 @@ import Testing
 @testable import SwiftyShell
 
 struct CommandTests {
+    @Test func defaultSearchPathsUsePathEnvironmentWhenPresent() {
+        let searchPaths = ShellContext.defaultSearchPaths(environment: ["PATH": "/opt/homebrew/bin:/usr/bin"])
+        #expect(searchPaths == ["/opt/homebrew/bin", "/usr/bin"])
+    }
+
+    @Test func defaultSearchPathsFallbackToPlatformWhenPathMissing() {
+        let searchPaths = ShellContext.defaultSearchPaths(environment: [:], platform: .linux)
+        #expect(searchPaths == ["/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"])
+    }
+
+    @Test func defaultSearchPathsFallbackToPlatformWhenPathEmpty() {
+        let searchPaths = ShellContext.defaultSearchPaths(environment: ["PATH": ""], platform: .macOS)
+        #expect(searchPaths == ["/usr/bin", "/bin", "/usr/sbin", "/sbin", "/usr/local/bin"])
+    }
+
     @Test func runsSimpleCommand() async throws {
         let context = ShellContext()
         let output = try await Command("echo", "hello").run(in: context)

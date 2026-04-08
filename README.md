@@ -157,18 +157,6 @@ try await withThrowingTaskGroup(of: GitFetchResult.self) { group in
 }
 ```
 
-### XcodeBuild
-
-```swift
-let output = try await XcodeBuild(context: context)
-    .option(.workspace("MyApp.xcworkspace"))
-    .option(.scheme("MyApp"))
-    .option(.destination("platform=iOS Simulator,name=iPhone 17"))
-    .buildSetting("SWIFT_ENABLE_EXPLICIT_MODULES", "NO")
-    .trailingArgument("build")
-    .run()
-```
-
 ### Grep
 
 ```swift
@@ -181,22 +169,6 @@ let output = try await Grep("TODO")
 // Regex match
 let output = try await Grep.regex(#"func \w+\(.*\) async"#)
     .file("Sources/")
-    .run()
-```
-
-### Xcrun / Simctl
-
-```swift
-// Boot a simulator
-try await Xcrun(context: context)
-    .simctl()
-    .boot(deviceUDID)
-    .run()
-
-// List devices as JSON
-let output = try await Xcrun(context: context)
-    .simctl()
-    .list(.devices, json: true)
     .run()
 ```
 
@@ -264,9 +236,22 @@ let context = ShellContext(executor: MockExecutor { command, _ in
 let context = ShellContext(executor: MockExecutor(exitCode: 1))
 ```
 
-## More Examples
+## Repository Layout
 
-> **TODO:** Extended worked examples will be added to the `Example/` directory covering automation scripts, CI helpers, and multi-repo tooling.
+### `Sources/SwiftyShell/Core/`
+Execution primitives: `Command`, `Pipeline`, `ShellContext`, `Workflow`, `ShellError`, `ShellOutput`, `OutputDestination`, `CommandExecutor`, `MockExecutor`, and the command-family protocol hierarchy.
+
+### `Sources/SwiftyShell/Git/`
+Typed git client returning structured results: `Git`, `GitStatus`, `GitStatusWorkflow`, `GitPullResult`, `GitFetchResult`.
+
+### `Sources/SwiftyShell/Grep/`
+Typed `grep` wrapper: `Grep` and `GrepPattern`.
+
+### `Sources/SwiftyShell/Common/`
+Typed wrappers for common shell utilities: `Ls`, `Cp`, `Mkdir`, `Rm`, `Mv`, `Pwd`, `Jq`.
+
+### `Example/`
+A standalone SwiftPM executable demonstrating real-world SwiftyShell usage. See the [`Example/`](Example/) directory for scripts covering automation, multi-repo tooling, and CI helpers.
 
 ## Contributing
 

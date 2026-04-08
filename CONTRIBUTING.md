@@ -50,7 +50,7 @@ Tests use the Swift Testing framework (`@Test` macro). All tests must pass befor
 
 ### Adding a New Typed Command Family
 
-A typed client (like `Git` or `XcodeBuild`) is worth adding when it provides meaningful value over raw `Command` usage — typed results, conditional follow-up steps, or a large discoverable option surface.
+A typed client (like `Git` or `Grep`) is worth adding when it provides meaningful value over raw `Command` usage — typed results, conditional follow-up steps, or a large discoverable option surface.
 
 New clients must:
 

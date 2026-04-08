@@ -1,6 +1,32 @@
 import Foundation
 
 /// A typed command family that supports standard tool configuration overrides.
+///
+/// Conform to ``ToolConfigurableCommandFamily`` to inherit fluent helpers for
+/// `executable`, `env`, `workingDirectory`, `timeout`, and `outputLimit`:
+///
+/// ```swift
+/// struct MyCLI: ToolConfigurableCommandFamily {
+///     let config: ToolConfiguration
+///     var context: ShellContext { config.context }
+///
+///     init(context: ShellContext = .init()) {
+///         self.config = ToolConfiguration(context: context)
+///     }
+///
+///     func updatingConfiguration(
+///         _ update: (ToolConfiguration) -> ToolConfiguration
+///     ) -> Self {
+///         Self(config: update(config))
+///     }
+/// }
+///
+/// // All fluent overrides are available automatically:
+/// let cli = MyCLI()
+///     .workingDirectory("/tmp")
+///     .env("DEBUG", "1")
+///     .timeout(30)
+/// ```
 public protocol ToolConfigurableCommandFamily: Sendable {
     /// The shell context used when running commands built by this family.
     var context: ShellContext { get }
@@ -66,6 +92,22 @@ public extension OutputRedirectingCommandFamily {
 }
 
 /// A typed command family that can materialize a `Command` and run it.
+///
+/// ``RunnableCommandFamily`` combines ``OutputRedirectingCommandFamily`` with
+/// the ability to build a raw ``Command`` and execute it. The default `run()`
+/// implementation calls ``command()`` and runs it in the configured context.
+///
+/// ```swift
+/// struct MyTool: RunnableCommandFamily {
+///     // ... (see ToolConfigurableCommandFamily for conformance boilerplate)
+///
+///     func command() -> Command {
+///         config.apply(to: Command("my-tool").args(["--flag"]))
+///     }
+/// }
+///
+/// let output = try await MyTool().run()
+/// ```
 public protocol RunnableCommandFamily: OutputRedirectingCommandFamily {
     /// Builds the raw `Command` represented by the current fluent configuration.
     func command() -> Command

@@ -25,6 +25,30 @@ public enum GrepPattern: Sendable, Equatable, Hashable {
 }
 
 /// A fluent wrapper for the `grep` command.
+///
+/// ``Grep`` supports literal and regular-expression patterns, case-insensitive
+/// matching, recursive search, and all standard tool configuration overrides.
+///
+/// ```swift
+/// // Literal match in a specific file
+/// let result = try await Grep("TODO", context: context)
+///     .file("Sources/main.swift")
+///     .lineNumbers()
+///     .run()
+/// print(result.stdout)
+///
+/// // Regex match, recursive, case-insensitive
+/// let result = try await Grep.regex("^import\\s+Foundation", context: context)
+///     .recursive()
+///     .ignoreCase()
+///     .file("Sources/")
+///     .run()
+///
+/// // Use as a pipeline stage
+/// let output = try await Command("ls", "-la")
+///     .pipe(to: Grep(".swift").command())
+///     .run(in: context)
+/// ```
 public struct Grep: RunnableCommandFamily {
     /// Shared configuration applied to commands produced by this client.
     public let config: ToolConfiguration

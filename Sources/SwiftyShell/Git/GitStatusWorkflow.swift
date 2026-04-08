@@ -1,6 +1,26 @@
 import Foundation
 
 /// A git-specific workflow wrapper that preserves git-oriented chaining.
+///
+/// ``GitStatusWorkflow`` is returned by ``Git/status()`` and supports the same
+/// `map`, `require`, `pull`, and `fetch` chains as ``Workflow``, while carrying
+/// the git client reference needed to start follow-up operations:
+///
+/// ```swift
+/// // Check status and conditionally pull
+/// let result = try await Git(context: context)
+///     .workingDirectory("/path/to/repo")
+///     .status()
+///     .require(\.state, equals: .noChanges, else: MyError.dirtyTree)
+///     .pull()
+///     .run()
+///
+/// // Just read status
+/// let status: GitStatus = try await Git(context: context)
+///     .workingDirectory("/path/to/repo")
+///     .status()
+///     .run()
+/// ```
 public struct GitStatusWorkflow: Sendable {
     let git: Git
     let workflow: Workflow<GitStatus>

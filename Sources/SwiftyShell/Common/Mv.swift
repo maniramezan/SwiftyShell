@@ -1,6 +1,14 @@
 import Foundation
 
 /// A fluent wrapper for the `mv` command.
+///
+/// ```swift
+/// // Move a file to a new location
+/// try await Mv(context: context)
+///     .source("/tmp/output.txt")
+///     .destination("/var/logs/output.txt")
+///     .run()
+/// ```
 public struct Mv: RunnableCommandFamily {
     private let state: State
 

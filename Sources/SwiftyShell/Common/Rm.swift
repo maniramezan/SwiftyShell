@@ -1,6 +1,15 @@
 import Foundation
 
 /// A fluent wrapper for the `rm` command.
+///
+/// ```swift
+/// // Remove a directory and its contents
+/// try await Rm(context: context)
+///     .recursive()
+///     .force()
+///     .path("/tmp/build")
+///     .run()
+/// ```
 public struct Rm: RunnableCommandFamily {
     private let state: State
 

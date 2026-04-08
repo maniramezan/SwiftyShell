@@ -64,7 +64,14 @@ public struct ToolConfiguration: Sendable {
         copy(outputLimitOverride: bytes)
     }
 
-    internal func apply(to command: Command) -> Command {
+    /// Applies all non-nil overrides in this configuration to a command, returning the updated command.
+    ///
+    /// Use this method inside a ``RunnableCommandFamily/command()`` implementation to
+    /// merge shared tool configuration onto the base ``Command`` before returning it.
+    ///
+    /// - Parameter command: The base command to apply overrides to.
+    /// - Returns: A new ``Command`` with all non-nil overrides applied.
+    public func apply(to command: Command) -> Command {
         var cmd = command
         if let executableOverride {
             cmd = cmd.executable(executableOverride)

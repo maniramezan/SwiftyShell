@@ -9,6 +9,20 @@ public enum StreamKind: Sendable {
 }
 
 /// Errors thrown while building workflows or running shell commands.
+///
+/// Catch ``ShellError`` to handle specific failure modes:
+///
+/// ```swift
+/// do {
+///     let output = try await Command("git", "push").run(in: context)
+/// } catch ShellError.commandNotFound(let cmd) {
+///     print("\(cmd) is not installed or not on the search path")
+/// } catch ShellError.exitFailure(_, let output) {
+///     print("Push failed:", output.stderr)
+/// } catch ShellError.timeout(let cmd, let duration, _) {
+///     print("\(cmd) timed out after \(duration)s")
+/// }
+/// ```
 public enum ShellError: Error, LocalizedError, Sendable {
     /// The requested executable could not be resolved.
     case commandNotFound(String)
@@ -58,6 +72,7 @@ extension ShellError: CustomStringConvertible {
 }
 
 extension ShellError: CustomDebugStringConvertible {
+    /// Returns a detailed debug representation including captured output where applicable.
     public var debugDescription: String {
         switch self {
         case let .exitFailure(command, output):

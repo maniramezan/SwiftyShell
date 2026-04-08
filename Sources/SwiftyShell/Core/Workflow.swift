@@ -1,6 +1,29 @@
 import Foundation
 
 /// A reusable asynchronous workflow that can be transformed and composed.
+///
+/// ``Workflow`` wraps an async operation and supports `map`, `flatMap`, and
+/// `require` transformations before the result is materialized by calling `run()`.
+///
+/// ```swift
+/// // Map a workflow result to a different type
+/// let shaWorkflow: Workflow<String> = Workflow {
+///     let output = try await Command("git", "rev-parse", "HEAD").run(in: context)
+///     return output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+/// }
+/// let sha = try await shaWorkflow.run()
+///
+/// // Require a condition before proceeding
+/// let branchWorkflow = Git(context: context)
+///     .workingDirectory("/path/to/repo")
+///     .status()
+///     .require(\.state, equals: .noChanges, else: MyError.dirtyTree)
+///     .map(\.branch)
+/// let branch = try await branchWorkflow.run()
+/// ```
+///
+/// > Important: ``Workflow`` is **single-use** — call ``run()`` exactly once.
+/// > Rebuild from the source client if you need to run the same operation again.
 public struct Workflow<Value>: Sendable {
     private let operation: @Sendable () async throws -> Value
 

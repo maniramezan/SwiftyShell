@@ -1,6 +1,40 @@
 import Foundation
 
 /// A typed entry point for common git workflows.
+///
+/// ``Git`` wraps common `git` operations and returns strongly-typed results.
+/// Use the fluent builder to configure the git executable, working directory,
+/// environment, and other execution parameters before running a workflow:
+///
+/// ```swift
+/// let context = ShellContext()
+///
+/// // Query repository status
+/// let status = try await Git(context: context)
+///     .workingDirectory("/path/to/repo")
+///     .status()
+///     .run()
+/// print(status.branch ?? "detached HEAD", status.state)
+///
+/// // Require the working tree to be clean before pulling
+/// try await Git(context: context)
+///     .workingDirectory(repoPath)
+///     .status()
+///     .require(\.state, equals: .noChanges, else: MyError.dirtyTree)
+///     .pull()
+///     .run()
+///
+/// // Concurrent fetch across multiple repos
+/// let git = Git(context: context)
+/// try await withThrowingTaskGroup(of: GitFetchResult.self) { group in
+///     for path in repoPaths {
+///         group.addTask { try await git.workingDirectory(path).fetch().run() }
+///     }
+///     for try await result in group {
+///         print("Fetched from", result.remote)
+///     }
+/// }
+/// ```
 public struct Git: ToolConfigurableCommandFamily {
     /// Shared configuration applied to commands produced by this client.
     public let config: ToolConfiguration

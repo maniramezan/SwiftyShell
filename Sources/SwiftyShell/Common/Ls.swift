@@ -1,6 +1,17 @@
 import Foundation
 
 /// A fluent wrapper for the `ls` command.
+///
+/// ```swift
+/// // List all files including hidden ones, in long format
+/// let output = try await Ls(context: context)
+///     .all()
+///     .longFormat()
+///     .humanReadable()
+///     .path("/tmp")
+///     .run()
+/// print(output.stdout)
+/// ```
 public struct Ls: RunnableCommandFamily {
     private let state: State
 

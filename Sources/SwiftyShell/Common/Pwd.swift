@@ -1,6 +1,14 @@
 import Foundation
 
 /// A fluent wrapper for the `pwd` command.
+///
+/// ```swift
+/// // Print the physical working directory
+/// let output = try await Pwd(context: context)
+///     .physical()
+///     .run()
+/// let path = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+/// ```
 public struct Pwd: RunnableCommandFamily {
     private let state: State
 

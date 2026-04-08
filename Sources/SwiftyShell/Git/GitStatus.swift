@@ -9,6 +9,21 @@ public enum GitWorkingTreeState: Sendable, Equatable {
 }
 
 /// Parsed repository status information from `git status --porcelain=v2 --branch`.
+///
+/// Obtain a ``GitStatus`` by running a ``GitStatusWorkflow``:
+///
+/// ```swift
+/// let status = try await Git(context: context)
+///     .workingDirectory("/path/to/repo")
+///     .status()
+///     .run()
+///
+/// print("Branch:", status.branch ?? "detached HEAD")
+/// print("Clean:", status.state == .noChanges)
+/// if status.hasStagedChanges {
+///     print("There are staged changes ready to commit")
+/// }
+/// ```
 public struct GitStatus: Sendable, Equatable {
     /// The overall working tree state.
     public var state: GitWorkingTreeState

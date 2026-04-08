@@ -9,17 +9,16 @@ Sources/SwiftyShell/
   Core/            # Command, Pipeline, ShellContext, Workflow, ShellError, MockExecutor
   Git/             # Git client, GitStatus, GitStatusWorkflow, git porcelain parsers
   Grep/            # Grep typed wrapper
-  XcodeBuild/      # XcodeBuild builder and options (100+ option types)
-  Xcrun/           # Xcrun wrapper and Simctl subcommands
+  Common/          # Ls, Cp, Mkdir, Rm, Mv, Pwd, Jq typed wrappers
   Internal/
     Execution/     # SubprocessExecutor — the process execution engine
+  SwiftyShell.docc/  # DocC documentation catalog
+    Articles/        # GettingStarted, BuildingCommandFamilies
 Tests/SwiftyShellTests/
   Core/            # Command, workflow, and error tests
   Git/             # Git status and parser tests
   Grep/            # Grep tests
   Pipelines/       # Pipeline tests
-  XcodeBuild/      # XcodeBuild builder tests
-  Xcrun/           # Xcrun/Simctl tests
 .claude/
   skills/
     swiftyshell.md # AI agent skill — keep in sync with public API
@@ -104,5 +103,4 @@ Use `MockExecutor` for unit tests. It implements `CommandExecutor` and returns c
 `Spec.md` describes the intended design. When in doubt, the implemented code is authoritative; the spec describes the direction.
 
 Notable gaps as of initial open-source release:
-- Linux support is described in the spec but not yet validated in CI
-- No DocC documentation target is configured yet
+- Linux support is in CI but not fully validated with real system tools

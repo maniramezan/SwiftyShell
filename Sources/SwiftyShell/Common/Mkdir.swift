@@ -1,6 +1,14 @@
 import Foundation
 
 /// A fluent wrapper for the `mkdir` command.
+///
+/// ```swift
+/// // Create a nested directory tree
+/// try await Mkdir(context: context)
+///     .parents()
+///     .directory("/tmp/output/logs")
+///     .run()
+/// ```
 public struct Mkdir: RunnableCommandFamily {
     private let state: State
 

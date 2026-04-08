@@ -1,6 +1,22 @@
 import Foundation
 
 /// A sequence of commands connected through pipes.
+///
+/// Build a ``Pipeline`` by calling ``Command/pipe(to:)`` on the first command,
+/// then chain additional stages with ``pipe(to:)``:
+///
+/// ```swift
+/// // ls -la | grep .swift
+/// let output = try await Command("ls", "-la")
+///     .pipe(to: Grep(".swift").command())
+///     .run(in: context)
+///
+/// // Add a third stage
+/// let pipeline = Command("cat", "log.txt")
+///     .pipe(to: Command("grep", "ERROR"))
+///     .pipe(to: Command("wc", "-l"))
+/// let count = try await pipeline.run(in: context)
+/// ```
 public struct Pipeline: Sendable {
     /// The ordered command stages in the pipeline.
     public let stages: [Command]
@@ -28,6 +44,7 @@ extension Pipeline: CustomStringConvertible {
 }
 
 extension Pipeline: CustomDebugStringConvertible {
+    /// Returns a detailed debug representation showing each stage's debug description.
     public var debugDescription: String {
         "Pipeline(\(stages.map(\.debugDescription).joined(separator: " | ")))"
     }

@@ -1,6 +1,34 @@
 import Foundation
 
 /// A value describing a single shell command and its execution overrides.
+///
+/// ``Command`` is the fundamental unit of execution in SwiftyShell. Build a command
+/// by naming the executable, then chain fluent modifiers to add arguments, set
+/// environment variables, redirect output, or constrain execution:
+///
+/// ```swift
+/// // Simple command
+/// let output = try await Command("echo", "hello").run(in: context)
+///
+/// // Fluent builder — arguments, env, working directory
+/// let output = try await Command("ruby", "deploy.rb")
+///     .env("RAILS_ENV", "production")
+///     .workingDirectory("/var/app")
+///     .timeout(120)
+///     .run(in: context)
+///
+/// // Redirect stdout to a file
+/// try await Command("xcodebuild", "-scheme", "MyApp")
+///     .stdout(.file(path: "/tmp/build.log", append: false))
+///     .run(in: context)
+///
+/// // Pipe two commands together
+/// let output = try await Command("ls", "-la")
+///     .pipe(to: Grep(".swift").command())
+///     .run(in: context)
+/// ```
+///
+/// All ``Command`` values are immutable; every modifier returns a new copy.
 public struct Command: Sendable {
     /// The executable name originally requested for the command.
     public let executableName: String
@@ -118,6 +146,11 @@ public struct Command: Sendable {
         try await context.executor.execute(self, in: context)
     }
 
+    /// Returns a shell-quoted string representation of the command.
+    ///
+    /// - Parameter resolvedExecutable: When supplied, this overrides the executable portion
+    ///   of the display string (e.g. to show the resolved absolute path).
+    /// - Returns: A string of the form `executable [arg ...]` with arguments quoted when necessary.
     public func displayString(using resolvedExecutable: String? = nil) -> String {
         ([resolvedExecutable ?? executableOverride ?? executableName] + arguments)
             .map(Self.quoteIfNeeded)
@@ -164,6 +197,7 @@ extension Command: CustomStringConvertible {
 }
 
 extension Command: CustomDebugStringConvertible {
+    /// Returns a detailed debug representation including all active overrides.
     public var debugDescription: String {
         var parts = ["Command(\(displayString().debugDescription)"]
         if let override = executableOverride { parts.append("executable: \(override.debugDescription)") }

@@ -17,13 +17,17 @@ Before writing any code, follow this decision tree:
    → Use `Git`
 2. Is this a git operation NOT covered by the typed `Git` API?
    → Use `Command("git", ...)`
-3. Does the operation need typed output, structured results, or conditional follow-up?
-   → Use the appropriate typed client (`Git`, `Grep`, `XcodeBuild`, `Xcrun`/`Simctl`)
-4. Are two or more commands chained by pipe?
+3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Rm`, `Mv`, `Pwd`)?
+   → Use the typed wrapper
+4. Is this a `grep` or `jq` operation?
+   → Use `Grep` or `Jq`
+5. Does the operation need typed output, structured results, or conditional follow-up?
+   → Use the appropriate typed client
+6. Are two or more commands chained by pipe?
    → Use `.pipe(to:)` to build a `Pipeline`
-5. Does the command write output to a file?
+7. Does the command write output to a file?
    → Use `.stdout(.file(path:append:))` on the command
-6. Is this any other command?
+8. Is this any other command?
    → Use `Command`
 
 ### API Reference
@@ -229,14 +233,21 @@ public struct GitFetchResult: Sendable {
 #### Grep
 
 ```swift
-public struct Grep: Sendable {
+public enum GrepPattern: Sendable, Equatable, Hashable {
+    case literal(String)
+    case regularExpression(String)
+}
+
+public struct Grep: RunnableCommandFamily {
     public init(_ pattern: String, context: ShellContext = .init())       // literal
     public static func regex(_ pattern: String, context: ShellContext = .init()) -> Self
 
-    // standard fluent overrides...
+    // standard fluent overrides (executable, env, workingDirectory, timeout, outputLimit, stdout, stderr)
     public func ignoreCase(_ enabled: Bool = true) -> Self
     public func invertMatch(_ enabled: Bool = true) -> Self
+    public func recursive(_ enabled: Bool = true) -> Self
     public func lineNumbers(_ enabled: Bool = true) -> Self
+    public func count(_ enabled: Bool = true) -> Self
     public func file(_ path: String) -> Self
     public func files(_ paths: [String]) -> Self
 
@@ -245,50 +256,97 @@ public struct Grep: Sendable {
 }
 ```
 
-#### XcodeBuild
+#### Common File-System Commands
+
+All common command families conform to ``RunnableCommandFamily`` and share the standard
+fluent overrides (`executable`, `env`, `workingDirectory`, `timeout`, `outputLimit`,
+`stdout`, `stderr`).
 
 ```swift
-public struct XcodeBuild: Sendable {
+public struct Ls: RunnableCommandFamily {
     public init(context: ShellContext = .init())
+    public func all(_ enabled: Bool = true) -> Self          // -a
+    public func longFormat(_ enabled: Bool = true) -> Self   // -l
+    public func humanReadable(_ enabled: Bool = true) -> Self // -h
+    public func recursive(_ enabled: Bool = true) -> Self    // -R
+    public func directoryAsFile(_ enabled: Bool = true) -> Self // -d
+    public func path(_ value: String) -> Self
+    public func paths(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
 
-    // standard fluent overrides...
-    public func option(_ option: XcodeBuildOption) -> Self
-    public func options(_ values: [XcodeBuildOption]) -> Self
-    public func trailingArgument(_ value: String) -> Self
-    public func trailingArguments(_ values: [String]) -> Self
-    public func buildSetting(_ name: String, _ value: String) -> Self
-    public func buildSettings(_ values: KeyValuePairs<String, String>) -> Self
+public struct Mkdir: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func parents(_ enabled: Bool = true) -> Self      // -p
+    public func mode(_ value: String) -> Self                // -m
+    public func directory(_ path: String) -> Self
+    public func directories(_ paths: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
 
+public struct Rm: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func recursive(_ enabled: Bool = true) -> Self    // -r
+    public func force(_ enabled: Bool = true) -> Self        // -f
+    public func path(_ value: String) -> Self
+    public func paths(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct Cp: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func recursive(_ enabled: Bool = true) -> Self    // -R
+    public func force(_ enabled: Bool = true) -> Self        // -f
+    public func source(_ path: String) -> Self
+    public func sources(_ paths: [String]) -> Self
+    public func destination(_ path: String) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct Mv: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func force(_ enabled: Bool = true) -> Self        // -f
+    public func source(_ path: String) -> Self
+    public func sources(_ paths: [String]) -> Self
+    public func destination(_ path: String) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct Pwd: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func physical(_ enabled: Bool = true) -> Self     // -P (resolve symlinks)
+    public func logical(_ enabled: Bool = true) -> Self      // -L (preserve symlinks)
     public func command() -> Command
     public func run() async throws -> ShellOutput
 }
 ```
 
-Key `XcodeBuildOption` builders: `.workspace(_:)`, `.scheme(_:)`, `.destination(_:)`, `.sdk(_:)`, `.configuration(_:)`, `.arch(_:)`, `.derivedDataPath(_:)`.
-
-#### Xcrun / Simctl
+#### Jq
 
 ```swift
-public struct Xcrun: Sendable {
-    public init(context: ShellContext = .init())
-    // standard fluent overrides...
-    public func option(_ option: XcrunOption) -> Self
-    public func tool(_ value: String) -> Self
-    public func trailingArguments(_ values: [String]) -> Self
-    public func simctl() -> Simctl
-    public func command() -> Command
-    public func run() async throws -> ShellOutput
+public struct JqArgument: Sendable, Equatable, Hashable {
+    public let name: String
+    public let value: String
+    public init(name: String, value: String)
 }
 
-public struct Simctl: Sendable {
-    public func list(_ target: SimctlListTarget? = nil, json: Bool = false, searchTerm: String? = nil) -> Self
-    public func boot(_ device: String) -> Self
-    public func shutdown(_ devices: [String]) -> Self
-    public func erase(_ devices: [String]) -> Self
-    public func install(_ device: String, appAt path: String) -> Self
-    public func launch(_ device: String, bundleIdentifier: String) -> Self
-    public func custom(_ subcommand: String, arguments: [String] = []) -> Self
-    public func builtCommand() -> Command
+public struct Jq: RunnableCommandFamily {
+    public init(_ filter: String = ".", context: ShellContext = .init())
+    public func filter(_ value: String) -> Self
+    public func rawOutput(_ enabled: Bool = true) -> Self    // -r
+    public func compactOutput(_ enabled: Bool = true) -> Self // -c
+    public func slurp(_ enabled: Bool = true) -> Self        // -s
+    public func nullInput(_ enabled: Bool = true) -> Self    // -n
+    public func sortKeys(_ enabled: Bool = true) -> Self     // -S
+    public func arg(_ name: String, _ value: String) -> Self // --arg
+    public func file(_ path: String) -> Self
+    public func files(_ paths: [String]) -> Self
+    public func command() -> Command
     public func run() async throws -> ShellOutput
 }
 ```
@@ -363,13 +421,14 @@ try await Command("ruby", "deploy.rb")
     .env("RAILS_ENV", "production")
     .run(in: context)
 
-// XcodeBuild
-let output = try await XcodeBuild(context: context)
-    .option(.workspace("MyApp.xcworkspace"))
-    .option(.scheme("MyApp"))
-    .option(.destination("platform=iOS Simulator,name=iPhone 17"))
-    .trailingArgument("build")
-    .run()
+// File system operations
+try await Mkdir(context: context).parents().directory("/tmp/output").run()
+try await Cp(context: context).recursive().source("build/").destination("/tmp/dist").run()
+try await Rm(context: context).recursive().force().path("/tmp/old-build").run()
+try await Mv(context: context).source("/tmp/output.log").destination("/var/logs/build.log").run()
+
+// jq — extract a field as raw text
+let name = try await Jq(".name", context: context).rawOutput().file("package.json").run()
 
 // MockExecutor in tests
 let context = ShellContext(executor: MockExecutor(stdout: "main\n"))

@@ -19,6 +19,24 @@ public struct JqArgument: Sendable, Equatable, Hashable {
 }
 
 /// A fluent wrapper for the `jq` command.
+///
+/// ``Jq`` supports raw-string output, compact output, key sorting, null input,
+/// slurp mode, and `--arg` string bindings:
+///
+/// ```swift
+/// // Extract a field as raw text
+/// let output = try await Jq(".name", context: context)
+///     .rawOutput()
+///     .file("package.json")
+///     .run()
+/// let name = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+///
+/// // Pass a variable into the filter
+/// let result = try await Jq(".items[] | select(.id == $id)", context: context)
+///     .arg("id", "abc123")
+///     .file("data.json")
+///     .run()
+/// ```
 public struct Jq: RunnableCommandFamily {
     private let state: State
 

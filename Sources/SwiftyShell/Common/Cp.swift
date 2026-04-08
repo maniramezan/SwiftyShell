@@ -1,6 +1,15 @@
 import Foundation
 
 /// A fluent wrapper for the `cp` command.
+///
+/// ```swift
+/// // Copy a directory recursively
+/// try await Cp(context: context)
+///     .recursive()
+///     .source("/path/to/source")
+///     .destination("/path/to/dest")
+///     .run()
+/// ```
 public struct Cp: RunnableCommandFamily {
     private let state: State
 

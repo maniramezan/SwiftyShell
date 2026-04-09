@@ -1,5 +1,7 @@
 # SwiftyShell — Agent Guide
 
+This file is maintainer-oriented automation guidance for AI assistants working in this repository. It is public so contributors can audit and improve it, but it is optional and not required to build, test, or contribute to SwiftyShell.
+
 SwiftyShell is a Swift package that provides type-safe shell command execution. It models shell concepts — commands, arguments, pipelines, redirection, workflows — as Swift values rather than raw strings.
 
 ## Repository Layout
@@ -41,7 +43,11 @@ A standalone SwiftPM executable package that demonstrates real SwiftyShell usage
 
 ### `.claude/skills/`
 
-`swiftyshell.md` — AI agent skill that teaches code generators how to produce correct SwiftyShell code. **Must be updated in the same PR as any public API change.**
+`swiftyshell.md` — the shared SwiftyShell agent skill for Claude and Codex/GPT-style assistants. Claude loads it directly from `.claude/skills/swiftyshell.md`; Codex/GPT agents should read that same file when a task involves generating SwiftyShell code, changing public API, or authoring command families. **Keep `AGENTS.md` and `.claude/skills/swiftyshell.md` aligned and update both files in the same PR whenever shared agent guidance or public API expectations change.**
+
+### `.codex/skills/`
+
+`swiftyshell.md` — a thin pointer for Codex/GPT-style assistants that redirects to `.claude/skills/swiftyshell.md`. Do not fork the skill content here; keep `.claude/skills/swiftyshell.md` as the canonical shared skill file.
 
 ## Build and Test Commands
 
@@ -107,11 +113,11 @@ Key invariant: `ProcessExitWaiter` must be created **before** calling `process.r
 
 ### Testing
 
-Use `MockExecutor` for unit tests. It implements `CommandExecutor` and returns caller-supplied responses without spawning processes. Integration tests that require real executables should be clearly annotated.
+Use `MockExecutor` for unit tests. It implements `CommandExecutor`, mirrors real `run()` failure semantics for non-zero exits, validates timeout/output-limit configuration, and returns caller-supplied responses without spawning processes. Integration tests that require real executables should be clearly annotated.
 
 ### Agent Skill
 
-`.claude/skills/swiftyshell.md` teaches AI agents how to generate correct SwiftyShell code. Update it in the same PR as any public API change. The skill must reflect the implemented API, not the spec.
+`.claude/skills/swiftyshell.md` is the canonical shared skill for all agents working in this repo, including Claude and Codex/GPT assistants. `.codex/skills/swiftyshell.md` is only a pointer to that canonical file. When a task involves generating SwiftyShell code, changing public API, or adding command families, read the shared skill in addition to this guide. Keep `AGENTS.md` and `.claude/skills/swiftyshell.md` aligned and update both in the same PR whenever shared guidance or public API expectations change. The skill must reflect the implemented API, not the spec.
 
 ## Architecture Reference
 

@@ -74,8 +74,8 @@ public struct ShellContext: Sendable {
     /// - Parameter searchPaths: The search paths used to resolve executable names.
     /// - Parameter environment: The base environment variables used for command execution.
     /// - Parameter workingDirectory: The default working directory for commands that do not override it.
-    /// - Parameter defaultTimeout: The default timeout in seconds for commands that do not override it.
-    /// - Parameter defaultOutputLimit: The maximum captured output size in bytes for commands that do not override it.
+    /// - Parameter defaultTimeout: The default timeout in seconds for commands that do not override it. The value must be greater than or equal to zero when provided.
+    /// - Parameter defaultOutputLimit: The maximum captured output size in bytes for commands that do not override it. The value must be greater than or equal to zero.
     public init(
         executor: any CommandExecutor = SubprocessExecutor(),
         searchPaths: [String] = ShellContext.defaultSearchPaths,

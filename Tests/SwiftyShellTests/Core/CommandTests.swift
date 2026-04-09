@@ -30,6 +30,39 @@ struct CommandTests {
         #expect(output.exitCode == 0)
     }
 
+    @Test func mockExecutorThrowsExitFailureForNonZeroStatus() async throws {
+        let context = ShellContext(executor: MockExecutor(stdout: "out", stderr: "err", exitCode: 7))
+
+        do {
+            _ = try await Command("fake-tool", "arg").run(in: context)
+            Issue.record("Expected exitFailure")
+        } catch let error as ShellError {
+            guard case let .exitFailure(command, output) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(command == "fake-tool arg")
+            #expect(output.stdout == "out")
+            #expect(output.stderr == "err")
+            #expect(output.exitCode == 7)
+        }
+    }
+
+    @Test func mockExecutorRejectsNegativeContextTimeout() async throws {
+        let context = ShellContext(executor: MockExecutor(), defaultTimeout: -1)
+
+        do {
+            _ = try await Command("fake-tool").run(in: context)
+            Issue.record("Expected invalidConfiguration")
+        } catch let error as ShellError {
+            guard case let .invalidConfiguration(description) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(description == "Timeout must be greater than or equal to zero seconds")
+        }
+    }
+
     @Test func exitFailurePreservesOutput() async throws {
         let context = ShellContext()
 
@@ -76,6 +109,97 @@ struct CommandTests {
             }
             #expect(limit == 4)
             #expect(partialOutput.stdout == "abcd")
+        }
+    }
+
+    @Test func outputLimitExceededDoesNotHangOnLargeOutput() async throws {
+        let context = ShellContext(defaultTimeout: 1.0, defaultOutputLimit: 4)
+
+        do {
+            _ = try await Command(
+                "/bin/sh",
+                "-c",
+                "i=0; while [ $i -lt 20000 ]; do printf 'abcdefghij'; i=$((i + 1)); done"
+            ).run(in: context)
+            Issue.record("Expected outputLimitExceeded")
+        } catch let error as ShellError {
+            guard case let .outputLimitExceeded(command, limit, partialOutput) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(command.contains("/bin/sh"))
+            #expect(limit == 4)
+            #expect(partialOutput.stdout == "abcd")
+        }
+    }
+
+    @Test func negativeTimeoutIsRejected() async throws {
+        do {
+            _ = try await Command("echo", "hello")
+                .timeout(-1)
+                .run(in: ShellContext())
+            Issue.record("Expected invalidConfiguration")
+        } catch let error as ShellError {
+            guard case let .invalidConfiguration(description) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(description == "Timeout must be greater than or equal to zero seconds")
+        }
+    }
+
+    @Test func negativeContextTimeoutIsRejected() async throws {
+        do {
+            _ = try await Command("echo", "hello").run(in: ShellContext(defaultTimeout: -1))
+            Issue.record("Expected invalidConfiguration")
+        } catch let error as ShellError {
+            guard case let .invalidConfiguration(description) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(description == "Timeout must be greater than or equal to zero seconds")
+        }
+    }
+
+    @Test func negativeOutputLimitIsRejected() async throws {
+        do {
+            _ = try await Command("echo", "hello")
+                .outputLimit(-1)
+                .run(in: ShellContext())
+            Issue.record("Expected invalidConfiguration")
+        } catch let error as ShellError {
+            guard case let .invalidConfiguration(description) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(description == "Output limit must be greater than or equal to zero bytes")
+        }
+    }
+
+    @Test func negativeContextOutputLimitIsRejected() async throws {
+        do {
+            _ = try await Command("echo", "hello").run(in: ShellContext(defaultOutputLimit: -1))
+            Issue.record("Expected invalidConfiguration")
+        } catch let error as ShellError {
+            guard case let .invalidConfiguration(description) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(description == "Output limit must be greater than or equal to zero bytes")
+        }
+    }
+
+    @Test func decodingErrorIncludesCommandName() async throws {
+        do {
+            _ = try await Command("/bin/sh", "-c", "printf '\\377'").run(in: ShellContext())
+            Issue.record("Expected decodingError")
+        } catch let error as ShellError {
+            guard case let .decodingError(command, stream) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(command.contains("/bin/sh"))
+            #expect(stream == .stdout)
         }
     }
 

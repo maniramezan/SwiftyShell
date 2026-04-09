@@ -2,7 +2,46 @@ import Foundation
 import Testing
 @testable import SwiftyShell
 
+private actor InvocationRecorder {
+    private var invocations: [String] = []
+
+    func record(_ executable: String) {
+        invocations.append(executable)
+    }
+
+    func snapshot() -> [String] {
+        invocations
+    }
+}
+
 struct PipelineTests {
+    @Test func mockPipelineStopsOnFirstFailure() async throws {
+        let recorder = InvocationRecorder()
+        let context = ShellContext(executor: MockExecutor { command, _ in
+            await recorder.record(command.executableName)
+            if command.executableName == "first" {
+                return ShellOutput(stdout: "", stderr: "boom", exitCode: 9)
+            }
+            return ShellOutput(stdout: command.executableName, stderr: "", exitCode: 0)
+        })
+
+        do {
+            _ = try await Command("first")
+                .pipe(to: Command("second"))
+                .run(in: context)
+            Issue.record("Expected exitFailure")
+        } catch let error as ShellError {
+            guard case let .exitFailure(command, output) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(command == "first")
+            #expect(output.exitCode == 9)
+            #expect(output.stderr == "boom")
+            #expect(await recorder.snapshot() == ["first"])
+        }
+    }
+
     @Test func pipelineSucceeds() async throws {
         let output = try await Command("printf", "alpha\nbeta\n")
             .pipe(to: Command("grep", "beta"))

@@ -14,7 +14,7 @@ Add SwiftyShell to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/maniramezan/SwiftyShell.git", from: "1.0.0"),
+    .package(url: "https://github.com/maniramezan/SwiftyShell.git", branch: "main"),
 ],
 targets: [
     .target(
@@ -23,6 +23,8 @@ targets: [
     ),
 ]
 ```
+
+Until the first tagged release is published, depend on `branch: "main"`. Switch to `from: "<tag>"` after the first release tag is available.
 
 ## Running Your First Command
 
@@ -155,20 +157,24 @@ func buildProject(context: ShellContext) async throws -> String {
 }
 
 // In tests — use MockExecutor
-func testBuildProject() async throws {
+@Test func buildProjectReturnsMockedOutput() async throws {
     let mock = MockExecutor(stdout: "Build complete.\n")
     let context = ShellContext(executor: mock)
     let result = try await buildProject(context: context)
-    XCTAssertEqual(result, "Build complete.\n")
+    #expect(result == "Build complete.\n")
 }
 ```
 
 For richer test scenarios, supply a closure:
 
 ```swift
-var invocations: [Command] = []
+actor InvocationRecorder {
+    var invocations: [Command] = []
+    func record(_ command: Command) { invocations.append(command) }
+}
+let recorder = InvocationRecorder()
 let mock = MockExecutor { command, _ in
-    invocations.append(command)
+    await recorder.record(command)
     return ShellOutput(stdout: "ok\n", stderr: "", exitCode: 0)
 }
 let context = ShellContext(executor: mock)

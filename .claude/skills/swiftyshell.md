@@ -1,5 +1,7 @@
 # SwiftyShell Skill
 
+This public file is maintainer-oriented automation guidance for repository assistants. It is optional for human contributors and should only be updated when the documented public API or shared agent workflow changes.
+
 This skill serves two purposes:
 
 1. **Code generation** — generate correct, strongly-typed SwiftyShell code from plain-language task descriptions
@@ -127,6 +129,7 @@ public struct ShellOutput: Sendable {
 
 ```swift
 public enum ShellError: Error, LocalizedError {
+    case invalidConfiguration(description: String)
     case commandNotFound(String)
     case exitFailure(command: String, output: ShellOutput)
     case timeout(command: String, duration: TimeInterval, partialOutput: ShellOutput)
@@ -362,6 +365,8 @@ public struct MockExecutor: CommandExecutor {
 }
 ```
 
+`MockExecutor` mirrors real `run()` semantics for invalid configuration and non-zero exits so unit tests behave like subprocess-backed execution.
+
 ### Code Generation Rules
 
 1. Always `import SwiftyShell`
@@ -439,6 +444,7 @@ let status = try await Git(context: context).status().run()
 
 | Case | Cause | Typical response |
 |---|---|---|
+| `invalidConfiguration` | Timeout or output limit is negative | Fix the configuration value before running |
 | `commandNotFound` | Executable not on search path | Check `ShellContext.searchPaths` or use `.executable(_:)` |
 | `exitFailure` | Non-zero exit code | Inspect `output.stderr`; retry or abort |
 | `timeout` | Command exceeded time limit | Inspect `partialOutput`, increase timeout |
@@ -632,7 +638,9 @@ For every new command family:
 
 ## Skill Maintenance
 
-Update this file in the same PR as any public API change:
+`AGENTS.md` points Codex/GPT-style assistants at this file, so the shared agent guidance lives across both files.
+
+Update `AGENTS.md` and this file together in the same PR whenever shared agent guidance changes, and always update this file in the same PR as any public API change:
 - New typed client or method added
 - Method signature changed
 - `ShellError` cases added or renamed
@@ -650,4 +658,5 @@ Before submitting any change to this codebase, verify:
 - [ ] Non-trivial parameters have `- Parameter name:` documentation
 - [ ] Methods that throw list the `ShellError` cases they can throw with `- Throws:`
 - [ ] Cross-references use ``SymbolName`` double-backtick syntax
-- [ ] The skill file (`.claude/skills/swiftyshell.md`) is updated if public API changed
+- [ ] `AGENTS.md` is updated if shared agent guidance changed
+- [ ] The skill file (`.claude/skills/swiftyshell.md`) is updated if public API or shared agent guidance changed

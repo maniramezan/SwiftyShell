@@ -4,6 +4,11 @@ import Testing
 struct ShellErrorTests {
     private let emptyOutput = ShellOutput(stdout: "", stderr: "", exitCode: 0)
 
+    @Test func invalidConfigurationDescription() {
+        let error = ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")
+        #expect(error.errorDescription == "Timeout must be greater than or equal to zero seconds")
+    }
+
     @Test func commandNotFoundDescription() {
         let error = ShellError.commandNotFound("fakecmd")
         #expect(error.errorDescription == "Command not found: fakecmd")

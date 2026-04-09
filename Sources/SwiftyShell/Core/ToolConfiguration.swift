@@ -55,11 +55,15 @@ public struct ToolConfiguration: Sendable {
     }
 
     /// Overrides the timeout used by the final command.
+    ///
+    /// The timeout must be greater than or equal to zero seconds.
     public func timeout(_ seconds: TimeInterval) -> Self {
         copy(timeoutOverride: seconds)
     }
 
     /// Overrides the output limit used by the final command.
+    ///
+    /// The output limit must be greater than or equal to zero bytes.
     public func outputLimit(_ bytes: Int) -> Self {
         copy(outputLimitOverride: bytes)
     }

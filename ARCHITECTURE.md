@@ -87,8 +87,9 @@ This does **not** mean every executable on the system gets its own Swift type, o
 
 - Output is buffered in memory by default (stdout and stderr decoded as UTF-8).
 - Default maximum captured output size is 10 MiB; configurable via `ShellContext.defaultOutputLimit` or per-command/client `.outputLimit(_:)`.
-- Exceeding the limit throws `ShellError.outputLimitExceeded`.
+- Exceeding the limit keeps draining the child process output, then throws `ShellError.outputLimitExceeded`.
 - Invalid UTF-8 throws `ShellError.decodingError`.
+- Negative timeout or output-limit values throw `ShellError.invalidConfiguration`.
 - Redirected output (`OutputDestination.file` or `.discard`) is not also captured.
 
 ### Exit Code Behavior
@@ -169,6 +170,8 @@ public protocol CommandExecutor: Sendable {
 ```swift
 let context = ShellContext(executor: MockExecutor(stdout: "main\n"))
 ```
+
+`MockExecutor` mirrors real `run()` semantics for invalid configuration and non-zero exits so unit tests behave like subprocess-backed execution.
 
 ---
 

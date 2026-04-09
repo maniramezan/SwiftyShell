@@ -117,11 +117,15 @@ public struct Command: Sendable {
     }
 
     /// Overrides the timeout used when running the command.
+    ///
+    /// The timeout must be greater than or equal to zero seconds.
     public func timeout(_ seconds: TimeInterval) -> Self {
         copy(timeoutOverride: seconds)
     }
 
     /// Overrides the output capture limit used when running the command.
+    ///
+    /// The output limit must be greater than or equal to zero bytes.
     public func outputLimit(_ bytes: Int) -> Self {
         copy(outputLimitOverride: bytes)
     }

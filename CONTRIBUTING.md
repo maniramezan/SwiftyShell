@@ -7,6 +7,7 @@ Thank you for your interest in contributing. This document covers setup, convent
 ### Prerequisites
 
 - macOS 15.0+
+- Linux is supported in CI with Swift 6.1 (`swift:6.1` on Ubuntu); use either macOS or Linux locally
 - Swift 6.1+ (`swift --version`)
 - Xcode 16+ (optional but useful for debugging)
 
@@ -25,6 +26,8 @@ swift test
 ```
 
 Tests use the Swift Testing framework (`@Test` macro). All tests must pass before a PR is reviewed.
+
+The GitHub Actions matrix runs both macOS and Linux jobs. If you are changing execution or process-handling code, wait for both jobs before calling the change ready.
 
 ## Code Style
 
@@ -110,9 +113,15 @@ Co-author attribution is welcome:
 Co-Authored-By: Your Name <you@example.com>
 ```
 
-## Updating the Agent Skill
+## Maintainer Automation Notes
 
-`.claude/skills/swiftyshell.md` is the AI agent skill for this library. It must stay in sync with the implemented public API.
+The agent-instruction files (`AGENTS.md`, `CLAUDE.md`, `.claude/skills/swiftyshell.md`, and `.codex/skills/swiftyshell.md`) are maintainer-oriented automation notes. They are intentionally public so other maintainers and contributors can improve them, but they are optional and not required to build, test, or contribute to SwiftyShell.
+
+Update these files only when you are changing shared agent guidance or the public API they describe.
+
+### Updating the Agent Skill
+
+`.claude/skills/swiftyshell.md` is the canonical shared skill for repository automation. It must stay in sync with the implemented public API.
 
 **Update the skill file in the same PR whenever you:**
 
@@ -126,7 +135,7 @@ The skill is derived from the implementation, not the spec. It must reflect what
 ## Reporting Issues
 
 Open a GitHub issue with:
-- Swift and macOS versions
+- Swift version and operating system version/distribution
 - A minimal reproduction case
 - The expected versus actual behavior
 

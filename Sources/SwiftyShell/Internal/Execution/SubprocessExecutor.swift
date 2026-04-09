@@ -47,6 +47,12 @@ private struct ResolvedCommand {
         self.workingDirectory = command.workingDirectoryOverride ?? context.workingDirectory
         self.timeout = command.timeoutOverride ?? context.defaultTimeout
         self.outputLimit = command.outputLimitOverride ?? context.defaultOutputLimit
+        if let timeout, timeout < 0 {
+            throw ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")
+        }
+        guard outputLimit >= 0 else {
+            throw ShellError.invalidConfiguration(description: "Output limit must be greater than or equal to zero bytes")
+        }
         self.stdoutDestination = command.stdoutDestination
         self.stderrDestination = command.stderrDestination
         self.displayCommand = command.displayString(using: executablePath)
@@ -220,7 +226,12 @@ private struct SingleCommandRunner {
             )
             let stdoutCapture = try await stdoutTask?.value ?? .empty
             let stderrCapture = try await stderrTask?.value ?? .empty
-            let output = try decodeOutput(stdoutCapture: stdoutCapture, stderrCapture: stderrCapture, exitCode: process.terminationStatus)
+            let output = try decodeOutput(
+                command: resolved.displayCommand,
+                stdoutCapture: stdoutCapture,
+                stderrCapture: stderrCapture,
+                exitCode: process.terminationStatus
+            )
 
             if stdoutCapture.overflowed || stderrCapture.overflowed {
                 throw ShellError.outputLimitExceeded(
@@ -358,6 +369,7 @@ private struct PipelineRunner {
             }
 
             let output = try decodeOutput(
+                command: finalCommand.displayCommand,
                 stdoutCapture: stdoutCapture,
                 stderrCapture: CaptureResult(data: stderrData, overflowed: stderrCaptures.contains(where: \.overflowed)),
                 exitCode: processes.last?.terminationStatus ?? 0
@@ -546,9 +558,9 @@ private func waitForPipelineProcesses(
     }
 }
 
-private func decodeOutput(stdoutCapture: CaptureResult, stderrCapture: CaptureResult, exitCode: Int32) throws -> ShellOutput {
-    let stdout = try decodeStrict(stdoutCapture.data, stream: .stdout, command: nil)
-    let stderr = try decodeStrict(stderrCapture.data, stream: .stderr, command: nil)
+private func decodeOutput(command: String, stdoutCapture: CaptureResult, stderrCapture: CaptureResult, exitCode: Int32) throws -> ShellOutput {
+    let stdout = try decodeStrict(stdoutCapture.data, stream: .stdout, command: command)
+    let stderr = try decodeStrict(stderrCapture.data, stream: .stderr, command: command)
     return ShellOutput(stdout: stdout, stderr: stderr, exitCode: exitCode)
 }
 
@@ -616,13 +628,19 @@ private func readToEnd(handle: FileHandle, limit: Int) throws -> CaptureResult {
         let chunk = handle.readData(ofLength: chunkSize)
         if chunk.isEmpty { break }
 
-        let remaining = limit - buffer.count
-        if chunk.count >= remaining {
-            buffer.append(chunk.prefix(remaining))
-            overflowed = true
-            break
+        if overflowed == false {
+            let remaining = limit - buffer.count
+            if remaining <= 0 {
+                overflowed = true
+                continue
+            }
+            if chunk.count >= remaining {
+                buffer.append(chunk.prefix(remaining))
+                overflowed = true
+                continue
+            }
+            buffer.append(chunk)
         }
-        buffer.append(chunk)
     }
 
     return CaptureResult(data: buffer, overflowed: overflowed)

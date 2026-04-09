@@ -1,5 +1,8 @@
 # SwiftyShell
 
+[![Swift 6.1+](https://img.shields.io/badge/Swift-6.1%2B-F05138?logo=swift)](Package.swift)
+[![Build and Test](https://github.com/maniramezan/SwiftyShell/actions/workflows/build.yml/badge.svg)](https://github.com/maniramezan/SwiftyShell/actions/workflows/build.yml)
+
 Type-safe shell support for Swift. SwiftyShell lets you compose commands, pipelines, and typed workflows as Swift values — no raw shell strings required.
 
 ```swift
@@ -13,6 +16,7 @@ let output = try await Command("ls", "-la")
 ## Requirements
 
 - macOS 15.0+
+- Linux with Foundation `Process` support (validated in CI with Swift 6.1 on `swift:6.1` / Ubuntu)
 - Swift 6.1+
 
 ## Installation
@@ -21,7 +25,7 @@ Add SwiftyShell to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/maniramezan/SwiftyShell", from: "0.1.0")
+    .package(url: "https://github.com/maniramezan/SwiftyShell.git", branch: "main")
 ],
 targets: [
     .target(
@@ -34,6 +38,8 @@ targets: [
 ```
 
 Then `import SwiftyShell` in your Swift files.
+
+Until the first tagged release is published, depend on `branch: "main"`. Switch to `from: "<tag>"` once a release tag exists.
 
 ## Quick Start
 
@@ -211,6 +217,7 @@ do {
 | `timeout` | Command exceeded time limit |
 | `outputLimitExceeded` | Output exceeded configured limit |
 | `decodingError` | Output is not valid UTF-8 |
+| `invalidConfiguration` | Timeout or output limit was negative |
 | `cancelled` | Parent Swift task was cancelled |
 | `workflowConditionFailed` | A `require` predicate returned false |
 | `spawnError` | Process could not be spawned |
@@ -226,13 +233,17 @@ import SwiftyShell
 let context = ShellContext(executor: MockExecutor(stdout: "main\n"))
 
 // Custom handler — inspect calls
-var calls: [Command] = []
+actor CallRecorder {
+    var calls: [Command] = []
+    func record(_ command: Command) { calls.append(command) }
+}
+let recorder = CallRecorder()
 let context = ShellContext(executor: MockExecutor { command, _ in
-    calls.append(command)
+    await recorder.record(command)
     return ShellOutput(stdout: "ok\n", stderr: "", exitCode: 0)
 })
 
-// Simulate failure
+// Simulate failure. MockExecutor mirrors real run() semantics and throws exitFailure.
 let context = ShellContext(executor: MockExecutor(exitCode: 1))
 ```
 

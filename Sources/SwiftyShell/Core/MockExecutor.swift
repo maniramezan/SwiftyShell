@@ -12,9 +12,13 @@ import Foundation
 /// let output = try await Command("echo", "hello").run(in: context)
 ///
 /// // Inspect what was called
-/// var recorded: [Command] = []
+/// actor Recorder {
+///     var commands: [Command] = []
+///     func record(_ command: Command) { commands.append(command) }
+/// }
+/// let recorder = Recorder()
 /// let mock = MockExecutor { command, _ in
-///     recorded.append(command)
+///     await recorder.record(command)
 ///     return ShellOutput(stdout: "ok\n", stderr: "", exitCode: 0)
 /// }
 /// ```
@@ -46,7 +50,8 @@ public struct MockExecutor: CommandExecutor {
 
     /// Executes a single command by invoking the mock handler.
     public func execute(_ command: Command, in context: ShellContext) async throws -> ShellOutput {
-        try await handler(command, context)
+        try validateConfiguration(for: command, in: context)
+        return try validate(output: try await handler(command, context), for: command)
     }
 
     /// Executes a pipeline by running each stage's command through the handler in order.
@@ -56,8 +61,27 @@ public struct MockExecutor: CommandExecutor {
     public func execute(_ pipeline: Pipeline, in context: ShellContext) async throws -> ShellOutput {
         var lastOutput = ShellOutput(stdout: "", stderr: "", exitCode: 0)
         for stage in pipeline.stages {
-            lastOutput = try await handler(stage, context)
+            try validateConfiguration(for: stage, in: context)
+            lastOutput = try validate(output: try await handler(stage, context), for: stage)
         }
         return lastOutput
+    }
+
+    private func validateConfiguration(for command: Command, in context: ShellContext) throws {
+        if let timeout = command.timeoutOverride ?? context.defaultTimeout, timeout < 0 {
+            throw ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")
+        }
+
+        let outputLimit = command.outputLimitOverride ?? context.defaultOutputLimit
+        if outputLimit < 0 {
+            throw ShellError.invalidConfiguration(description: "Output limit must be greater than or equal to zero bytes")
+        }
+    }
+
+    private func validate(output: ShellOutput, for command: Command) throws -> ShellOutput {
+        guard output.exitCode == 0 else {
+            throw ShellError.exitFailure(command: command.displayString(), output: output)
+        }
+        return output
     }
 }

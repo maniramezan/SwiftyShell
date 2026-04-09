@@ -24,6 +24,8 @@ public enum StreamKind: Sendable {
 /// }
 /// ```
 public enum ShellError: Error, LocalizedError, Sendable {
+    /// A timeout or output-limit value was invalid.
+    case invalidConfiguration(description: String)
     /// The requested executable could not be resolved.
     case commandNotFound(String)
     /// The command exited with a non-zero status code.
@@ -44,6 +46,8 @@ public enum ShellError: Error, LocalizedError, Sendable {
     /// A localized description of the shell error.
     public var errorDescription: String? {
         switch self {
+        case let .invalidConfiguration(description):
+            return description
         case let .commandNotFound(command):
             return "Command not found: \(command)"
         case let .exitFailure(command, output):
@@ -75,6 +79,8 @@ extension ShellError: CustomDebugStringConvertible {
     /// Returns a detailed debug representation including captured output where applicable.
     public var debugDescription: String {
         switch self {
+        case let .invalidConfiguration(description):
+            return "ShellError.invalidConfiguration(description: \(description.debugDescription))"
         case let .exitFailure(command, output):
             return "ShellError.exitFailure(command: \(command.debugDescription), exitCode: \(output.exitCode), stderr: \(output.stderr.debugDescription))"
         case let .timeout(command, duration, partialOutput):

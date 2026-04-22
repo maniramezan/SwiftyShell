@@ -24,16 +24,17 @@ jobs:
 
       - name: Build DocC
         run: |
-          swift package generate-documentation \
+          swift package --allow-writing-to-directory docs \
+            generate-documentation \
             --target SwiftyShell \
-            --output-path .build/docs \
+            --output-path docs \
             --transform-for-static-hosting \
             --hosting-base-path SwiftyShell
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5.0.0
         with:
-          path: .build/docs
+          path: docs
 
   deploy:
     needs: build

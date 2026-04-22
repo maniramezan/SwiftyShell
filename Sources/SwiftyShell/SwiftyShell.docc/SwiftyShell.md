@@ -42,10 +42,16 @@ let output = try await Command("echo", "hello").run(in: context)
 
 ## Topics
 
-### Guides
+### Getting Started
 
 - <doc:GettingStarted>
+- <doc:CoreConcepts>
+- <doc:ErrorHandling>
+
+### Building Command Families
+
 - <doc:BuildingCommandFamilies>
+- <doc:UsingAIAssistants>
 
 ### Core Execution
 

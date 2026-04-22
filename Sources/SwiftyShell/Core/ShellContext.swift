@@ -40,17 +40,34 @@ public enum ShellPlatform: Sendable {
 
 /// Default execution settings shared by commands and pipelines.
 ///
-/// Use ``ShellContext`` to provide shared environment variables, executable search
-/// paths, working-directory defaults, and execution limits for one or more shell
-/// operations.
+/// ``ShellContext`` carries the executor, search paths, environment variables,
+/// default working directory, default timeout, and default output limit that
+/// every command and pipeline uses. Individual commands can override any
+/// setting per-call; context values act as the fallback.
+///
+/// **Override precedence** — highest to lowest:
+/// 1. A per-command override (e.g. ``Command/timeout(_:)``)
+/// 2. The context default (e.g. `ShellContext(defaultTimeout: 30)`)
+/// 3. The platform default (search paths) or no constraint (timeout, output limit)
 ///
 /// ```swift
+/// // Shared context for the whole program
 /// let context = ShellContext(
-///     searchPaths: ShellPlatform.current.defaultSearchPaths,
-///     workingDirectory: "/tmp"
+///     workingDirectory: "/var/app",
+///     defaultTimeout: 30,
+///     defaultOutputLimit: 5_242_880   // 5 MB
 /// )
-/// let output = try await Command("pwd").run(in: context)
+///
+/// // Override per command — does not mutate the context
+/// try await Command("swift", "build", "--verbose")
+///     .timeout(300)                   // overrides the 30-second default for this call only
+///     .run(in: context)
 /// ```
+///
+/// Pass the same context to typed command families and raw ``Command`` values
+/// so they share search paths, environment variables, and — critically — the
+/// executor (essential for ``MockExecutor``-based tests, where every command
+/// must share the same mock).
 public struct ShellContext: Sendable {
     /// Default search paths used to resolve executables by name.
     public static let defaultSearchPaths: [String] = defaultSearchPaths(

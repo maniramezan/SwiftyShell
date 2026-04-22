@@ -57,6 +57,14 @@ public struct GitStatus: Sendable, Equatable {
 }
 
 /// The result returned after a successful git pull workflow.
+///
+/// ```swift
+/// let result = try await Git(context: context)
+///     .workingDirectory("/path/to/repo")
+///     .pull()
+///     .run()
+/// print("Now on", result.branch, "tracking", result.upstream ?? "no upstream")
+/// ```
 public struct GitPullResult: Sendable, Equatable {
     /// The current branch after pulling.
     public var branch: String
@@ -71,6 +79,14 @@ public struct GitPullResult: Sendable, Equatable {
 }
 
 /// The result returned after a successful git fetch workflow.
+///
+/// ```swift
+/// let result = try await Git(context: context)
+///     .workingDirectory("/path/to/repo")
+///     .fetch()
+///     .run()
+/// print("Fetched from remote:", result.remote)
+/// ```
 public struct GitFetchResult: Sendable, Equatable {
     /// The remote that was fetched.
     public var remote: String

@@ -42,7 +42,7 @@ let output = try await Command("echo", "hello").run(in: context)
 
 ## Topics
 
-### Getting Started
+### Guides
 
 - <doc:GettingStarted>
 - <doc:BuildingCommandFamilies>

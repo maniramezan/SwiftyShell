@@ -1,6 +1,18 @@
 import Foundation
 
 /// Shared execution overrides used by typed command families.
+///
+/// ``ToolConfiguration`` is the carrier for the settings that
+/// ``ToolConfigurableCommandFamily`` inherits — executable path, environment
+/// variables, working directory, timeout, and output limit. Use it inside a
+/// ``RunnableCommandFamily/command()`` implementation by calling ``apply(to:)``:
+///
+/// ```swift
+/// public func command() -> Command {
+///     let base = Command("my-tool").args(["--flag"])
+///     return state.config.apply(to: base)
+/// }
+/// ```
 public struct ToolConfiguration: Sendable {
     /// The shell context associated with the command family.
     public let context: ShellContext

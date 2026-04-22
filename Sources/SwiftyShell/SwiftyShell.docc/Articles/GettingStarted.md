@@ -217,6 +217,32 @@ let mock = MockExecutor { command, _ in
 let context = ShellContext(executor: mock)
 ```
 
+## Timeouts and Cancellation
+
+Set timeouts at the context level, per typed client, or per raw command. All levels accept `TimeInterval` (seconds):
+
+```swift
+// Context default — applied to every command unless overridden
+let context = ShellContext(defaultTimeout: 30)
+
+// Per typed client
+try await Git(context: context).timeout(60).fetch().run()
+
+// Per raw command
+try await Command("curl", apiURL)
+    .timeout(10)
+    .run(in: context)
+```
+
+Swift task cancellation propagates automatically. Cancelling the enclosing `Task` sends SIGTERM then SIGKILL to the subprocess, and `run()` throws ``ShellError/cancelled(command:partialOutput:)``:
+
+```swift
+let task = Task {
+    try await Command("long-running-tool").run(in: context)
+}
+task.cancel()  // subprocess is terminated; throws ShellError.cancelled
+```
+
 ## Concurrent Commands
 
 Typed families and raw commands are `Sendable` — compose them with Swift

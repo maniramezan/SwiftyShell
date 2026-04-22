@@ -29,7 +29,7 @@ jobs:
             --target SwiftyShell \
             --output-path docs \
             --transform-for-static-hosting \
-            --hosting-base-path SwiftyShell
+            --hosting-base-path swiftyshell
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5.0.0

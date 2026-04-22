@@ -729,4 +729,4 @@ A change is not done — do not declare completion, open a PR, or hand back to t
 1. `swift test` — all tests green.
 2. `swift-format lint --strict` — no errors on changed files. For new Swift, run `swift-format format -i <file>` first to auto-fix, then re-lint.
 
-The repo ships a `.swift-format` config at the root; use it. If a lint rule is genuinely wrong for a specific construct, update `.swift-format` in the same change rather than skipping the gate. Pre-existing legacy violations in older files are a separate cleanup task and do not license new code to be lint-dirty.
+The repo ships a `.swift-format` config at the root; use it. The tree is currently fully compliant (`swift-format lint --strict --recursive Sources Tests` exits clean) — keep it that way. If a lint rule is genuinely wrong for a specific construct, update `.swift-format` in the same change rather than skipping the gate.

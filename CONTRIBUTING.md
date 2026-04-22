@@ -38,7 +38,7 @@ Every change — human- or agent-authored, including docs-only edits that touch 
 
 Do not open a PR, mark work complete, or ask for review until both commands succeed on the files you changed. If the format rules feel wrong for a specific construct, change `.swift-format` in the same PR and explain why — don't bypass the gate.
 
-The repository currently has a small number of pre-existing lint violations in files that predate the `.swift-format` config; those are tracked as a separate cleanup task and do not block new work, but new or modified code must be clean.
+The tree is currently fully compliant with `.swift-format`; `swift-format lint --strict --recursive Sources Tests` exits clean. Keep it that way.
 
 ## Code Style
 

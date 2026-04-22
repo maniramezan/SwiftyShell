@@ -82,7 +82,7 @@ Do not mark a task complete, declare work finished, or hand back to the user unt
 
 This applies to any code change (new command families, bug fixes, doc snippets that live in Swift, tests). Do not skip either gate. If a lint rule feels wrong for a specific construct, propose a `.swift-format` change in the same PR rather than bypassing the check.
 
-The repository ships a `.swift-format` config at the repo root that encodes the project's 4-space indentation, 120-column line length, and other style rules. A small number of pre-existing files have legacy violations that predate the config; those are a separate cleanup task and do not block new work, but new or changed code must be clean.
+The repository ships a `.swift-format` config at the repo root that encodes the project's 4-space indentation, 120-column line length, and other style rules. The tree is currently fully compliant — `swift-format lint --strict --recursive Sources Tests` exits clean. Keep it that way.
 
 ## Key Conventions
 

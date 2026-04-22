@@ -77,8 +77,8 @@ public struct Brew: RunnableCommandFamily {
     /// Creates a `brew` command family bound to a shell context.
     ///
     /// The default subcommand is ``BrewSubcommand/list``. Use one of the
-    /// subcommand methods (``install(_:)-6uw51``, ``upgrade(_:)-3vzcs``,
-    /// ``uninstall(_:)-9lj1t``, ``update()``, ``info(_:)-4y20u``,
+    /// subcommand methods (``install(_:)-(String...)``, ``upgrade(_:)-(String...)``,
+    /// ``uninstall(_:)-(String...)``, ``update()``, ``info(_:)-(String...)``,
     /// ``search(_:)``, ``outdated()``) to select a different operation.
     public init(context: ShellContext = .init()) {
         self.state = State(config: ToolConfiguration(context: context))

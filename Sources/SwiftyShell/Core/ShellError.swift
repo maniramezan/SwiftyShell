@@ -82,13 +82,17 @@ extension ShellError: CustomDebugStringConvertible {
         case let .invalidConfiguration(description):
             return "ShellError.invalidConfiguration(description: \(description.debugDescription))"
         case let .exitFailure(command, output):
-            return "ShellError.exitFailure(command: \(command.debugDescription), exitCode: \(output.exitCode), stderr: \(output.stderr.debugDescription))"
+            return
+                "ShellError.exitFailure(command: \(command.debugDescription), exitCode: \(output.exitCode), stderr: \(output.stderr.debugDescription))"
         case let .timeout(command, duration, partialOutput):
-            return "ShellError.timeout(command: \(command.debugDescription), duration: \(duration)s, partialOutput: \(partialOutput.debugDescription))"
+            return
+                "ShellError.timeout(command: \(command.debugDescription), duration: \(duration)s, partialOutput: \(partialOutput.debugDescription))"
         case let .outputLimitExceeded(command, limit, partialOutput):
-            return "ShellError.outputLimitExceeded(command: \(command.debugDescription), limit: \(limit), partialOutput: \(partialOutput.debugDescription))"
+            return
+                "ShellError.outputLimitExceeded(command: \(command.debugDescription), limit: \(limit), partialOutput: \(partialOutput.debugDescription))"
         case let .cancelled(command, partialOutput):
-            return "ShellError.cancelled(command: \(command.debugDescription), partialOutput: \(partialOutput.debugDescription))"
+            return
+                "ShellError.cancelled(command: \(command.debugDescription), partialOutput: \(partialOutput.debugDescription))"
         default:
             return "ShellError(\(errorDescription ?? localizedDescription))"
         }

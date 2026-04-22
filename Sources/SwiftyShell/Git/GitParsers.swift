@@ -33,7 +33,8 @@ enum GitParsers {
             }
         }
 
-        let state: GitWorkingTreeState = (hasStagedChanges || hasUnstagedChanges || hasUntrackedFiles) ? .dirty : .noChanges
+        let state: GitWorkingTreeState =
+            (hasStagedChanges || hasUnstagedChanges || hasUntrackedFiles) ? .dirty : .noChanges
         return GitStatus(
             state: state,
             branch: branch,

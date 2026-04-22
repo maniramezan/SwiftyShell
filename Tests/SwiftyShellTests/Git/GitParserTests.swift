@@ -4,9 +4,9 @@ import Testing
 struct GitParserTests {
     @Test func parsesCleanRepo() throws {
         let output = """
-        # branch.oid abc123
-        # branch.head main
-        """
+            # branch.oid abc123
+            # branch.head main
+            """
         let status = try GitParsers.parseStatus(output)
         #expect(status.state == .noChanges)
         #expect(status.branch == "main")
@@ -18,9 +18,9 @@ struct GitParserTests {
 
     @Test func parsesDetachedHead() throws {
         let output = """
-        # branch.oid abc123
-        # branch.head (detached)
-        """
+            # branch.oid abc123
+            # branch.head (detached)
+            """
         let status = try GitParsers.parseStatus(output)
         #expect(status.branch == nil)
         #expect(status.state == .noChanges)
@@ -28,10 +28,10 @@ struct GitParserTests {
 
     @Test func parsesUpstreamTracking() throws {
         let output = """
-        # branch.oid abc123
-        # branch.head main
-        # branch.upstream origin/main
-        """
+            # branch.oid abc123
+            # branch.head main
+            # branch.upstream origin/main
+            """
         let status = try GitParsers.parseStatus(output)
         #expect(status.upstream == "origin/main")
         #expect(status.branch == "main")
@@ -39,9 +39,9 @@ struct GitParserTests {
 
     @Test func parsesUntrackedFiles() throws {
         let output = """
-        # branch.head main
-        ? new-file.txt
-        """
+            # branch.head main
+            ? new-file.txt
+            """
         let status = try GitParsers.parseStatus(output)
         #expect(status.state == .dirty)
         #expect(status.hasUntrackedFiles)
@@ -52,9 +52,9 @@ struct GitParserTests {
     @Test func parsesStagedChanges() throws {
         // XY field: X != "." means index (staged) change
         let output = """
-        # branch.head main
-        1 M. N... 100644 100644 100644 abc def file.txt
-        """
+            # branch.head main
+            1 M. N... 100644 100644 100644 abc def file.txt
+            """
         let status = try GitParsers.parseStatus(output)
         #expect(status.state == .dirty)
         #expect(status.hasStagedChanges)
@@ -64,9 +64,9 @@ struct GitParserTests {
     @Test func parsesUnstagedChanges() throws {
         // XY field: Y != "." means worktree (unstaged) change
         let output = """
-        # branch.head main
-        1 .M N... 100644 100644 100644 abc def file.txt
-        """
+            # branch.head main
+            1 .M N... 100644 100644 100644 abc def file.txt
+            """
         let status = try GitParsers.parseStatus(output)
         #expect(status.state == .dirty)
         #expect(!status.hasStagedChanges)
@@ -75,9 +75,9 @@ struct GitParserTests {
 
     @Test func parsesBothStagedAndUnstagedChanges() throws {
         let output = """
-        # branch.head main
-        1 MM N... 100644 100644 100644 abc def file.txt
-        """
+            # branch.head main
+            1 MM N... 100644 100644 100644 abc def file.txt
+            """
         let status = try GitParsers.parseStatus(output)
         #expect(status.state == .dirty)
         #expect(status.hasStagedChanges)
@@ -87,9 +87,9 @@ struct GitParserTests {
     @Test func parsesRenamedEntry() throws {
         // Renamed files use "2" prefix
         let output = """
-        # branch.head main
-        2 R. N... 100644 100644 100644 abc def R100 newname.txt\toldname.txt
-        """
+            # branch.head main
+            2 R. N... 100644 100644 100644 abc def R100 newname.txt\toldname.txt
+            """
         let status = try GitParsers.parseStatus(output)
         #expect(status.state == .dirty)
         #expect(status.hasStagedChanges)
@@ -99,9 +99,9 @@ struct GitParserTests {
     @Test func parsesUnmergedEntry() throws {
         // Unmerged entries use "u" prefix; XY = "AA" means both sides added
         let output = """
-        # branch.head main
-        u AA N... 100644 100644 100644 100644 abc def ghi file.txt
-        """
+            # branch.head main
+            u AA N... 100644 100644 100644 100644 abc def ghi file.txt
+            """
         let status = try GitParsers.parseStatus(output)
         #expect(status.state == .dirty)
         #expect(status.hasStagedChanges)
@@ -110,11 +110,11 @@ struct GitParserTests {
 
     @Test func parsesMultipleFiles() throws {
         let output = """
-        # branch.head feature
-        # branch.upstream origin/feature
-        1 M. N... 100644 100644 100644 abc def staged.txt
-        ? untracked.txt
-        """
+            # branch.head feature
+            # branch.upstream origin/feature
+            1 M. N... 100644 100644 100644 abc def staged.txt
+            ? untracked.txt
+            """
         let status = try GitParsers.parseStatus(output)
         #expect(status.state == .dirty)
         #expect(status.branch == "feature")

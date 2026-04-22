@@ -120,17 +120,19 @@ public struct Ls: RunnableCommandFamily {
         treatsDirectoriesAsFiles: Bool? = nil,
         paths: [String]? = nil
     ) -> Self {
-        Self(state: State(
-            config: config ?? state.config,
-            stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-            stderrDestination: stderrDestination ?? state.stderrDestination,
-            showsAllFiles: showsAllFiles ?? state.showsAllFiles,
-            usesLongFormat: usesLongFormat ?? state.usesLongFormat,
-            usesHumanReadableSizes: usesHumanReadableSizes ?? state.usesHumanReadableSizes,
-            isRecursive: isRecursive ?? state.isRecursive,
-            treatsDirectoriesAsFiles: treatsDirectoriesAsFiles ?? state.treatsDirectoriesAsFiles,
-            paths: paths ?? state.paths
-        ))
+        Self(
+            state: State(
+                config: config ?? state.config,
+                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
+                stderrDestination: stderrDestination ?? state.stderrDestination,
+                showsAllFiles: showsAllFiles ?? state.showsAllFiles,
+                usesLongFormat: usesLongFormat ?? state.usesLongFormat,
+                usesHumanReadableSizes: usesHumanReadableSizes ?? state.usesHumanReadableSizes,
+                isRecursive: isRecursive ?? state.isRecursive,
+                treatsDirectoriesAsFiles: treatsDirectoriesAsFiles ?? state.treatsDirectoriesAsFiles,
+                paths: paths ?? state.paths
+            )
+        )
     }
 }
 

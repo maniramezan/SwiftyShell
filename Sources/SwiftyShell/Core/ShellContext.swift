@@ -19,11 +19,11 @@ public enum ShellPlatform: Sendable {
     /// The platform for the current compilation target.
     public static let current: Self = {
         #if os(macOS)
-        .macOS
+            .macOS
         #elseif os(Linux)
-        .linux
+            .linux
         #else
-        .macOS
+            .macOS
         #endif
     }()
 
@@ -53,7 +53,9 @@ public enum ShellPlatform: Sendable {
 /// ```
 public struct ShellContext: Sendable {
     /// Default search paths used to resolve executables by name.
-    public static let defaultSearchPaths: [String] = defaultSearchPaths(environment: ProcessInfo.processInfo.environment)
+    public static let defaultSearchPaths: [String] = defaultSearchPaths(
+        environment: ProcessInfo.processInfo.environment
+    )
 
     /// The executor responsible for running commands and pipelines.
     public let executor: any CommandExecutor

@@ -91,14 +91,16 @@ public struct Mv: RunnableCommandFamily {
         sources: [String]? = nil,
         destinationPath: String?? = nil
     ) -> Self {
-        Self(state: State(
-            config: config ?? state.config,
-            stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-            stderrDestination: stderrDestination ?? state.stderrDestination,
-            forcesReplacement: forcesReplacement ?? state.forcesReplacement,
-            sources: sources ?? state.sources,
-            destinationPath: destinationPath ?? state.destinationPath
-        ))
+        Self(
+            state: State(
+                config: config ?? state.config,
+                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
+                stderrDestination: stderrDestination ?? state.stderrDestination,
+                forcesReplacement: forcesReplacement ?? state.forcesReplacement,
+                sources: sources ?? state.sources,
+                destinationPath: destinationPath ?? state.destinationPath
+            )
+        )
     }
 }
 

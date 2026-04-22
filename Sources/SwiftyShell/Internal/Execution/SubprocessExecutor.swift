@@ -1,9 +1,9 @@
 import Foundation
 
 #if canImport(Darwin)
-import Darwin
+    import Darwin
 #elseif canImport(Glibc)
-import Glibc
+    import Glibc
 #endif
 
 /// The default executor that runs commands using `Process`.
@@ -51,7 +51,9 @@ private struct ResolvedCommand {
             throw ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")
         }
         guard outputLimit >= 0 else {
-            throw ShellError.invalidConfiguration(description: "Output limit must be greater than or equal to zero bytes")
+            throw ShellError.invalidConfiguration(
+                description: "Output limit must be greater than or equal to zero bytes"
+            )
         }
         self.stdoutDestination = command.stdoutDestination
         self.stderrDestination = command.stderrDestination
@@ -258,7 +260,11 @@ private struct SingleCommandRunner {
             terminator.terminateAll()
             let stdoutCapture = (try? await stdoutTask?.value) ?? .empty
             let stderrCapture = (try? await stderrTask?.value) ?? .empty
-            let output = lossyOutput(stdoutCapture: stdoutCapture, stderrCapture: stderrCapture, exitCode: process.terminationStatus)
+            let output = lossyOutput(
+                stdoutCapture: stdoutCapture,
+                stderrCapture: stderrCapture,
+                exitCode: process.terminationStatus
+            )
             throw ShellError.cancelled(command: resolved.displayCommand, partialOutput: output)
         } catch let error as ShellError {
             throw error
@@ -371,7 +377,10 @@ private struct PipelineRunner {
             let output = try decodeOutput(
                 command: finalCommand.displayCommand,
                 stdoutCapture: stdoutCapture,
-                stderrCapture: CaptureResult(data: stderrData, overflowed: stderrCaptures.contains(where: \.overflowed)),
+                stderrCapture: CaptureResult(
+                    data: stderrData,
+                    overflowed: stderrCaptures.contains(where: \.overflowed)
+                ),
                 exitCode: processes.last?.terminationStatus ?? 0
             )
 
@@ -417,7 +426,10 @@ private struct PipelineRunner {
             }
             let output = lossyOutput(
                 stdoutCapture: stdoutCapture,
-                stderrCapture: CaptureResult(data: stderrData, overflowed: stderrCaptures.contains(where: \.overflowed)),
+                stderrCapture: CaptureResult(
+                    data: stderrData,
+                    overflowed: stderrCaptures.contains(where: \.overflowed)
+                ),
                 exitCode: processes.last?.terminationStatus ?? -1
             )
             throw ShellError.cancelled(command: finalCommand.displayCommand, partialOutput: output)
@@ -558,7 +570,9 @@ private func waitForPipelineProcesses(
     }
 }
 
-private func decodeOutput(command: String, stdoutCapture: CaptureResult, stderrCapture: CaptureResult, exitCode: Int32) throws -> ShellOutput {
+private func decodeOutput(command: String, stdoutCapture: CaptureResult, stderrCapture: CaptureResult, exitCode: Int32)
+    throws -> ShellOutput
+{
     let stdout = try decodeStrict(stdoutCapture.data, stream: .stdout, command: command)
     let stderr = try decodeStrict(stderrCapture.data, stream: .stderr, command: command)
     return ShellOutput(stdout: stdout, stderr: stderr, exitCode: exitCode)
@@ -678,11 +692,11 @@ private func makeFileHandle(path: String, append: Bool) throws -> FileHandle {
 
 private func swiftyShellKill(_ pid: Int32, signal: Int32) -> Int32 {
     #if canImport(Darwin)
-    return Darwin.kill(pid, signal)
+        return Darwin.kill(pid, signal)
     #elseif canImport(Glibc)
-    return Glibc.kill(pid, signal)
+        return Glibc.kill(pid, signal)
     #else
-    return -1
+        return -1
     #endif
 }
 

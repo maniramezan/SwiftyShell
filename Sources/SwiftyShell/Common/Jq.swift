@@ -159,19 +159,21 @@ public struct Jq: RunnableCommandFamily {
         stringArguments: [JqArgument]? = nil,
         filePaths: [String]? = nil
     ) -> Self {
-        Self(state: State(
-            config: config ?? state.config,
-            stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-            stderrDestination: stderrDestination ?? state.stderrDestination,
-            filterExpression: filterExpression ?? state.filterExpression,
-            emitsRawStrings: emitsRawStrings ?? state.emitsRawStrings,
-            emitsCompactOutput: emitsCompactOutput ?? state.emitsCompactOutput,
-            slurpsInput: slurpsInput ?? state.slurpsInput,
-            usesNullInput: usesNullInput ?? state.usesNullInput,
-            sortsKeys: sortsKeys ?? state.sortsKeys,
-            stringArguments: stringArguments ?? state.stringArguments,
-            filePaths: filePaths ?? state.filePaths
-        ))
+        Self(
+            state: State(
+                config: config ?? state.config,
+                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
+                stderrDestination: stderrDestination ?? state.stderrDestination,
+                filterExpression: filterExpression ?? state.filterExpression,
+                emitsRawStrings: emitsRawStrings ?? state.emitsRawStrings,
+                emitsCompactOutput: emitsCompactOutput ?? state.emitsCompactOutput,
+                slurpsInput: slurpsInput ?? state.slurpsInput,
+                usesNullInput: usesNullInput ?? state.usesNullInput,
+                sortsKeys: sortsKeys ?? state.sortsKeys,
+                stringArguments: stringArguments ?? state.stringArguments,
+                filePaths: filePaths ?? state.filePaths
+            )
+        )
     }
 }
 

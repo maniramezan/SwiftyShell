@@ -77,13 +77,15 @@ public struct Pwd: RunnableCommandFamily {
         usesPhysicalPath: Bool? = nil,
         usesLogicalPath: Bool? = nil
     ) -> Self {
-        Self(state: State(
-            config: config ?? state.config,
-            stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-            stderrDestination: stderrDestination ?? state.stderrDestination,
-            usesPhysicalPath: usesPhysicalPath ?? state.usesPhysicalPath,
-            usesLogicalPath: usesLogicalPath ?? state.usesLogicalPath
-        ))
+        Self(
+            state: State(
+                config: config ?? state.config,
+                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
+                stderrDestination: stderrDestination ?? state.stderrDestination,
+                usesPhysicalPath: usesPhysicalPath ?? state.usesPhysicalPath,
+                usesLogicalPath: usesLogicalPath ?? state.usesLogicalPath
+            )
+        )
     }
 }
 

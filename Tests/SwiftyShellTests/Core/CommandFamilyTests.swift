@@ -90,13 +90,15 @@ private struct DemoCommand: RunnableCommandFamily {
         isVerbose: Bool? = nil,
         arguments: [String]? = nil
     ) -> Self {
-        Self(state: State(
-            config: config ?? state.config,
-            stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-            stderrDestination: stderrDestination ?? state.stderrDestination,
-            isVerbose: isVerbose ?? state.isVerbose,
-            arguments: arguments ?? state.arguments
-        ))
+        Self(
+            state: State(
+                config: config ?? state.config,
+                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
+                stderrDestination: stderrDestination ?? state.stderrDestination,
+                isVerbose: isVerbose ?? state.isVerbose,
+                arguments: arguments ?? state.arguments
+            )
+        )
     }
 }
 

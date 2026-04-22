@@ -17,13 +17,15 @@ private actor InvocationRecorder {
 struct PipelineTests {
     @Test func mockPipelineStopsOnFirstFailure() async throws {
         let recorder = InvocationRecorder()
-        let context = ShellContext(executor: MockExecutor { command, _ in
-            await recorder.record(command.executableName)
-            if command.executableName == "first" {
-                return ShellOutput(stdout: "", stderr: "boom", exitCode: 9)
+        let context = ShellContext(
+            executor: MockExecutor { command, _ in
+                await recorder.record(command.executableName)
+                if command.executableName == "first" {
+                    return ShellOutput(stdout: "", stderr: "boom", exitCode: 9)
+                }
+                return ShellOutput(stdout: command.executableName, stderr: "", exitCode: 0)
             }
-            return ShellOutput(stdout: command.executableName, stderr: "", exitCode: 0)
-        })
+        )
 
         do {
             _ = try await Command("first")
@@ -78,7 +80,8 @@ struct PipelineTests {
     @Test func pipelineExtensionOnPipelineType() async throws {
         let pipeline = Command("printf", "1\n2\n3\n")
             .pipe(to: Command("grep", "2"))
-        let output = try await pipeline
+        let output =
+            try await pipeline
             .pipe(to: Command("cat"))
             .run(in: ShellContext())
         #expect(output.stdout == "2\n")

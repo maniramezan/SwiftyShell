@@ -90,14 +90,16 @@ public struct Mkdir: RunnableCommandFamily {
         modeValue: String?? = nil,
         directories: [String]? = nil
     ) -> Self {
-        Self(state: State(
-            config: config ?? state.config,
-            stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-            stderrDestination: stderrDestination ?? state.stderrDestination,
-            createsIntermediateDirectories: createsIntermediateDirectories ?? state.createsIntermediateDirectories,
-            modeValue: modeValue ?? state.modeValue,
-            directories: directories ?? state.directories
-        ))
+        Self(
+            state: State(
+                config: config ?? state.config,
+                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
+                stderrDestination: stderrDestination ?? state.stderrDestination,
+                createsIntermediateDirectories: createsIntermediateDirectories ?? state.createsIntermediateDirectories,
+                modeValue: modeValue ?? state.modeValue,
+                directories: directories ?? state.directories
+            )
+        )
     }
 }
 

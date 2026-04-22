@@ -91,14 +91,16 @@ public struct Rm: RunnableCommandFamily {
         forcesRemoval: Bool? = nil,
         paths: [String]? = nil
     ) -> Self {
-        Self(state: State(
-            config: config ?? state.config,
-            stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-            stderrDestination: stderrDestination ?? state.stderrDestination,
-            isRecursive: isRecursive ?? state.isRecursive,
-            forcesRemoval: forcesRemoval ?? state.forcesRemoval,
-            paths: paths ?? state.paths
-        ))
+        Self(
+            state: State(
+                config: config ?? state.config,
+                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
+                stderrDestination: stderrDestination ?? state.stderrDestination,
+                isRecursive: isRecursive ?? state.isRecursive,
+                forcesRemoval: forcesRemoval ?? state.forcesRemoval,
+                paths: paths ?? state.paths
+            )
+        )
     }
 }
 

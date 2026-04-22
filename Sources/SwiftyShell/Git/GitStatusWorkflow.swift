@@ -45,7 +45,9 @@ public struct GitStatusWorkflow: Sendable {
     /// Requires the git status to satisfy a predicate.
     public func require(
         _ predicate: @escaping @Sendable (GitStatus) throws -> Bool,
-        else error: @autoclosure @escaping @Sendable () -> Error = ShellError.workflowConditionFailed(description: "Git workflow condition failed")
+        else error: @autoclosure @escaping @Sendable () -> Error = ShellError.workflowConditionFailed(
+            description: "Git workflow condition failed"
+        )
     ) -> GitStatusWorkflow {
         GitStatusWorkflow(git: git, workflow: workflow.require(predicate, else: error()))
     }
@@ -54,7 +56,9 @@ public struct GitStatusWorkflow: Sendable {
     public func require<T: Equatable & Sendable>(
         _ keyPath: KeyPath<GitStatus, T>,
         equals expected: T,
-        else error: @autoclosure @escaping @Sendable () -> Error = ShellError.workflowConditionFailed(description: "Git workflow condition failed")
+        else error: @autoclosure @escaping @Sendable () -> Error = ShellError.workflowConditionFailed(
+            description: "Git workflow condition failed"
+        )
     ) -> GitStatusWorkflow {
         GitStatusWorkflow(git: git, workflow: workflow.require(keyPath, equals: expected, else: error()))
     }

@@ -86,6 +86,15 @@ private struct CaptureResult: Sendable {
     static let empty = CaptureResult(data: Data(), overflowed: false)
 }
 
+// Thread-safe flag set from a DispatchQueue timer and read from Swift Concurrency.
+private final class TimeoutFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+
+    func trip() { lock.withLock { value = true } }
+    var tripped: Bool { lock.withLock { value } }
+}
+
 private enum ExecutionOutcome {
     case completed(Int32)
     case timedOut
@@ -455,24 +464,21 @@ private func awaitProcessExit(
     try await withTaskCancellationHandler {
         do {
             if let timeout {
-                let outcome = try await withThrowingTaskGroup(of: ExecutionOutcome.self) { group in
-                    group.addTask {
-                        let exitCode = await waiter.wait()
-                        return .completed(exitCode)
-                    }
-                    group.addTask {
-                        try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                        terminator.terminateAll()
-                        return .timedOut
-                    }
-                    let outcome = try await group.next() ?? .completed(0)
-                    group.cancelAll()
-                    return outcome
+                // DispatchSourceTimer fires on a DispatchQueue thread — independent of
+                // Swift Concurrency's cooperative thread pool, so the kill happens at
+                // wall-clock time even when the pool is saturated under heavy CI load.
+                let flag = TimeoutFlag()
+                let timer = DispatchSource.makeTimerSource(queue: .global(qos: .userInitiated))
+                timer.schedule(deadline: .now() + timeout)
+                timer.setEventHandler { [flag, terminator] in
+                    flag.trip()
+                    terminator.terminateAll()
                 }
-                if Task.isCancelled {
-                    throw CancellationError()
-                }
-                return outcome
+                timer.resume()
+                let exitCode = await waiter.wait()
+                timer.cancel()
+                if Task.isCancelled { throw CancellationError() }
+                return flag.tripped ? .timedOut : .completed(exitCode)
             } else {
                 let outcome = ExecutionOutcome.completed(await waiter.wait())
                 if Task.isCancelled {
@@ -499,28 +505,23 @@ private func awaitPipelineExit(
     try await withTaskCancellationHandler {
         do {
             if let timeout {
-                let outcome = try await withThrowingTaskGroup(of: PipelineOutcome.self) { group in
-                    group.addTask {
-                        await waitForPipelineProcesses(
-                            processes: processes,
-                            exitWaiters: exitWaiters,
-                            commands: commands,
-                            terminator: terminator
-                        )
-                    }
-                    group.addTask {
-                        try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                        terminator.terminateAll()
-                        return .timedOut
-                    }
-                    let outcome = try await group.next() ?? .completed
-                    group.cancelAll()
-                    return outcome
+                let flag = TimeoutFlag()
+                let timer = DispatchSource.makeTimerSource(queue: .global(qos: .userInitiated))
+                timer.schedule(deadline: .now() + timeout)
+                timer.setEventHandler { [flag, terminator] in
+                    flag.trip()
+                    terminator.terminateAll()
                 }
-                if Task.isCancelled {
-                    throw CancellationError()
-                }
-                return outcome
+                timer.resume()
+                let outcome = await waitForPipelineProcesses(
+                    processes: processes,
+                    exitWaiters: exitWaiters,
+                    commands: commands,
+                    terminator: terminator
+                )
+                timer.cancel()
+                if Task.isCancelled { throw CancellationError() }
+                return flag.tripped ? .timedOut : outcome
             } else {
                 let outcome = await waitForPipelineProcesses(
                     processes: processes,

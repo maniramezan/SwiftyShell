@@ -85,7 +85,7 @@ struct CommandTests {
         let context = ShellContext(defaultTimeout: 0.2)
 
         do {
-            _ = try await Command("/bin/sh", "-c", "printf 'start'; sleep 2").run(in: context)
+            _ = try await Command("/bin/sh", "-c", "printf 'start'; sleep 30").run(in: context)
             Issue.record("Expected timeout")
         } catch let error as ShellError {
             guard case let .timeout(_, _, partialOutput) = error else {
@@ -315,7 +315,7 @@ struct CommandTests {
     @Test func perCommandTimeoutOverridesContext() async throws {
         let context = ShellContext(defaultTimeout: 10.0)
         do {
-            _ = try await Command("/bin/sh", "-c", "printf 'hi'; sleep 2")
+            _ = try await Command("/bin/sh", "-c", "printf 'hi'; sleep 30")
                 .timeout(0.2)
                 .run(in: context)
             Issue.record("Expected timeout")

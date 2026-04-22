@@ -9,7 +9,6 @@ Thank you for your interest in contributing. This document covers setup, convent
 - macOS 15.0+
 - Linux is supported in CI with Swift 6.1 (`swift:6.1` on Ubuntu); use either macOS or Linux locally
 - Swift 6.1+ (`swift --version`)
-- Xcode 16+ (optional but useful for debugging)
 
 ### Clone and Build
 
@@ -116,7 +115,7 @@ All error paths in new code must be tested:
 Use the imperative mood in the subject line:
 
 ```
-Add Simctl.recordVideo(_:) command
+Add Brew.outdated() command
 Fix terminationHandler race in SubprocessExecutor
 ```
 

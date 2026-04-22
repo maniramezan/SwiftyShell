@@ -447,7 +447,7 @@ let output = try await Command("ls", "-la")
     .run(in: context)
 
 // Redirect stdout to file
-try await Command("xcodebuild", "-scheme", "MyApp")
+try await Command("make", "release")
     .stdout(.file(path: logPath, append: false))
     .run(in: context)
 

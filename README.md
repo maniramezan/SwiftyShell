@@ -1,6 +1,6 @@
 # SwiftyShell
 
-[![Swift 6.1+](https://img.shields.io/badge/Swift-6.1%2B-F05138?logo=swift)](Package.swift)
+[![Swift 6.1+](https://img.shields.io/badge/Swift-6.1%2B-F05138?logo=swift&logoColor=white)](Package.swift)
 [![Build and Test](https://github.com/maniramezan/SwiftyShell/actions/workflows/build.yml/badge.svg)](https://github.com/maniramezan/SwiftyShell/actions/workflows/build.yml)
 
 **Type-safe shell support for Swift.** SwiftyShell models shell concepts — tools, subcommands, flags, pipelines, workflows — as Swift values. You pick a typed wrapper like `Git`, `Grep`, `Brew`, or `Ls` and the compiler enforces the shape of the call. When a tool does not yet have a typed wrapper, `Command` is the fluent escape hatch for arbitrary executables — but the typed APIs are the default.
@@ -232,7 +232,7 @@ try await Command("ruby", "deploy.rb")
     .run(in: context)
 
 // Redirect stdout/stderr to a file
-try await Command("xcodebuild", "-scheme", "MyApp")
+try await Command("make", "release")
     .stdout(.file(path: "build.log", append: false))
     .stderr(.file(path: "build.log", append: true))
     .run(in: context)

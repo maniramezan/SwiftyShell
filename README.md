@@ -30,12 +30,6 @@ let output = try await Command("my-tool", "--flag").run(in: context)
 - **Test without spawning processes.** Swap the executor for `MockExecutor` and every typed call becomes observable in unit tests.
 - **`Command` is still there.** When you need something SwiftyShell hasn't modelled yet, `Command("tool", "arg").run(in: context)` is the same fluent API — no separate lower-level world.
 
-## Requirements
-
-- macOS 15.0+
-- Linux with Foundation `Process` support (validated in CI with Swift 6.1 on `swift:6.1` / Ubuntu)
-- Swift 6.1+
-
 ## Installation
 
 Add SwiftyShell to your `Package.swift`:
@@ -71,7 +65,17 @@ SwiftyShell ships typed wrappers for common tools. For full API reference, examp
 | `Pwd` | `pwd` | Physical and logical paths |
 | `Jq` | `jq` | Filter expressions, `--arg` bindings, raw output |
 
-When the tool you need isn't listed, `Command("tool", "arg").run(in: context)` is the fluent escape hatch. If you find yourself using the same tool repeatedly via `Command`, it is a good candidate for a typed family — see [Contributing](#contributing).
+When the tool you need isn't listed, `Command("tool", "arg").run(in: context)` is the fluent escape hatch. If you use the same tool repeatedly, promoting it to a typed family is straightforward — see below.
+
+## Generate Your Own Typed Commands with AI
+
+SwiftyShell ships an agent skill at `.claude/skills/swiftyshell.md` that teaches Claude (and compatible AI tools) the full API, coding conventions, and documentation requirements. Load it and describe the tool you want wrapped in plain English:
+
+> "Add a typed wrapper for `rsync` with `--delete`, `--archive`, source and destination paths, and a dry-run flag."
+
+The assistant will produce a complete `struct` conforming to `RunnableCommandFamily` — with a private `State`, fluent builder methods, a `command()` implementation that assembles `argv`, doc comments on every `public` declaration, and a unit test suite — ready to drop into `Sources/SwiftyShell/`.
+
+The skill is automatically active when you open this repo in Claude Code. See the [Using AI Assistants](https://maniramezan.github.io/swiftyshell/documentation/swiftyshell/usingaiassistants) guide in the documentation for prompt tips and examples.
 
 ## Contributing
 

@@ -14,6 +14,9 @@ let package = Package(
             targets: ["SwiftyShell"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.4.5"),
+    ],
     targets: [
         .target(
             name: "SwiftyShell"

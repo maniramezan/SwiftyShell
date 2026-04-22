@@ -1,17 +1,22 @@
 # ``SwiftyShell``
 
-Type-safe shell command execution for Swift.
+Type-safe shell support for Swift.
 
 ## Overview
 
-SwiftyShell models shell concepts — commands, arguments, pipelines, redirection, and
-workflows — as Swift values rather than raw strings. It provides:
+SwiftyShell's primary API is a family of typed wrappers — ``Git``, ``Grep``,
+``Brew``, ``Ls``, ``Cp``, ``Mkdir``, ``Rm``, ``Mv``, ``Pwd``, ``Jq`` — that
+model shell tools as Swift values. The compiler enforces which flags exist,
+which arguments are required, and what the result looks like. ``Command`` is
+the fluent escape hatch for tools that don't have a typed wrapper yet; it
+shares the same builder style so code does not change shape when you fall back
+to it.
 
-- **``Command``** — a single executable with typed fluent configuration
-- **``Pipeline``** — two or more commands connected through pipes
-- **Typed command families** — `Git`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Rm`, `Mv`, `Pwd`, `Jq`
-- **``Workflow``** — composable async operations with `map`, `require`, and `flatMap`
-- **``MockExecutor``** — a test double that never spawns real processes
+- **Typed command families** — reach for these first
+- **``Workflow``** — composable async operations with `map` and `require` gates
+- **``Pipeline``** — chain typed commands (or raw ones) through pipes
+- **``Command``** — the escape hatch for arbitrary executables
+- **``MockExecutor``** — inject via ``ShellContext`` to test without spawning processes
 
 ### Quick Start
 
@@ -20,21 +25,19 @@ import SwiftyShell
 
 let context = ShellContext()
 
-// Run any command
-let output = try await Command("echo", "hello").run(in: context)
-print(output.stdout) // "hello\n"
-
-// Use a typed client
+// Typed: the compiler knows what Git can do
 let status = try await Git(context: context)
     .workingDirectory("/path/to/repo")
     .status()
+    .require(\.state, equals: .noChanges)
+    .pull()
     .run()
-print(status.branch ?? "detached HEAD")
 
-// Build a pipeline
-let result = try await Command("ls", "-la")
-    .pipe(to: Grep(".swift").command())
-    .run(in: context)
+// Typed: Brew as a value, not a raw shell string
+try await Brew(context: context).install("ripgrep", "fzf").run()
+
+// Escape hatch: run anything not yet modelled
+let output = try await Command("echo", "hello").run(in: context)
 ```
 
 ## Topics
@@ -82,6 +85,11 @@ let result = try await Command("ls", "-la")
 
 - ``Grep``
 - ``GrepPattern``
+
+### Package Management
+
+- ``Brew``
+- ``BrewSubcommand``
 
 ### Common File-System Commands
 

@@ -23,13 +23,15 @@ Before writing any code, follow this decision tree:
    → Use the typed wrapper
 4. Is this a `grep` or `jq` operation?
    → Use `Grep` or `Jq`
-5. Does the operation need typed output, structured results, or conditional follow-up?
+5. Is this a Homebrew operation (`brew install`, `brew upgrade`, `brew list`, ...)?
+   → Use `Brew`
+6. Does the operation need typed output, structured results, or conditional follow-up?
    → Use the appropriate typed client
-6. Are two or more commands chained by pipe?
+7. Are two or more commands chained by pipe?
    → Use `.pipe(to:)` to build a `Pipeline`
-7. Does the command write output to a file?
+8. Does the command write output to a file?
    → Use `.stdout(.file(path:append:))` on the command
-8. Is this any other command?
+9. Is this any other command?
    → Use `Command`
 
 ### API Reference
@@ -329,6 +331,59 @@ public struct Pwd: RunnableCommandFamily {
 }
 ```
 
+#### Brew
+
+```swift
+public enum BrewSubcommand: Sendable, Equatable, Hashable {
+    case install
+    case uninstall
+    case upgrade
+    case update
+    case list
+    case info
+    case search
+    case outdated
+}
+
+public struct Brew: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+
+    // Subcommand selectors (defaults to `.list`)
+    public func install(_ formulae: String...) -> Self
+    public func install(_ formulae: [String]) -> Self
+    public func uninstall(_ formulae: String...) -> Self
+    public func uninstall(_ formulae: [String]) -> Self
+    public func upgrade(_ formulae: String...) -> Self
+    public func upgrade(_ formulae: [String]) -> Self
+    public func update() -> Self
+    public func list(_ formulae: String...) -> Self
+    public func list(_ formulae: [String]) -> Self
+    public func info(_ formulae: String...) -> Self
+    public func info(_ formulae: [String]) -> Self
+    public func search(_ pattern: String) -> Self
+    public func outdated() -> Self
+
+    // Additional positional args
+    public func formula(_ name: String) -> Self
+    public func formulae(_ names: [String]) -> Self
+
+    // Flags
+    public func cask(_ enabled: Bool = true) -> Self         // --cask
+    public func formulaFlag(_ enabled: Bool = true) -> Self  // --formula
+    public func force(_ enabled: Bool = true) -> Self        // --force
+    public func quiet(_ enabled: Bool = true) -> Self        // --quiet
+    public func verbose(_ enabled: Bool = true) -> Self      // --verbose
+    public func dryRun(_ enabled: Bool = true) -> Self       // --dry-run
+    public func greedy(_ enabled: Bool = true) -> Self       // --greedy
+
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+```
+
+Brew emits a raw ``ShellOutput``; typed parsing of `list` / `info` / `outdated`
+is not yet provided.
+
 #### Jq
 
 ```swift
@@ -434,6 +489,12 @@ try await Mv(context: context).source("/tmp/output.log").destination("/var/logs/
 
 // jq — extract a field as raw text
 let name = try await Jq(".name", context: context).rawOutput().file("package.json").run()
+
+// Homebrew — install a formula
+try await Brew(context: context).install("ripgrep").run()
+
+// Homebrew — check outdated casks
+let outdated = try await Brew(context: context).outdated().greedy().run()
 
 // MockExecutor in tests
 let context = ShellContext(executor: MockExecutor(stdout: "main\n"))
@@ -660,3 +721,12 @@ Before submitting any change to this codebase, verify:
 - [ ] Cross-references use ``SymbolName`` double-backtick syntax
 - [ ] `AGENTS.md` is updated if shared agent guidance changed
 - [ ] The skill file (`.claude/skills/swiftyshell.md`) is updated if public API or shared agent guidance changed
+
+## Hard Gate: Tests + swift-format
+
+A change is not done — do not declare completion, open a PR, or hand back to the user — until both of the following pass on every file you touched:
+
+1. `swift test` — all tests green.
+2. `swift-format lint --strict` — no errors on changed files. For new Swift, run `swift-format format -i <file>` first to auto-fix, then re-lint.
+
+The repo ships a `.swift-format` config at the root; use it. If a lint rule is genuinely wrong for a specific construct, update `.swift-format` in the same change rather than skipping the gate. Pre-existing legacy violations in older files are a separate cleanup task and do not license new code to be lint-dirty.

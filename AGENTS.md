@@ -18,6 +18,10 @@ Typed git client: `Git`, `GitStatus`, `GitStatusWorkflow`, `GitPullResult`, `Git
 
 Typed `grep` wrapper: `Grep` and `GrepPattern`.
 
+### `Sources/SwiftyShell/Brew/`
+
+Typed wrapper for the Homebrew package manager: `Brew` and `BrewSubcommand`.
+
 ### `Sources/SwiftyShell/Common/`
 
 Typed wrappers for frequently used shell utilities: `Ls`, `Cp`, `Mkdir`, `Rm`, `Mv`, `Pwd`, `Jq`, and `JqArgument`. Each follows the same fluent builder conventions as all other command families.
@@ -35,7 +39,7 @@ DocC documentation catalog. `SwiftyShell.md` is the top-level landing page. Arti
 
 ### `Tests/SwiftyShellTests/`
 
-Test suite. Sub-folders mirror the source layout: `Core/`, `Git/`, `Grep/`, `Pipelines/`.
+Test suite. Sub-folders mirror the source layout: `Brew/`, `Common/`, `Core/`, `Git/`, `Grep/`, `Pipelines/`.
 
 ### `Example/`
 
@@ -63,7 +67,22 @@ swift build -c release
 
 # Run a single test file by class name
 swift test --filter CommandTests
+
+# Format (in place) and lint
+swift-format format -i <file(s)>
+swift-format lint --strict --recursive <path(s)>
 ```
+
+## Definition of Done — HARD GATE
+
+Do not mark a task complete, declare work finished, or hand back to the user until both of the following pass on every file you added or modified:
+
+1. `swift test` — all tests green.
+2. `swift-format lint --strict` — no errors on the files you touched. If you just wrote new Swift, run `swift-format format -i <file>` first so auto-fixable issues are corrected, then re-lint to confirm.
+
+This applies to any code change (new command families, bug fixes, doc snippets that live in Swift, tests). Do not skip either gate. If a lint rule feels wrong for a specific construct, propose a `.swift-format` change in the same PR rather than bypassing the check.
+
+The repository ships a `.swift-format` config at the repo root that encodes the project's 4-space indentation, 120-column line length, and other style rules. A small number of pre-existing files have legacy violations that predate the config; those are a separate cleanup task and do not block new work, but new or changed code must be clean.
 
 ## Key Conventions
 

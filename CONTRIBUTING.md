@@ -29,6 +29,17 @@ Tests use the Swift Testing framework (`@Test` macro). All tests must pass befor
 
 The GitHub Actions matrix runs both macOS and Linux jobs. If you are changing execution or process-handling code, wait for both jobs before calling the change ready.
 
+### Definition of Done
+
+Every change — human- or agent-authored, including docs-only edits that touch Swift snippets — must satisfy both gates before it is considered done:
+
+1. **Tests pass** — `swift test` is green.
+2. **Format is clean** — `swift-format lint --strict --recursive <paths-you-touched>` reports no errors, and any newly written Swift passes `swift-format format -i <file>` without a subsequent lint complaint.
+
+Do not open a PR, mark work complete, or ask for review until both commands succeed on the files you changed. If the format rules feel wrong for a specific construct, change `.swift-format` in the same PR and explain why — don't bypass the gate.
+
+The repository currently has a small number of pre-existing lint violations in files that predate the `.swift-format` config; those are tracked as a separate cleanup task and do not block new work, but new or modified code must be clean.
+
 ## Code Style
 
 ### Swift
@@ -97,7 +108,8 @@ All error paths in new code must be tested:
 3. Include tests for all new behavior
 4. Update doc comments for changed public API
 5. Run `swift test` and confirm all tests pass
-6. Describe _why_ in the PR body, not just _what_
+6. Run `swift-format lint --strict` on the files you touched (and `swift-format format -i` to auto-fix) — no lint errors in changed files
+7. Describe _why_ in the PR body, not just _what_
 
 ### Commit Messages
 

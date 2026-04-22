@@ -192,6 +192,6 @@ Windows is out of scope for v1.
 - Explicit unsafe raw shell-string escape hatch
 - Alternative pipeline failure modes as explicit opt-ins
 - Interactive stdin
-- Additional typed command families (e.g. `Docker`, `Homebrew`)
+- Additional typed command families (e.g. `Docker`)
 - Windows support
 - Alternative packaging if command families grow substantially

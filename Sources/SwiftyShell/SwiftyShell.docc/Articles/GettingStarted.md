@@ -1,12 +1,15 @@
 # Getting Started with SwiftyShell
 
-Add SwiftyShell to your package, run your first command, and understand the core concepts.
+Reach for a typed command family first; drop to a raw ``Command`` only when no typed wrapper exists yet.
 
 ## Overview
 
-SwiftyShell replaces ad-hoc `Process` or shell-string wrappers with a strongly-typed,
-fluent API. Every command is a value — not a raw string — so the compiler catches typos,
-and tests can run without spawning real processes.
+SwiftyShell's primary API is a family of typed wrappers (``Git``, ``Grep``, ``Brew``,
+``Ls``, ``Cp``, ``Mkdir``, ``Rm``, ``Mv``, ``Pwd``, ``Jq``) that model shell tools
+as Swift values. The compiler enforces which flags exist, which arguments are
+required, and what the result looks like. ``Command`` is the fluent escape hatch
+for anything not yet modelled — it shares the same builder style so code does
+not change shape when you fall back to it.
 
 ## Installation
 
@@ -26,40 +29,128 @@ targets: [
 
 Until the first tagged release is published, depend on `branch: "main"`. Switch to `from: "<tag>"` after the first release tag is available.
 
-## Running Your First Command
+## Shell Context
 
-Every operation starts with a ``ShellContext`` and a ``Command``:
+Every call — typed or raw — runs in a ``ShellContext`` that holds the executor,
+search paths, environment, working directory, default timeout, and default
+output limit:
 
 ```swift
 import SwiftyShell
 
-// Create a shared context — this is the "environment" for all commands
 let context = ShellContext()
 
-// Run a simple command
-let output = try await Command("echo", "Hello, SwiftyShell!").run(in: context)
-print(output.stdout) // Hello, SwiftyShell!
+// Override defaults as needed
+let scopedContext = ShellContext(
+    workingDirectory: "/var/app",
+    defaultTimeout: 30
+)
 ```
 
-`run()` is `async throws`. Wrap calls in `Task` or use them from an async entry point.
+Pass the same context to typed families and raw commands.
 
-## Fluent Configuration
+## Type-Safe Tools First
 
-Commands are immutable value types. Use the fluent API to build up configuration — each
-method returns a new copy:
+### Git
+
+``Git`` returns structured results and exposes typed workflow gates:
 
 ```swift
-let output = try await Command("ruby", "deploy.rb")
-    .env("RAILS_ENV", "production")
-    .env("DEBUG", "true")
-    .workingDirectory("/var/app")
-    .timeout(300)
+let git = Git(context: context)
+
+let status = try await git
+    .workingDirectory("/path/to/repo")
+    .status()
+    .run()
+print(status.branch ?? "detached HEAD", status.state)
+
+// Only pull if the working tree is clean
+try await git
+    .workingDirectory("/path/to/repo")
+    .status()
+    .require(\.state, equals: .noChanges)
+    .pull()
+    .run()
+```
+
+### Grep
+
+```swift
+let matches = try await Grep("TODO", context: context)
+    .recursive()
+    .lineNumbers()
+    .file("Sources/")
+    .run()
+
+let asyncFuncs = try await Grep.regex(#"func \w+\(.*\) async"#, context: context)
+    .file("Sources/")
+    .run()
+```
+
+### Brew
+
+``Brew`` models `brew` subcommands as typed methods. Default subcommand is
+``BrewSubcommand/list``.
+
+```swift
+try await Brew(context: context).install("ripgrep", "fzf").run()
+
+let outdated = try await Brew(context: context).outdated().greedy().run()
+```
+
+### File-System Utilities
+
+```swift
+try await Mkdir(context: context).parents().directory("/tmp/build").run()
+try await Cp(context: context).recursive().source("build/").destination("/tmp/dist").run()
+try await Mv(context: context).source("/tmp/out.log").destination("/var/log/out.log").run()
+try await Rm(context: context).recursive().force().path("/tmp/old-build").run()
+let listing = try await Ls(context: context).all().longFormat().path("/tmp").run()
+```
+
+### Pipelines of Typed Commands
+
+Typed families hand out ``Command`` values via ``RunnableCommandFamily/command()``,
+so you can pipe them without dropping out of the typed world:
+
+```swift
+// ls -la | grep .swift | wc -l
+let output = try await Command("ls", "-la")
+    .pipe(to: Grep(".swift", context: context).command())
+    .pipe(to: Command("wc", "-l"))
     .run(in: context)
 ```
 
+## Raw `Command` — The Escape Hatch
+
+Use ``Command`` when the tool you need isn't modelled yet. It uses the same
+fluent builder style, so your code does not change shape:
+
+```swift
+// Simple invocation
+let output = try await Command("echo", "Hello, SwiftyShell!").run(in: context)
+
+// Arguments, env, working directory, timeout
+try await Command("ruby", "deploy.rb")
+    .env("RAILS_ENV", "production")
+    .workingDirectory("/var/app")
+    .timeout(300)
+    .run(in: context)
+
+// Redirect stdout/stderr
+try await Command("swift", "build", "--verbose")
+    .stdout(.file(path: "/tmp/build.log", append: false))
+    .stderr(.file(path: "/tmp/build.log", append: true))
+    .run(in: context)
+```
+
+If you reach for ``Command`` repeatedly for the same tool, promoting it to a
+typed family is a good investment — see <doc:BuildingCommandFamilies>.
+
 ## Reading Output
 
-``ShellOutput`` captures stdout, stderr, and the exit code:
+``ShellOutput`` captures stdout, stderr, and the exit code — for both typed
+families and raw commands:
 
 ```swift
 let output = try await Command("git", "log", "--oneline", "-5").run(in: context)
@@ -75,79 +166,25 @@ if output.isSuccess {
 
 ## Handling Errors
 
-All failures surface as ``ShellError``. Catch specific cases to react appropriately:
+All failures surface as ``ShellError``. Catch specific cases rather than parsing message strings:
 
 ```swift
 do {
-    let output = try await Command("git", "push").run(in: context)
+    try await Git(context: context).workingDirectory(repoPath).pull().run()
 } catch ShellError.commandNotFound(let cmd) {
     print("\(cmd) is not installed")
 } catch ShellError.exitFailure(_, let output) {
-    print("Push failed with exit code:", output.exitCode)
-    print("Stderr:", output.stderr)
+    print("Pull failed:", output.stderr)
 } catch ShellError.timeout(let cmd, let duration, _) {
     print("\(cmd) timed out after \(duration)s")
 }
 ```
 
-## Pipelines
-
-Connect two or more commands with `.pipe(to:)`:
-
-```swift
-// ls -la | grep .swift | wc -l
-let output = try await Command("ls", "-la")
-    .pipe(to: Grep(".swift").command())
-    .pipe(to: Command("wc", "-l"))
-    .run(in: context)
-
-let count = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-print("Swift files:", count)
-```
-
-## Redirecting Output
-
-Use ``OutputDestination`` to write command output to a file or discard it:
-
-```swift
-// Write build log to a file
-try await Command("swift", "build", "--verbose")
-    .stdout(.file(path: "/tmp/build.log", append: false))
-    .stderr(.file(path: "/tmp/build.log", append: true))
-    .run(in: context)
-
-// Discard stderr to suppress noise
-try await Command("make", "clean")
-    .stderr(.discard)
-    .run(in: context)
-```
-
-## Typed Command Families
-
-For common tools, use the typed wrappers instead of raw `Command`:
-
-```swift
-// Git
-let status = try await Git(context: context)
-    .workingDirectory("/path/to/repo")
-    .status()
-    .run()
-
-// Grep
-let matches = try await Grep("TODO", context: context)
-    .recursive()
-    .lineNumbers()
-    .file("Sources/")
-    .run()
-
-// File system
-try await Mkdir(context: context).parents().directory("/tmp/output").run()
-try await Cp(context: context).recursive().source("build/").destination("/tmp/dist").run()
-```
-
 ## Writing Testable Code
 
-Inject ``MockExecutor`` via ``ShellContext`` to test without spawning real processes:
+Inject ``MockExecutor`` via ``ShellContext`` to test without spawning real
+processes. The same executor is used by typed families and raw commands, so
+tests see every call:
 
 ```swift
 // In production code — accept a ShellContext
@@ -156,7 +193,7 @@ func buildProject(context: ShellContext) async throws -> String {
     return output.stdout
 }
 
-// In tests — use MockExecutor
+// In tests — MockExecutor
 @Test func buildProjectReturnsMockedOutput() async throws {
     let mock = MockExecutor(stdout: "Build complete.\n")
     let context = ShellContext(executor: mock)
@@ -165,7 +202,7 @@ func buildProject(context: ShellContext) async throws -> String {
 }
 ```
 
-For richer test scenarios, supply a closure:
+For richer scenarios, supply a closure:
 
 ```swift
 actor InvocationRecorder {
@@ -182,7 +219,8 @@ let context = ShellContext(executor: mock)
 
 ## Concurrent Commands
 
-Use Swift Concurrency to run multiple commands in parallel:
+Typed families and raw commands are `Sendable` — compose them with Swift
+Concurrency:
 
 ```swift
 let repoPaths = ["/path/a", "/path/b", "/path/c"]

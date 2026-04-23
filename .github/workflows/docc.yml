@@ -31,6 +31,23 @@ jobs:
             --transform-for-static-hosting \
             --hosting-base-path swiftyshell
 
+      - name: Add root redirect
+        run: |
+          cat > docs/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=/swiftyshell/documentation/swiftyshell/">
+            <link rel="canonical" href="/swiftyshell/documentation/swiftyshell/">
+            <title>SwiftyShell Documentation</title>
+          </head>
+          <body>
+            <p>Redirecting to <a href="/swiftyshell/documentation/swiftyshell/">documentation</a>…</p>
+          </body>
+          </html>
+          EOF
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5.0.0
         with:

@@ -18,7 +18,7 @@ import Foundation
 ///     .run(in: context)
 ///
 /// // Redirect stdout to a file
-/// try await Command("xcodebuild", "-scheme", "MyApp")
+/// try await Command("swift", "build", "--verbose")
 ///     .stdout(.file(path: "/tmp/build.log", append: false))
 ///     .run(in: context)
 ///

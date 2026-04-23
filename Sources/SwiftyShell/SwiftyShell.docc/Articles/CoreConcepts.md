@@ -43,7 +43,7 @@ Per-command overrides take priority over context defaults, which take priority o
 let context = ShellContext(defaultTimeout: 30)
 
 // This call times out after 300 s, not 30 s
-try await Command("xcodebuild", "-scheme", "App")
+try await Command("swift", "build")
     .timeout(300)
     .run(in: context)
 
@@ -109,8 +109,8 @@ try await cmd.run(in: context)
 Arguments are an array, not a shell string. SwiftyShell never invokes a shell interpreter — arguments with spaces, quotes, or special characters are passed verbatim to the process:
 
 ```swift
-// Safe: the space in "My Project" is one argument, not two
-try await Command("xcodebuild", "-scheme", "My Project").run(in: context)
+// Safe: the space in "/tmp/My Project" is one argument, not two
+try await Command("ls", "-la", "/tmp/My Project").run(in: context)
 
 // This would be wrong with a shell string; here it works correctly
 try await Command("grep", "-r", "TODO: fix this", "Sources/").run(in: context)

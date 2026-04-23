@@ -16,7 +16,7 @@ import Foundation
 ///     .run(in: context)
 ///
 /// // Write stdout to a log file (overwrite)
-/// try await Command("xcodebuild", "-scheme", "App")
+/// try await Command("swift", "build", "--verbose")
 ///     .stdout(.file(path: "/tmp/build.log", append: false))
 ///     .run(in: context)
 ///

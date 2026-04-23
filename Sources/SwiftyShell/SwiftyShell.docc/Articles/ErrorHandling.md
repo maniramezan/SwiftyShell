@@ -112,7 +112,7 @@ Per-command overrides let you relax the limit for one call without changing the 
 try await Command("swift", "package", "resolve").run(in: context)
 
 // Needs more time — override for this call only
-try await Command("xcodebuild", "-scheme", "App", "-destination", "generic/platform=iOS")
+try await Command("swift", "test", "--filter", "CommandTests")
     .timeout(600)
     .run(in: context)
 ```

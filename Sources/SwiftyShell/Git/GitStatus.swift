@@ -1,3 +1,4 @@
+#if Git
 import Foundation
 
 /// A coarse description of the repository working tree state.
@@ -96,3 +97,4 @@ public struct GitFetchResult: Sendable, Equatable {
         self.remote = remote
     }
 }
+#endif

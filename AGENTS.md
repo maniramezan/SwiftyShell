@@ -35,11 +35,16 @@ Typed wrappers for frequently used shell utilities: `Ls`, `Cp`, `Mkdir`, `Rm`, `
 DocC documentation catalog. `SwiftyShell.md` is the top-level landing page. Articles live under `Articles/`:
 
 - `GettingStarted.md` — installation, first command, pipelines, testing
+- `SelectingCommandFamilies.md` — package trait reference and recipes
 - `BuildingCommandFamilies.md` — how to author a new typed command family
 
 ### `Tests/SwiftyShellTests/`
 
-Test suite. Sub-folders mirror the source layout: `Brew/`, `Common/`, `Core/`, `Git/`, `Grep/`, `Pipelines/`.
+Test suite. Sub-folders mirror the source layout: `Brew/`, `Common/`, `Core/`, `Git/`, `Grep/`, `Pipelines/`. Test files for gated families are wrapped in `#if <Trait>` so the test target compiles under any trait selection. `Common/` has one test file per family (`LsTests.swift`, `CpTests.swift`, …) plus `CommonTestSupport.swift` (shared helpers, ungated).
+
+### `Scripts/`
+
+`validate-traits.swift` — single-file Swift script that enforces the trait wiring contract: every gated source/test file is wrapped in the matching `#if <Trait>`, every family directory has a corresponding trait declaration in `Package.swift`, and the `All` umbrella transitively enables every per-family trait. CI runs this before any build job; run it locally with `swift Scripts/validate-traits.swift`.
 
 ### `Example/`
 
@@ -137,6 +142,35 @@ Use `MockExecutor` for unit tests. It implements `CommandExecutor`, mirrors real
 ### Agent Skill
 
 `.claude/skills/swiftyshell.md` is the canonical shared skill for all agents working in this repo, including Claude and Codex/GPT assistants. `.codex/skills/swiftyshell.md` is only a pointer to that canonical file. When a task involves generating SwiftyShell code, changing public API, or adding command families, read the shared skill in addition to this guide. Keep `AGENTS.md` and `.claude/skills/swiftyshell.md` aligned and update both in the same PR whenever shared guidance or public API expectations change. The skill must reflect the implemented API, not the spec.
+
+### Package Traits
+
+SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0450-swiftpm-package-traits.md) so each typed command family is opt-in. The default trait set is **empty** — only `Core/` and `Internal/` types compile by default. Consumers select families via `traits:` on `.package(...)`.
+
+**Trait inventory (declared in `Package.swift`):**
+
+- Per-family: `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Rm`, `Mv`, `Pwd`, `Jq` (one trait per family directory; for `Common/`, one trait per file).
+- Umbrellas: `CommonUtilities` (all `Common/*`), `All` (every family).
+
+**The wiring contract** — enforced by `Scripts/validate-traits.swift` and CI:
+
+1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
+2. Every test file targeting a gated family is wrapped the same way. Cross-family tests use combined guards (`#if Git && Grep`).
+3. Every family directory (or `Common/*.swift` file) has a matching `.trait(name:)` entry in `Package.swift`.
+4. The `All` umbrella's `enabledTraits` transitively enables every per-family trait. The `CommonUtilities` umbrella enables every `Common/*` trait.
+5. `Core/` and `Internal/` files are **never** gated.
+
+**When you add a new command family:**
+
+1. Add the directory or file under `Sources/SwiftyShell/<Family>/` (or `Sources/SwiftyShell/Common/<Family>.swift`).
+2. Wrap every source file in `#if <Family> ... #endif`.
+3. Add the matching `.trait(name: "<Family>", description: "...")` in `Package.swift`.
+4. Add `<Family>` to the `All` umbrella's `enabledTraits` (and `CommonUtilities` if it's a `Common/*` family).
+5. Add tests under `Tests/SwiftyShellTests/<Family>/` (or `Tests/SwiftyShellTests/Common/<Family>Tests.swift`) and wrap them in `#if <Family>`.
+6. Run `swift Scripts/validate-traits.swift` to confirm the wiring is correct.
+7. Verify with `swift build --traits <Family>` and `swift test --traits <Family>` in addition to the default and `--enable-all-traits` runs.
+
+The pull-request template (`.github/PULL_REQUEST_TEMPLATE.md`) has a checklist that mirrors these steps. CI runs `validate-traits` first and then a build/test matrix across `""`, each per-family trait, `CommonUtilities`, and `All` on macOS 15 and Linux. A new family that bypasses the wiring will fail validation before any build runs.
 
 ## Architecture Reference
 

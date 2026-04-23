@@ -1,0 +1,121 @@
+# Selecting Command Families
+
+Pick exactly the typed shell wrappers your project needs.
+
+## Overview
+
+SwiftyShell is split into a small, always-available `Core` (commands,
+pipelines, contexts, errors, executors) and a set of **opt-in** typed
+command families: ``Git``, ``Brew``, ``Grep``, and a collection of common
+file/directory utilities (``Ls``, ``Cp``, ``Mv``, ``Mkdir``, ``Rm``, ``Pwd``,
+``Jq``).
+
+Each family is gated behind a SwiftPM **package trait**. By default no
+families are enabled, so a fresh `import SwiftyShell` exposes only `Core`.
+Consumers opt into families they need from their own `Package.swift`. This
+keeps build size, compile time, and surface area honest as the library grows.
+
+## Quick start
+
+Enable a single family — Git in this example — by passing it through
+`traits:` on the dependency:
+
+```swift
+.package(
+    url: "https://github.com/anomalyco/swiftyshell.git",
+    from: "0.1.0",
+    traits: ["Git"]
+)
+```
+
+Now ``Git`` is available alongside everything in `Core`:
+
+```swift
+import SwiftyShell
+
+let status = try await Git()
+    .workingDirectory("/path/to/repo")
+    .status()
+    .run()
+```
+
+## Available traits
+
+| Trait              | Enables                                                    |
+|--------------------|------------------------------------------------------------|
+| `Git`              | ``Git`` and the entire git porcelain v2 surface            |
+| `Brew`             | ``Brew`` Homebrew wrapper                                  |
+| `Grep`             | ``Grep`` typed grep wrapper                                |
+| `Ls`               | ``Ls``                                                     |
+| `Cp`               | ``Cp``                                                     |
+| `Mv`               | ``Mv``                                                     |
+| `Mkdir`            | ``Mkdir``                                                  |
+| `Rm`               | ``Rm``                                                     |
+| `Pwd`              | ``Pwd``                                                    |
+| `Jq`               | ``Jq``                                                     |
+| `CommonUtilities`  | All of `Ls`, `Cp`, `Mv`, `Mkdir`, `Rm`, `Pwd`, `Jq`        |
+| `All`              | Every per-family trait above (the kitchen-sink umbrella)   |
+
+## Common recipes
+
+### A mostly-Git project that also needs grep
+
+```swift
+.package(
+    url: "https://github.com/anomalyco/swiftyshell.git",
+    from: "0.1.0",
+    traits: ["Git", "Grep"]
+)
+```
+
+### A project that wants every common file utility
+
+```swift
+.package(
+    url: "https://github.com/anomalyco/swiftyshell.git",
+    from: "0.1.0",
+    traits: ["CommonUtilities"]
+)
+```
+
+### Everything, for tooling, exploration, or scripts
+
+```swift
+.package(
+    url: "https://github.com/anomalyco/swiftyshell.git",
+    from: "0.1.0",
+    traits: ["All"]
+)
+```
+
+> Tip: Even when no family trait is enabled, you can still drive arbitrary
+> shell commands with ``Command`` and ``Pipeline`` from `Core`. The typed
+> families are purely a quality-of-life layer on top.
+
+## Why opt-in
+
+Trait-based selection lets the package add many more typed families over
+time without growing every consumer's binary or compile time. The traits
+form a public contract that contributors must keep honest: the
+`Scripts/validate-traits.swift` script and the per-trait CI matrix fail any
+change that introduces hidden coupling between families.
+
+## Working in Xcode and other tooling
+
+Most IDEs (Xcode, VS Code with sourcekit-lsp) inherit traits from the
+consuming package's `Package.swift`. When invoking SwiftPM directly you can
+pass `--traits Git,Grep` (or `--enable-all-traits` for everything) to mirror
+the consumer build:
+
+```sh
+swift build --traits Git
+swift test  --traits Git,Grep
+swift test  --enable-all-traits
+```
+
+## See also
+
+- ``Command``
+- ``Pipeline``
+- ``ShellContext``
+- <doc:BuildingCommandFamilies>

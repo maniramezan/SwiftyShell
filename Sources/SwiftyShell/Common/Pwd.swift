@@ -1,3 +1,4 @@
+#if Pwd
 import Foundation
 
 /// A fluent wrapper for the `pwd` command.
@@ -110,3 +111,4 @@ private struct State: Sendable {
         self.usesLogicalPath = usesLogicalPath
     }
 }
+#endif

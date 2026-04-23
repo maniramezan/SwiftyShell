@@ -1,3 +1,4 @@
+#if Mkdir
 import Foundation
 
 /// A fluent wrapper for the `mkdir` command.
@@ -127,3 +128,4 @@ private struct State: Sendable {
         self.directories = directories
     }
 }
+#endif

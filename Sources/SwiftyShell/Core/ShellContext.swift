@@ -19,11 +19,11 @@ public enum ShellPlatform: Sendable {
     /// The platform for the current compilation target.
     public static let current: Self = {
         #if os(macOS)
-            .macOS
+        .macOS
         #elseif os(Linux)
-            .linux
+        .linux
         #else
-            .macOS
+        .macOS
         #endif
     }()
 

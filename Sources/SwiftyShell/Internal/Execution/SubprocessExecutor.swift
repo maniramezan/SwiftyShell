@@ -1,9 +1,9 @@
 import Foundation
 
 #if canImport(Darwin)
-    import Darwin
+import Darwin
 #elseif canImport(Glibc)
-    import Glibc
+import Glibc
 #endif
 
 /// The default executor that runs commands using `Process`.
@@ -693,11 +693,11 @@ private func makeFileHandle(path: String, append: Bool) throws -> FileHandle {
 
 private func swiftyShellKill(_ pid: Int32, signal: Int32) -> Int32 {
     #if canImport(Darwin)
-        return Darwin.kill(pid, signal)
+    return Darwin.kill(pid, signal)
     #elseif canImport(Glibc)
-        return Glibc.kill(pid, signal)
+    return Glibc.kill(pid, signal)
     #else
-        return -1
+    return -1
     #endif
 }
 

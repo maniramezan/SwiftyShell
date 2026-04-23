@@ -1,3 +1,4 @@
+#if Rm
 import Foundation
 
 /// A fluent wrapper for the `rm` command.
@@ -128,3 +129,4 @@ private struct State: Sendable {
         self.paths = paths
     }
 }
+#endif

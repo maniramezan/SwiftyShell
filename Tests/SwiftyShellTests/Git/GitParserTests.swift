@@ -1,3 +1,4 @@
+#if Git
 import Testing
 @testable import SwiftyShell
 
@@ -190,3 +191,4 @@ struct GitParserTests {
         )
     }
 }
+#endif

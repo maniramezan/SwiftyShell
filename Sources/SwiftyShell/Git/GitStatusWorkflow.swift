@@ -1,3 +1,4 @@
+#if Git
 import Foundation
 
 /// A git-specific workflow wrapper that preserves git-oriented chaining.
@@ -75,3 +76,4 @@ public struct GitStatusWorkflow: Sendable {
         return workflow.flatMap { _ in git.fetch() }
     }
 }
+#endif

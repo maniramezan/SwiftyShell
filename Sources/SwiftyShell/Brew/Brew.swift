@@ -1,3 +1,4 @@
+#if Brew
 import Foundation
 
 /// The subcommand selected for a ``Brew`` invocation.
@@ -332,3 +333,4 @@ private struct State: Sendable {
         self.isGreedy = isGreedy
     }
 }
+#endif

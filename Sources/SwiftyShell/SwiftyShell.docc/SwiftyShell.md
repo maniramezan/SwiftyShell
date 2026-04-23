@@ -12,6 +12,12 @@ the fluent escape hatch for tools that don't have a typed wrapper yet; it
 shares the same builder style so code does not change shape when you fall back
 to it.
 
+Every typed family is **opt-in**. Consumers select which ones to compile via
+SwiftPM package traits in their own `Package.swift`. By default a fresh
+`import SwiftyShell` exposes only the always-on `Core` (commands, pipelines,
+contexts, errors). See <doc:SelectingCommandFamilies> for the full list and
+recipes.
+
 - **Typed command families** — reach for these first
 - **``Workflow``** — composable async operations with `map` and `require` gates
 - **``Pipeline``** — chain typed commands (or raw ones) through pipes
@@ -45,6 +51,7 @@ let output = try await Command("echo", "hello").run(in: context)
 ### Getting Started
 
 - <doc:GettingStarted>
+- <doc:SelectingCommandFamilies>
 - <doc:CoreConcepts>
 - <doc:ErrorHandling>
 

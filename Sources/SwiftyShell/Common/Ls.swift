@@ -1,3 +1,4 @@
+#if Ls
 import Foundation
 
 /// A fluent wrapper for the `ls` command.
@@ -169,3 +170,4 @@ private struct State: Sendable {
         self.paths = paths
     }
 }
+#endif

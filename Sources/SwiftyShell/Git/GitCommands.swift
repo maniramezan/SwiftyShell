@@ -1,3 +1,4 @@
+#if Git
 import Foundation
 
 /// The output format used by ``GitDiff``.
@@ -1402,3 +1403,4 @@ private extension GitRebase {
         }
     }
 }
+#endif

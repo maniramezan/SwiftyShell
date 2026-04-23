@@ -1,3 +1,4 @@
+#if Git
 import Foundation
 
 /// A typed entry point for common git workflows.
@@ -175,3 +176,4 @@ public struct Git: ToolConfigurableCommandFamily {
         return "origin"
     }
 }
+#endif

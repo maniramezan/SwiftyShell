@@ -1,3 +1,4 @@
+#if Grep
 import Foundation
 
 /// The pattern mode used by `grep`.
@@ -239,3 +240,4 @@ public struct Grep: RunnableCommandFamily {
         )
     }
 }
+#endif

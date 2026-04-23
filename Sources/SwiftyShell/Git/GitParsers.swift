@@ -1,3 +1,4 @@
+#if Git
 import Foundation
 
 enum GitParsers {
@@ -139,3 +140,4 @@ private extension String {
         return String(dropFirst(prefix.count))
     }
 }
+#endif

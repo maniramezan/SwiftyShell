@@ -1,3 +1,4 @@
+#if Cp
 import Foundation
 
 /// A fluent wrapper for the `cp` command.
@@ -142,3 +143,4 @@ private struct State: Sendable {
         self.destinationPath = destinationPath
     }
 }
+#endif

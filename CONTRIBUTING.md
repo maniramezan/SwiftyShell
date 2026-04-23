@@ -72,7 +72,31 @@ New clients must:
 3. Expose `executable(_:)`, `env(_:_:)`, `workingDirectory(_:)`, `timeout(_:)`, `outputLimit(_:)` overrides
 4. Expose `command() -> Command` and `run() async throws -> ShellOutput`
 5. Have corresponding tests
-6. Update `.claude/skills/swiftyshell.md` in the same PR (see below)
+6. **Be wired behind a SwiftPM trait** (see [Package Traits](#package-traits) below)
+7. Update `.claude/skills/swiftyshell.md` in the same PR (see below)
+
+## Package Traits
+
+SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0450-swiftpm-package-traits.md) so each typed command family is opt-in. The default trait set is **empty** — only `Core/` and `Internal/` types compile by default. Consumers select families via `traits:` on `.package(...)`. See the [Selecting Command Families](https://maniramezan.github.io/swiftyshell/documentation/swiftyshell/selectingcommandfamilies) DocC article for the consumer-facing reference.
+
+### When You Add a New Family
+
+1. Add the directory or file under `Sources/SwiftyShell/<Family>/` (or `Sources/SwiftyShell/Common/<Family>.swift`).
+2. Wrap every source file in `#if <Family> ... #endif`.
+3. Add `.trait(name: "<Family>", description: "...")` to the `traits:` array in `Package.swift`.
+4. Add `<Family>` to the `All` umbrella's `enabledTraits`. If the family lives under `Common/`, also add it to `CommonUtilities`.
+5. Add tests under `Tests/SwiftyShellTests/<Family>/` (or `Tests/SwiftyShellTests/Common/<Family>Tests.swift`) and wrap them in `#if <Family>`. Cross-family tests use combined guards like `#if Git && Grep`.
+6. Run `swift Scripts/validate-traits.swift` — it must exit clean.
+7. Verify the trait builds and tests in isolation:
+
+   ```bash
+   swift build --traits <Family>
+   swift test  --traits <Family>
+   swift build --enable-all-traits
+   swift test  --enable-all-traits
+   ```
+
+`Core/` and `Internal/` files are **never** gated. CI runs `validate-traits` first and then a build/test matrix across `""`, each per-family trait, `CommonUtilities`, and `All` on macOS 15 and Linux. A new family that bypasses the wiring will fail validation before any build job runs. The pull-request template (`.github/PULL_REQUEST_TEMPLATE.md`) has a checklist that mirrors these steps.
 
 ## Testing
 
@@ -108,7 +132,8 @@ All error paths in new code must be tested:
 4. Update doc comments for changed public API
 5. Run `swift test` and confirm all tests pass
 6. Run `swift-format lint --strict` on the files you touched (and `swift-format format -i` to auto-fix) — no lint errors in changed files
-7. Describe _why_ in the PR body, not just _what_
+7. If you added or modified a command family, run `swift Scripts/validate-traits.swift` and confirm it exits clean
+8. Describe _why_ in the PR body, not just _what_
 
 ### Commit Messages
 

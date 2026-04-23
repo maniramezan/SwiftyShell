@@ -4,6 +4,11 @@ Create a strongly-typed wrapper for any command-line tool following SwiftyShell 
 
 ## Overview
 
+Every typed family ships behind its own SwiftPM **package trait**, which lets
+consumers opt in to exactly the families they need. Before writing any Swift,
+declare the trait and decide where the source files live. The full consumer
+view of the trait system is documented in <doc:SelectingCommandFamilies>.
+
 SwiftyShell provides three protocol tiers for typed command families:
 
 | Protocol | What it adds |
@@ -13,6 +18,44 @@ SwiftyShell provides three protocol tiers for typed command families:
 | ``RunnableCommandFamily`` | `command()`, `run()` |
 
 Most tools should conform to ``RunnableCommandFamily``, which inherits all three tiers.
+
+## Step 0 — Wire the Trait
+
+Before writing the family itself, set up its trait so the build can isolate it.
+
+1. **Pick a trait name** — PascalCase, matching the public type (e.g. `Curl` for a
+   `Curl` family). Unprefixed.
+2. **Declare it in `Package.swift`** by appending to the `traits:` array:
+
+   ```swift
+   .trait(name: "Curl", description: "Typed wrapper for the curl CLI."),
+   ```
+
+3. **Add the trait to the `All` umbrella's `enabledTraits`** so consumers using
+   `All` keep getting the full surface. If the family lives under
+   `Sources/SwiftyShell/Common/`, also add it to `CommonUtilities`.
+4. **Choose its location:**
+   - A standalone family directory `Sources/SwiftyShell/<Trait>/` for anything
+     non-trivial (multiple files, helpers, parsers).
+   - A single file under `Sources/SwiftyShell/Common/` for a simple POSIX
+     utility wrapper. The file name (without extension) **must** equal the
+     trait name.
+5. **Wrap every source and test file** end-to-end:
+
+   ```swift
+   #if Curl
+   // ... family code ...
+   #endif
+   ```
+
+`Scripts/validate-traits.swift` and the per-trait CI matrix enforce all of the
+above. Run it locally before opening a PR:
+
+```sh
+swift Scripts/validate-traits.swift
+swift build --traits Curl
+swift test  --traits Curl
+```
 
 ## Recommended Structure
 
@@ -212,3 +255,19 @@ For every new command family, add:
     #expect(output.isSuccess)
 }
 ```
+
+Wrap each test file in the same `#if <Trait>` gate as the family it covers.
+
+## Authoring Checklist
+
+Before opening a PR for a new command family:
+
+- [ ] Trait declared in `Package.swift` and added to the `All` umbrella
+- [ ] Source files placed in the correct location and `#if <Trait>`-wrapped
+- [ ] Tests added under the matching test directory and `#if <Trait>`-wrapped
+- [ ] `swift build --traits <Trait>` succeeds in isolation
+- [ ] `swift test --enable-all-traits` green
+- [ ] Public API documented per the rules in `AGENTS.md`
+- [ ] DocC trait table in <doc:SelectingCommandFamilies> updated
+- [ ] `swift Scripts/validate-traits.swift` clean
+- [ ] `swift-format lint --strict` clean on every touched file

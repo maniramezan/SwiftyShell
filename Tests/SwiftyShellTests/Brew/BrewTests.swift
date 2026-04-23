@@ -1,3 +1,4 @@
+#if Brew
 import Foundation
 import Testing
 @testable import SwiftyShell
@@ -175,3 +176,4 @@ struct BrewTests {
         #expect(output.exitCode == 0)
     }
 }
+#endif

@@ -11,7 +11,7 @@
     "lineBreakBeforeEachArgument": true,
     "lineBreakBeforeEachGenericRequirement": false,
     "prioritizeKeepingFunctionOutputTogether": false,
-    "indentConditionalCompilationBlocks": true,
+    "indentConditionalCompilationBlocks": false,
     "rules": {
         "UseLetInEveryBoundCaseVariable": false
     }

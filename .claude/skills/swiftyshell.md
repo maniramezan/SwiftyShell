@@ -749,6 +749,7 @@ Use this section when adding or revising command families.
 8. Prefer semantic methods like `.source(_:)`, `.destination(_:)` over raw option strings
 9. Add tests for both command building and real execution where practical
 10. **Every `public` declaration must have a `///` doc comment** — apply documentation rules from Part 2
+11. **Wire the trait** — every new family must have a matching SwiftPM trait. See Part 4.
 
 ### Recommended Structure
 
@@ -854,6 +855,63 @@ For every new command family:
 
 ---
 
+## Part 4: Package Traits — MANDATORY for new families
+
+SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0450-swiftpm-package-traits.md) so each typed command family is opt-in. The default trait set is **empty** — only `Core/` and `Internal/` types compile when no trait is selected.
+
+### Trait Inventory
+
+Declared in `Package.swift`:
+
+- **Per-family** — `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Rm`, `Mv`, `Pwd`, `Jq`. One trait per family directory; for `Common/`, one trait per file.
+- **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
+
+Consumers select families with `traits:` on `.package(...)`:
+
+```swift
+.package(url: "...", from: "0.1.0", traits: ["Git", "Grep"])
+```
+
+### Wiring Contract
+
+The contract is enforced by `Scripts/validate-traits.swift` and CI:
+
+1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
+2. Every test file targeting a gated family is wrapped the same way. Cross-family tests use combined guards (`#if Git && Grep`).
+3. Every family directory (or `Common/*.swift` file) has a matching `.trait(name:)` entry in `Package.swift`.
+4. The `All` umbrella's `enabledTraits` transitively enables every per-family trait. The `CommonUtilities` umbrella enables every `Common/*` trait.
+5. `Core/` and `Internal/` files are **never** gated.
+
+### Adding a New Family — Trait Steps
+
+In addition to the implementation steps in Part 3:
+
+1. Wrap every source file in the new family with `#if <Family> ... #endif`.
+2. Add `.trait(name: "<Family>", description: "...")` to the `traits:` array in `Package.swift`.
+3. Add `<Family>` to the `All` umbrella's `enabledTraits`. If it lives under `Common/`, also add it to `CommonUtilities`.
+4. Wrap every test file for the new family in `#if <Family>`. For cross-family tests, use combined guards.
+5. Run `swift Scripts/validate-traits.swift` — it must exit clean.
+6. Verify builds and tests under the relevant trait selections:
+
+```bash
+swift build                          # default (no trait selected)
+swift build --traits <Family>        # the new trait alone
+swift test --traits <Family>
+swift build --enable-all-traits      # full matrix
+swift test --enable-all-traits
+```
+
+### Common Mistakes
+
+- **Forgetting the `#if` wrap on test files** — the test target won't compile under selective trait sets. The validator will catch this.
+- **Adding the trait declaration but not updating `All`** — consumers that opt into `All` won't see the new family. The validator checks `All`'s transitive enablement.
+- **Gating files under `Core/` or `Internal/`** — these are always available; never wrap them in `#if`.
+- **Cross-family code in `Core/`** — `Core/` must not reference any gated type outside doc-comment code blocks. If a `Core/` type needs to call a typed family, redesign so the family extends `Core/` rather than the other way around.
+
+The pull-request template (`.github/PULL_REQUEST_TEMPLATE.md`) has a checklist that mirrors these steps. CI runs `validate-traits` first and then a build/test matrix; a new family that bypasses the wiring will fail validation before any build runs.
+
+---
+
 ## Skill Maintenance
 
 `AGENTS.md` points Codex/GPT-style assistants at this file, so the shared agent guidance lives across both files.
@@ -878,6 +936,7 @@ Before submitting any change to this codebase, verify:
 - [ ] Cross-references use ``SymbolName`` double-backtick syntax
 - [ ] `AGENTS.md` is updated if shared agent guidance changed
 - [ ] The skill file (`.claude/skills/swiftyshell.md`) is updated if public API or shared agent guidance changed
+- [ ] If a new command family was added: source + tests are wrapped in `#if <Family>`, the trait is declared in `Package.swift`, `All` (and `CommonUtilities` if applicable) include it, and `swift Scripts/validate-traits.swift` exits clean
 
 ## Hard Gate: Tests + swift-format
 

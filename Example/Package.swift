@@ -8,7 +8,10 @@ let package = Package(
     platforms: [.macOS(.v15)],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
-        .package(path: ".."),
+        // SwiftyShell ships with all command families OFF by default.
+        // Opt into the families this example actually uses via `traits:`.
+        // Add more here (e.g. "Git", "Grep", or the "All" umbrella) as needed.
+        .package(path: "..", traits: ["Ls"]),
     ],
     targets: [
         .executableTarget(
@@ -17,8 +20,7 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "SwiftyShell", package: "swiftyshell"),
             ]
-        ),
-
+        )
     ],
     swiftLanguageModes: [.v6]
 )

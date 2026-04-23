@@ -1,3 +1,4 @@
+#if Mv
 import Foundation
 
 /// A fluent wrapper for the `mv` command.
@@ -128,3 +129,4 @@ private struct State: Sendable {
         self.destinationPath = destinationPath
     }
 }
+#endif

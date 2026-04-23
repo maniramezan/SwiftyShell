@@ -1,3 +1,4 @@
+#if Git
 import Foundation
 
 /// A parsed branch entry returned by ``GitBranch/entries()``.
@@ -128,3 +129,4 @@ public struct GitDiffFileChange: Sendable, Equatable {
         self.statusCode = statusCode
     }
 }
+#endif

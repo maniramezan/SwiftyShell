@@ -1,3 +1,4 @@
+#if Jq
 import Foundation
 
 /// A named string argument passed to `jq` via `--arg`.
@@ -216,3 +217,4 @@ private struct State: Sendable {
         self.filePaths = filePaths
     }
 }
+#endif

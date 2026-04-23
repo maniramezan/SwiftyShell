@@ -1,3 +1,4 @@
+#if Git
 import Foundation
 import Testing
 @testable import SwiftyShell
@@ -253,3 +254,4 @@ private func makeTemporaryDirectoryForGitCommandTests() throws -> URL {
     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url
 }
+#endif

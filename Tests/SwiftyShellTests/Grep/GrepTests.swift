@@ -1,3 +1,4 @@
+#if Grep
 import Foundation
 import Testing
 @testable import SwiftyShell
@@ -128,3 +129,4 @@ struct GrepTests {
         return fileURL
     }
 }
+#endif

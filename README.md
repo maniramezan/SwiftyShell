@@ -32,11 +32,17 @@ let output = try await Command("my-tool", "--flag").run(in: context)
 
 ## Installation
 
-Add SwiftyShell to your `Package.swift`:
+SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0450-swiftpm-package-traits.md) so you only compile the command families you actually use. The default trait set is **empty** — `Command`, `Pipeline`, `Workflow`, and `ShellContext` are always available, and you opt in to typed wrappers like `Git`, `Brew`, or `Ls` per consumer.
+
+Add SwiftyShell to your `Package.swift` and select the families you need:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/maniramezan/SwiftyShell.git", from: "0.1.0")
+    .package(
+        url: "https://github.com/maniramezan/SwiftyShell.git",
+        from: "0.1.0",
+        traits: ["Git", "Grep"]   // pick only what you need
+    )
 ],
 targets: [
     .target(
@@ -48,22 +54,33 @@ targets: [
 ]
 ```
 
+Two umbrella traits cover common cases:
+
+- `CommonUtilities` — enables every `Common/*` family (`Ls`, `Cp`, `Mkdir`, `Rm`, `Mv`, `Pwd`, `Jq`).
+- `All` — enables every command family SwiftyShell ships.
+
+```swift
+.package(url: "...", from: "0.1.0", traits: ["All"])
+```
+
+See the [Selecting Command Families](https://maniramezan.github.io/swiftyshell/documentation/swiftyshell/selectingcommandfamilies) guide for the full trait list and recipes.
+
 ## Built-in Command Families
 
-SwiftyShell ships typed wrappers for common tools. For full API reference, examples, and guides, see the [documentation](https://maniramezan.github.io/swiftyshell/documentation/swiftyshell/).
+SwiftyShell ships typed wrappers for common tools. Each family is gated behind a trait of the same name — opt in via the `traits:` parameter on `.package(...)` (see [Installation](#installation)). For full API reference, examples, and guides, see the [documentation](https://maniramezan.github.io/swiftyshell/documentation/swiftyshell/).
 
-| Wrapper | Tool | Notes |
-|---|---|---|
-| `Git` | `git` | Structured `GitStatus`, workflow gates, concurrent fetch |
-| `Grep` | `grep` | Literal and regex patterns, recursive, case-insensitive |
-| `Brew` | `brew` | Full subcommand coverage including `--cask` and `--greedy` |
-| `Ls` | `ls` | All flags, recursive, human-readable sizes |
-| `Cp` | `cp` | Recursive, force |
-| `Mkdir` | `mkdir` | Parent directories, permissions |
-| `Rm` | `rm` | Recursive, force |
-| `Mv` | `mv` | Force |
-| `Pwd` | `pwd` | Physical and logical paths |
-| `Jq` | `jq` | Filter expressions, `--arg` bindings, raw output |
+| Wrapper | Tool | Trait | Notes |
+|---|---|---|---|
+| `Git` | `git` | `Git` | Structured `GitStatus`, workflow gates, concurrent fetch |
+| `Grep` | `grep` | `Grep` | Literal and regex patterns, recursive, case-insensitive |
+| `Brew` | `brew` | `Brew` | Full subcommand coverage including `--cask` and `--greedy` |
+| `Ls` | `ls` | `Ls` | All flags, recursive, human-readable sizes |
+| `Cp` | `cp` | `Cp` | Recursive, force |
+| `Mkdir` | `mkdir` | `Mkdir` | Parent directories, permissions |
+| `Rm` | `rm` | `Rm` | Recursive, force |
+| `Mv` | `mv` | `Mv` | Force |
+| `Pwd` | `pwd` | `Pwd` | Physical and logical paths |
+| `Jq` | `jq` | `Jq` | Filter expressions, `--arg` bindings, raw output |
 
 When the tool you need isn't listed, `Command("tool", "arg").run(in: context)` is the fluent escape hatch. If you use the same tool repeatedly, promoting it to a typed family is straightforward — see below.
 

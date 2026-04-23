@@ -7,7 +7,7 @@ Pick exactly the typed shell wrappers your project needs.
 SwiftyShell is split into a small, always-available `Core` (commands,
 pipelines, contexts, errors, executors) and a set of **opt-in** typed
 command families: ``Git``, ``Brew``, ``Grep``, and a collection of common
-file/directory utilities (``Ls``, ``Cp``, ``Mv``, ``Mkdir``, ``Rm``, ``Pwd``,
+file/directory utilities (``Ls``, ``Cp``, ``Mv``, ``Mkdir``, ``Chmod``, ``Rm``, ``Pwd``,
 ``Jq``).
 
 Each family is gated behind a SwiftPM **package trait**. By default no
@@ -50,10 +50,11 @@ let status = try await Git()
 | `Cp`               | ``Cp``                                                     |
 | `Mv`               | ``Mv``                                                     |
 | `Mkdir`            | ``Mkdir``                                                  |
+| `Chmod`            | ``Chmod``                                                  |
 | `Rm`               | ``Rm``                                                     |
 | `Pwd`              | ``Pwd``                                                    |
 | `Jq`               | ``Jq``                                                     |
-| `CommonUtilities`  | All of `Ls`, `Cp`, `Mv`, `Mkdir`, `Rm`, `Pwd`, `Jq`        |
+| `CommonUtilities`  | All of `Ls`, `Cp`, `Mv`, `Mkdir`, `Chmod`, `Rm`, `Pwd`, `Jq` |
 | `All`              | Every per-family trait above (the kitchen-sink umbrella)   |
 
 ## Common recipes

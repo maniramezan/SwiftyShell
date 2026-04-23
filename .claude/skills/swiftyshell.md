@@ -19,7 +19,7 @@ Before writing any code, follow this decision tree:
    → Use `Git`
 2. Is this a git operation NOT covered by the typed `Git` API?
    → Use `Command("git", ...)`
-3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Rm`, `Mv`, `Pwd`)?
+3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`)?
    → Use the typed wrapper
 4. Is this a `grep` or `jq` operation?
    → Use `Grep` or `Jq`
@@ -639,7 +639,15 @@ try await Command("ruby", "deploy.rb")
     .run(in: context)
 
 // File system operations
-try await Mkdir(context: context).parents().directory("/tmp/output").run()
+try await Mkdir(context: context)
+    .parents()
+    .mode(FileMode(owner: [.read, .write, .execute], group: [.read, .execute], other: [.read, .execute]))
+    .directory("/tmp/output")
+    .run()
+try await Chmod(context: context)
+    .mode(FileMode(owner: [.read, .write], group: [.read], other: [.read]))
+    .path("/tmp/output/config.json")
+    .run()
 try await Cp(context: context).recursive().source("build/").destination("/tmp/dist").run()
 try await Rm(context: context).recursive().force().path("/tmp/old-build").run()
 try await Mv(context: context).source("/tmp/output.log").destination("/var/logs/build.log").run()
@@ -863,7 +871,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Rm`, `Mv`, `Pwd`, `Jq`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:

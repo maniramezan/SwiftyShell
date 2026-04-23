@@ -24,7 +24,7 @@ Typed wrapper for the Homebrew package manager: `Brew` and `BrewSubcommand`.
 
 ### `Sources/SwiftyShell/Common/`
 
-Typed wrappers for frequently used shell utilities: `Ls`, `Cp`, `Mkdir`, `Rm`, `Mv`, `Pwd`, `Jq`, and `JqArgument`. Each follows the same fluent builder conventions as all other command families.
+Typed wrappers for frequently used shell utilities: `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, and `JqArgument`. Each follows the same fluent builder conventions as all other command families.
 
 ### `Sources/SwiftyShell/Internal/Execution/`
 
@@ -149,7 +149,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 **Trait inventory (declared in `Package.swift`):**
 
-- Per-family: `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Rm`, `Mv`, `Pwd`, `Jq` (one trait per family directory; for `Common/`, one trait per file).
+- Per-family: `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq` (one trait per family directory; for `Common/`, one trait per file).
 - Umbrellas: `CommonUtilities` (all `Common/*`), `All` (every family).
 
 **The wiring contract** — enforced by `Scripts/validate-traits.swift` and CI:

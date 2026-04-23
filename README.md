@@ -56,7 +56,7 @@ targets: [
 
 Two umbrella traits cover common cases:
 
-- `CommonUtilities` — enables every `Common/*` family (`Ls`, `Cp`, `Mkdir`, `Rm`, `Mv`, `Pwd`, `Jq`).
+- `CommonUtilities` — enables every `Common/*` family (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`).
 - `All` — enables every command family SwiftyShell ships.
 
 ```swift
@@ -77,6 +77,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Ls` | `ls` | `Ls` | All flags, recursive, human-readable sizes |
 | `Cp` | `cp` | `Cp` | Recursive, force |
 | `Mkdir` | `mkdir` | `Mkdir` | Parent directories, permissions |
+| `Chmod` | `chmod` | `Chmod` | Recursive permission updates |
 | `Rm` | `rm` | `Rm` | Recursive, force |
 | `Mv` | `mv` | `Mv` | Force |
 | `Pwd` | `pwd` | `Pwd` | Physical and logical paths |

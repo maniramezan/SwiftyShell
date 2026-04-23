@@ -22,6 +22,7 @@ let package = Package(
         .trait(name: "Ls", description: "Typed wrapper for ls."),
         .trait(name: "Cp", description: "Typed wrapper for cp."),
         .trait(name: "Mkdir", description: "Typed wrapper for mkdir."),
+        .trait(name: "Chmod", description: "Typed wrapper for chmod."),
         .trait(name: "Rm", description: "Typed wrapper for rm."),
         .trait(name: "Mv", description: "Typed wrapper for mv."),
         .trait(name: "Pwd", description: "Typed wrapper for pwd."),
@@ -30,7 +31,7 @@ let package = Package(
         .trait(
             name: "CommonUtilities",
             description: "Enables all common file/directory utility families.",
-            enabledTraits: ["Ls", "Cp", "Mkdir", "Rm", "Mv", "Pwd", "Jq"]
+            enabledTraits: ["Ls", "Cp", "Mkdir", "Chmod", "Rm", "Mv", "Pwd", "Jq"]
         ),
         // Convenience umbrella that enables every command family.
         .trait(

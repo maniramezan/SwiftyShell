@@ -5,7 +5,7 @@ Reach for a typed command family first; drop to a raw ``Command`` only when no t
 ## Overview
 
 SwiftyShell's primary API is a family of typed wrappers (``Git``, ``Grep``, ``Brew``,
-``Ls``, ``Cp``, ``Mkdir``, ``Rm``, ``Mv``, ``Pwd``, ``Jq``) that model shell tools
+``Ls``, ``Cp``, ``Mkdir``, ``Chmod``, ``Rm``, ``Mv``, ``Pwd``, ``Jq``) that model shell tools
 as Swift values. The compiler enforces which flags exist, which arguments are
 required, and what the result looks like. ``Command`` is the fluent escape hatch
 for anything not yet modelled — it shares the same builder style so code does
@@ -106,6 +106,34 @@ try await Cp(context: context).recursive().source("build/").destination("/tmp/di
 try await Mv(context: context).source("/tmp/out.log").destination("/var/log/out.log").run()
 try await Rm(context: context).recursive().force().path("/tmp/old-build").run()
 let listing = try await Ls(context: context).all().longFormat().path("/tmp").run()
+```
+
+When you need to provision a directory tree with explicit permissions, pair
+``Mkdir`` with ``Chmod``:
+
+```swift
+try await Mkdir(context: context)
+    .parents()
+    .mode(
+        FileMode(
+            owner: [.read, .write, .execute],
+            group: [.read, .execute],
+            other: [.read, .execute]
+        )
+    )
+    .directory("/tmp/output/logs")
+    .run()
+
+try await Chmod(context: context)
+    .mode(
+        FileMode(
+            owner: [.read, .write, .execute],
+            group: [.read, .execute],
+            other: [.read, .execute]
+        )
+    )
+    .path("/tmp/output/logs")
+    .run()
 ```
 
 ### Pipelines of Typed Commands

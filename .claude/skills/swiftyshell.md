@@ -15,7 +15,7 @@ This skill serves two purposes:
 
 Before writing any code, follow this decision tree:
 
-1. Is this a git operation supported by the typed `Git` API (`status()`, `pull()`, `fetch()`)?
+1. Is this a git operation supported by the typed `Git` API (`status()`, `pull()`, `fetch()`, `branch()`, `stash()`, `worktree()`, `diff()`, `log()`, `gitConfig()`, `merge()`, `commit()`, `rebase()`)?
    → Use `Git`
 2. Is this a git operation NOT covered by the typed `Git` API?
    → Use `Command("git", ...)`
@@ -186,6 +186,16 @@ public struct Git: Sendable {
     public func outputLimit(_ bytes: Int) -> Self
 
     public func status() -> GitStatusWorkflow
+    public func branch() -> GitBranch
+    public func stash() -> GitStash
+    public func worktree() -> GitWorktree
+    public func diff() -> GitDiff
+    public func log() -> GitLog
+    public func gitConfig() -> GitConfigCommand
+    public func configuration() -> GitConfigCommand
+    public func merge() -> GitMerge
+    public func commit() -> GitCommit
+    public func rebase() -> GitRebase
     public func pull() -> Workflow<GitPullResult>
     public func fetch() -> Workflow<GitFetchResult>
 }
@@ -232,6 +242,153 @@ public struct GitPullResult: Sendable {
 
 public struct GitFetchResult: Sendable {
     public var remote: String
+}
+
+public enum GitDiffFormat: Sendable, Equatable, Hashable {
+    case patch
+    case stat
+    case nameOnly
+    case nameStatus
+}
+
+public enum GitLogFormat: Sendable, Equatable, Hashable {
+    case medium
+    case oneline
+    case short
+    case pretty(String)
+}
+
+public enum GitConfigFormat: Sendable, Equatable, Hashable {
+    case defaultFormat
+    case nullTerminated
+    case showOrigin
+    case showScope
+}
+
+public struct GitBranch: RunnableCommandFamily {
+    public func list(_ enabled: Bool = true) -> Self
+    public func all(_ enabled: Bool = true) -> Self
+    public func delete(_ name: String) -> Self
+    public func forceDelete(_ name: String) -> Self
+    public func named(_ name: String) -> Self
+    public func startPoint(_ value: String) -> Self
+    public func move(to newName: String) -> Self
+    public func entries() -> Workflow<[GitBranchEntry]>
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct GitStash: RunnableCommandFamily {
+    public func push() -> Self
+    public func pop() -> Self
+    public func apply() -> Self
+    public func list() -> Self
+    public func show() -> Self
+    public func drop() -> Self
+    public func delete() -> Self
+    public func clear() -> Self
+    public func branch(_ name: String) -> Self
+    public func create() -> Self
+    public func includeUntracked(_ enabled: Bool = true) -> Self
+    public func message(_ value: String) -> Self
+    public func reference(_ value: String) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct GitWorktree: RunnableCommandFamily {
+    public func list() -> Self
+    public func add(_ path: String) -> Self
+    public func remove(_ path: String) -> Self
+    public func branch(_ value: String) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct GitDiff: RunnableCommandFamily {
+    public func format(_ value: GitDiffFormat) -> Self
+    public func staged(_ enabled: Bool = true) -> Self
+    public func range(_ value: String) -> Self
+    public func path(_ value: String) -> Self
+    public func paths(_ values: [String]) -> Self
+    public func fileChanges() -> Workflow<[GitDiffFileChange]>
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct GitLog: RunnableCommandFamily {
+    public func format(_ value: GitLogFormat) -> Self
+    public func maxCount(_ value: Int) -> Self
+    public func range(_ value: String) -> Self
+    public func entries() -> Workflow<[GitLogEntry]>
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct GitConfigCommand: RunnableCommandFamily {
+    public func get(_ key: String) -> Self
+    public func set(_ key: String, to value: String) -> Self
+    public func unset(_ key: String) -> Self
+    public func list() -> Self
+    public func local(_ enabled: Bool = true) -> Self
+    public func global(_ enabled: Bool = true) -> Self
+    public func format(_ value: GitConfigFormat) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct GitMerge: RunnableCommandFamily {
+    public func branch(_ value: String) -> Self
+    public func noFastForward(_ enabled: Bool = true) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct GitCommit: RunnableCommandFamily {
+    public func message(_ value: String) -> Self
+    public func all(_ enabled: Bool = true) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct GitRebase: RunnableCommandFamily {
+    public func onto(_ value: String) -> Self
+    public func `continue`() -> Self
+    public func abort() -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct GitBranchEntry: Sendable {
+    public let name: String
+    public let isCurrent: Bool
+    public let upstream: String?
+}
+
+public struct GitLogEntry: Sendable {
+    public let commitHash: String
+    public let abbreviatedCommitHash: String
+    public let authorName: String
+    public let authorEmail: String
+    public let subject: String
+}
+
+public enum GitDiffChangeKind: Sendable, Equatable {
+    case added
+    case modified
+    case deleted
+    case renamed
+    case copied
+    case unmerged
+    case typeChanged
+    case unknown(String)
+}
+
+public struct GitDiffFileChange: Sendable {
+    public let kind: GitDiffChangeKind
+    public let path: String
+    public let originalPath: String?
+    public let statusCode: String
 }
 ```
 

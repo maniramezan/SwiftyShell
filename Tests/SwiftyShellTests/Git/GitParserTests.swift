@@ -123,4 +123,70 @@ struct GitParserTests {
         #expect(!status.hasUnstagedChanges)
         #expect(status.hasUntrackedFiles)
     }
+
+    @Test func parsesBranchEntries() {
+        let output = """
+            *	main	origin/main
+             	feature/demo	origin/feature/demo
+             	remotes/origin/main	
+            """
+        let entries = GitParsers.parseBranchEntries(output)
+
+        #expect(
+            entries == [
+                GitBranchEntry(name: "main", isCurrent: true, upstream: "origin/main"),
+                GitBranchEntry(name: "feature/demo", isCurrent: false, upstream: "origin/feature/demo"),
+                GitBranchEntry(name: "remotes/origin/main", isCurrent: false, upstream: nil),
+            ]
+        )
+    }
+
+    @Test func parsesLogEntries() {
+        let output = """
+            abcdef1234567890\u{1F}abcdef1\u{1F}Test User\u{1F}test@example.com\u{1F}Initial commit
+            fedcba0987654321\u{1F}fedcba0\u{1F}Other User\u{1F}other@example.com\u{1F}Follow-up change
+            """
+        let entries = GitParsers.parseLogEntries(output)
+
+        #expect(
+            entries == [
+                GitLogEntry(
+                    commitHash: "abcdef1234567890",
+                    abbreviatedCommitHash: "abcdef1",
+                    authorName: "Test User",
+                    authorEmail: "test@example.com",
+                    subject: "Initial commit"
+                ),
+                GitLogEntry(
+                    commitHash: "fedcba0987654321",
+                    abbreviatedCommitHash: "fedcba0",
+                    authorName: "Other User",
+                    authorEmail: "other@example.com",
+                    subject: "Follow-up change"
+                ),
+            ]
+        )
+    }
+
+    @Test func parsesDiffFileChanges() {
+        let output = """
+            M\tREADME.md
+            A\tSources/NewFile.swift
+            R100\tOld.swift\tNew.swift
+            """
+        let changes = GitParsers.parseDiffFileChanges(output)
+
+        #expect(
+            changes == [
+                GitDiffFileChange(kind: .modified, path: "README.md", originalPath: nil, statusCode: "M"),
+                GitDiffFileChange(
+                    kind: .added,
+                    path: "Sources/NewFile.swift",
+                    originalPath: nil,
+                    statusCode: "A"
+                ),
+                GitDiffFileChange(kind: .renamed, path: "New.swift", originalPath: "Old.swift", statusCode: "R100"),
+            ]
+        )
+    }
 }

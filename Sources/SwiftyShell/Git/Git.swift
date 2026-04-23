@@ -34,6 +34,15 @@ import Foundation
 ///         print("Fetched from", result.remote)
 ///     }
 /// }
+///
+/// // Inspect recent commits in one-line format
+/// let commits = try await Git(context: context)
+///     .workingDirectory(repoPath)
+///     .log()
+///     .format(.oneline)
+///     .maxCount(5)
+///     .run()
+/// print(commits.stdout)
 /// ```
 public struct Git: ToolConfigurableCommandFamily {
     /// Shared configuration applied to commands produced by this client.
@@ -69,6 +78,56 @@ public struct Git: ToolConfigurableCommandFamily {
         )
     }
 
+    /// Returns a typed wrapper for `git branch`.
+    public func branch() -> GitBranch {
+        GitBranch(git: self)
+    }
+
+    /// Returns a typed wrapper for `git stash`.
+    public func stash() -> GitStash {
+        GitStash(git: self)
+    }
+
+    /// Returns a typed wrapper for `git worktree`.
+    public func worktree() -> GitWorktree {
+        GitWorktree(git: self)
+    }
+
+    /// Returns a typed wrapper for `git diff`.
+    public func diff() -> GitDiff {
+        GitDiff(git: self)
+    }
+
+    /// Returns a typed wrapper for `git log`.
+    public func log() -> GitLog {
+        GitLog(git: self)
+    }
+
+    /// Returns a typed wrapper for `git config`.
+    public func gitConfig() -> GitConfigCommand {
+        GitConfigCommand(git: self)
+    }
+
+    /// Returns a typed wrapper for `git config`.
+    public func configuration() -> GitConfigCommand {
+        gitConfig()
+    }
+
+    /// Returns a typed wrapper for `git merge`.
+    public func merge() -> GitMerge {
+        GitMerge(git: self)
+    }
+
+    /// Returns a typed wrapper for `git commit`.
+    public func commit() -> GitCommit {
+        GitCommit(git: self)
+    }
+
+    /// Returns a typed wrapper for `git rebase`.
+    public func rebase() -> GitRebase {
+        GitRebase(git: self)
+    }
+
     /// Builds a workflow that runs `git pull` and returns the resulting branch state.
     public func pull() -> Workflow<GitPullResult> {
         Workflow {
@@ -89,6 +148,16 @@ public struct Git: ToolConfigurableCommandFamily {
 
     internal func makeCommand(_ arguments: String...) -> Command {
         config.apply(to: Command("git").args(arguments))
+    }
+
+    internal func makeCommand(_ arguments: [String]) -> Command {
+        config.apply(to: Command("git").args(arguments))
+    }
+
+    internal func workflow(_ arguments: [String]) -> Workflow<ShellOutput> {
+        Workflow {
+            try await makeCommand(arguments).run(in: context)
+        }
     }
 
     private func preferredRemote() async throws -> String {

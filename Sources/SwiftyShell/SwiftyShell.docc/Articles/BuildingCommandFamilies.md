@@ -64,6 +64,7 @@ and a private `copy(...)` helper for fluent updates. Public state that is part
 of the API surface can be exposed via computed properties.
 
 ```swift
+#if MyTool
 import Foundation
 import SwiftyShell
 
@@ -173,6 +174,7 @@ private struct State: Sendable {
         self.inputFiles = inputFiles
     }
 }
+#endif
 ```
 
 ## Key Rules
@@ -190,6 +192,7 @@ If your type only needs configuration overrides but should not be directly runna
 ``ToolConfigurableCommandFamily`` instead:
 
 ```swift
+#if MyWorkflowClient
 public struct MyWorkflowClient: ToolConfigurableCommandFamily {
     public let config: ToolConfiguration
     public var context: ShellContext { config.context }
@@ -214,6 +217,7 @@ public struct MyWorkflowClient: ToolConfigurableCommandFamily {
         }
     }
 }
+#endif
 ```
 
 ## Adding Tests
@@ -223,6 +227,7 @@ For every new command family, add:
 1. **Builder test** — verify `command().arguments` without spawning a process:
 
 ```swift
+#if MyTool
 @Test func myToolBuildsCommand() {
     let cmd = MyTool()
         .verbose()
@@ -231,22 +236,26 @@ For every new command family, add:
 
     #expect(cmd.arguments == ["--verbose", "data.json"])
 }
+#endif
 ```
 
 2. **Mock execution test** — verify the caller handles output correctly:
 
 ```swift
+#if MyTool
 @Test func myToolParsesOutput() async throws {
     let mock = MockExecutor(stdout: "processed: 42 items\n")
     let context = ShellContext(executor: mock)
     let output = try await MyTool(context: context).inputFile("data.json").run()
     #expect(output.stdout.contains("42"))
 }
+#endif
 ```
 
 3. **Real execution test** — guarded to skip gracefully when the tool is absent:
 
 ```swift
+#if MyTool
 @Test func myToolRealExecution() async throws {
     guard (try? await Command("my-tool", "--version").run(in: .init()))?.isSuccess == true else {
         return
@@ -254,6 +263,7 @@ For every new command family, add:
     let output = try await MyTool().inputFile("fixtures/sample.json").run()
     #expect(output.isSuccess)
 }
+#endif
 ```
 
 Wrap each test file in the same `#if <Trait>` gate as the family it covers.

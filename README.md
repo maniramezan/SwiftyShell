@@ -63,11 +63,11 @@ Two umbrella traits cover common cases:
 .package(url: "...", from: "0.1.0", traits: ["All"])
 ```
 
-See the [Selecting Command Families](https://maniramezan.github.io/swiftyshell/documentation/swiftyshell/selectingcommandfamilies) guide for the full trait list and recipes.
+See the [Selecting Command Families](https://maniramezan.github.io/SwiftyShell/documentation/swiftyshell/selectingcommandfamilies) guide for the full trait list and recipes.
 
 ## Built-in Command Families
 
-SwiftyShell ships typed wrappers for common tools. Each family is gated behind a trait of the same name — opt in via the `traits:` parameter on `.package(...)` (see [Installation](#installation)). For full API reference, examples, and guides, see the [documentation](https://maniramezan.github.io/swiftyshell/documentation/swiftyshell/).
+SwiftyShell ships typed wrappers for common tools. Each family is gated behind a trait of the same name — opt in via the `traits:` parameter on `.package(...)` (see [Installation](#installation)). For full API reference, examples, and guides, see the [documentation](https://maniramezan.github.io/SwiftyShell/documentation/swiftyshell/).
 
 | Wrapper | Tool | Trait | Notes |
 |---|---|---|---|
@@ -93,7 +93,7 @@ SwiftyShell ships an agent skill at `.claude/skills/swiftyshell.md` that teaches
 
 The assistant will produce a complete `struct` conforming to `RunnableCommandFamily` — with a private `State`, fluent builder methods, a `command()` implementation that assembles `argv`, doc comments on every `public` declaration, and a unit test suite — ready to drop into `Sources/SwiftyShell/`.
 
-The skill is automatically active when you open this repo in Claude Code. See the [Using AI Assistants](https://maniramezan.github.io/swiftyshell/documentation/swiftyshell/usingaiassistants) guide in the documentation for prompt tips and examples.
+The skill is automatically active when you open this repo in Claude Code. See the [Using AI Assistants](https://maniramezan.github.io/SwiftyShell/documentation/swiftyshell/usingaiassistants) guide in the documentation for prompt tips and examples.
 
 ## Contributing
 

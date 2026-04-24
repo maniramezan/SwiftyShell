@@ -77,7 +77,7 @@ New clients must:
 
 ## Package Traits
 
-SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0450-swiftpm-package-traits.md) so each typed command family is opt-in. The default trait set is **empty** — only `Core/` and `Internal/` types compile by default. Consumers select families via `traits:` on `.package(...)`. See the [Selecting Command Families](https://maniramezan.github.io/swiftyshell/documentation/swiftyshell/selectingcommandfamilies) DocC article for the consumer-facing reference.
+SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0450-swiftpm-package-traits.md) so each typed command family is opt-in. The default trait set is **empty** — only `Core/` and `Internal/` types compile by default. Consumers select families via `traits:` on `.package(...)`. See the [Selecting Command Families](https://maniramezan.github.io/SwiftyShell/documentation/swiftyshell/selectingcommandfamilies) DocC article for the consumer-facing reference.
 
 ### When You Add a New Family
 

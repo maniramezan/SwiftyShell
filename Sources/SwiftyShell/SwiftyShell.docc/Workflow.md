@@ -10,8 +10,8 @@ A reusable asynchronous workflow that can be transformed and composed.
 
 ### Transforming
 
-- ``map(_:)-swift.method``
-- ``map(_:)-swift.keypath``
+- ``map(_:)-((Value)->T)``
+- ``map(_:)-(KeyPath<Value,T>)``
 - ``flatMap(_:)``
 - ``then(_:)``
 

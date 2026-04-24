@@ -68,6 +68,8 @@ let output = try await Command("echo", "hello").run(in: context)
 - ``ShellPlatform``
 - ``ShellOutput``
 - ``OutputDestination``
+- ``SubprocessExecutor``
+- ``FileMode``
 
 ### Error Handling
 
@@ -93,6 +95,22 @@ let output = try await Command("echo", "hello").run(in: context)
 - ``GitWorkingTreeState``
 - ``GitPullResult``
 - ``GitFetchResult``
+- ``GitBranch``
+- ``GitBranchEntry``
+- ``GitStash``
+- ``GitWorktree``
+- ``GitDiff``
+- ``GitDiffFormat``
+- ``GitDiffFileChange``
+- ``GitDiffChangeKind``
+- ``GitLog``
+- ``GitLogFormat``
+- ``GitLogEntry``
+- ``GitConfigCommand``
+- ``GitConfigFormat``
+- ``GitMerge``
+- ``GitCommit``
+- ``GitRebase``
 
 ### Text Search
 

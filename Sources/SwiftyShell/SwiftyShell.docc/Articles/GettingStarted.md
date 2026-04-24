@@ -13,21 +13,33 @@ not change shape when you fall back to it.
 
 ## Installation
 
-Add SwiftyShell to your `Package.swift`:
+SwiftyShell is split into an always-on `Core` and a set of opt-in typed command
+families. The default trait set is empty, so a fresh `import SwiftyShell`
+exposes only ``Command``, ``Pipeline``, ``Workflow``, and ``ShellContext``.
+Select the families you need via `traits:`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/maniramezan/SwiftyShell.git", branch: "main"),
+    .package(
+        url: "https://github.com/maniramezan/SwiftyShell.git",
+        from: "0.1.0",
+        traits: ["Git", "Grep"]   // pick only what you need
+    ),
 ],
 targets: [
     .target(
         name: "MyTool",
-        dependencies: ["SwiftyShell"]
+        dependencies: [
+            .product(name: "SwiftyShell", package: "SwiftyShell")
+        ]
     ),
 ]
 ```
 
-Until the first tagged release is published, depend on `branch: "main"`. Switch to `from: "<tag>"` after the first release tag is available.
+Two umbrella traits cover common cases: `CommonUtilities` enables every
+`Common/*` family (``Ls``, ``Cp``, ``Mv``, ``Mkdir``, ``Chmod``, ``Rm``,
+``Pwd``, ``Jq``), and `All` enables every family SwiftyShell ships. See
+<doc:SelectingCommandFamilies> for the full trait list and recipes.
 
 ## Shell Context
 

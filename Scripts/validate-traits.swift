@@ -94,11 +94,13 @@ func parsePackageTraits(manifestPath: String) -> (perFamily: Set<String>, umbrel
         let body = nsManifest.substring(with: match.range(at: 2))
         // Extract `enabledTraits: ["A","B"]` if present.
         let enabledPattern = #"enabledTraits:\s*\[([^\]]*)\]"#
+        let bodyRange = NSRange(location: 0, length: (body as NSString).length)
         if let enabledRegex = try? NSRegularExpression(pattern: enabledPattern),
-            let enabled = enabledRegex.firstMatch(in: body, range: NSRange(location: 0, length: (body as NSString).length))
+            let enabled = enabledRegex.firstMatch(in: body, range: bodyRange)
         {
             let listBody = (body as NSString).substring(with: enabled.range(at: 1))
-            let entries = listBody
+            let entries =
+                listBody
                 .split(separator: ",")
                 .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " \"\n\t")) }
                 .filter { !$0.isEmpty }
@@ -171,7 +173,10 @@ for child in sourceChildren {
             }
             // Rule 1: trait declared.
             if !declaredFamilyTraits.contains(basename) {
-                fail(file, "Common family `\(basename)` is missing a `.trait(name: \"\(basename)\")` entry in Package.swift.")
+                fail(
+                    file,
+                    "Common family `\(basename)` is missing a `.trait(name: \"\(basename)\")` entry in Package.swift."
+                )
             }
         }
     } else {
@@ -179,7 +184,10 @@ for child in sourceChildren {
         filesystemFamilies.insert(child)
         // Rule 1: trait declared.
         if !declaredFamilyTraits.contains(child) {
-            fail(childPath, "Family directory `\(child)` is missing a `.trait(name: \"\(child)\")` entry in Package.swift.")
+            fail(
+                childPath,
+                "Family directory `\(child)` is missing a `.trait(name: \"\(child)\")` entry in Package.swift."
+            )
         }
         // Rule 3: every file wrapped.
         for file in swiftFiles(in: childPath) {
@@ -192,7 +200,11 @@ for child in sourceChildren {
 
 // Rule 2 (reverse): every declared per-family trait must have a corresponding family.
 for trait in declaredFamilyTraits where !filesystemFamilies.contains(trait) {
-    fail(packageManifestPath, "Trait `\(trait)` is declared in Package.swift but no matching family directory or Common/<\(trait)>.swift exists.")
+    fail(
+        packageManifestPath,
+        "Trait `\(trait)` is declared in Package.swift but no matching family directory "
+            + "or Common/<\(trait)>.swift exists."
+    )
 }
 
 // Rule 4: tests must exist and be wrapped.
@@ -208,7 +220,11 @@ for trait in declaredFamilyTraits.sorted() {
     } else if isDirectory(commonTestDir) {
         candidateDir = commonTestDir
     } else {
-        fail(testsRoot, "No test directory exists for family `\(trait)` (expected `\(standaloneTestDir)` or `\(commonTestDir)`).")
+        fail(
+            testsRoot,
+            "No test directory exists for family `\(trait)` "
+                + "(expected `\(standaloneTestDir)` or `\(commonTestDir)`)."
+        )
         continue
     }
 
@@ -216,7 +232,11 @@ for trait in declaredFamilyTraits.sorted() {
     let matching = testFiles.filter { (($0 as NSString).lastPathComponent).contains(trait) }
 
     if matching.isEmpty {
-        fail(candidateDir, "No test file mentions family `\(trait)` in its name. Add a `\(trait)Tests.swift` (or similar) and wrap it in `#if \(trait)`.")
+        fail(
+            candidateDir,
+            "No test file mentions family `\(trait)` in its name. "
+                + "Add a `\(trait)Tests.swift` (or similar) and wrap it in `#if \(trait)`."
+        )
     }
 
     for file in matching where !isWrapped(filePath: file, trait: trait) {
@@ -239,12 +259,16 @@ func resolveUmbrella(_ name: String, visited: inout Set<String>) -> Set<String> 
     return result
 }
 
-if let _ = umbrellas["All"] {
+if umbrellas["All"] != nil {
     var visited = Set<String>()
     let reachable = resolveUmbrella("All", visited: &visited)
     let missing = declaredFamilyTraits.subtracting(reachable)
     if !missing.isEmpty {
-        fail(packageManifestPath, "The `All` umbrella trait does not enable: \(missing.sorted().joined(separator: ", ")). Update `enabledTraits` so consumers using `All` get the full surface.")
+        fail(
+            packageManifestPath,
+            "The `All` umbrella trait does not enable: \(missing.sorted().joined(separator: ", ")). "
+                + "Update `enabledTraits` so consumers using `All` get the full surface."
+        )
     }
 } else {
     fail(packageManifestPath, "The `All` umbrella trait is missing from Package.swift.")

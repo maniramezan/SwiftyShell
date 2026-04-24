@@ -99,6 +99,10 @@ The skill is automatically active when you open this repo in Claude Code. See th
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, style guidelines, and pull request requirements. In short: every change must pass `swift test` **and** `swift-format lint --strict` before it is considered done.
 
+## Changelog
+
+Release notes live in [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 SwiftyShell is available under the MIT license. See [LICENSE](LICENSE) for details.

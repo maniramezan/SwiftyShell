@@ -151,7 +151,7 @@ task.cancel()
 // The task throws ShellError.cancelled(command:partialOutput:)
 ```
 
-Standard Swift structured-concurrency cancellation (``withTaskCancellationHandler``, task groups, `Task.checkCancellation()`) also propagates automatically.
+Standard Swift structured-concurrency cancellation (`withTaskCancellationHandler`, task groups, `Task.checkCancellation()`) also propagates automatically.
 
 #### `workflowConditionFailed`
 

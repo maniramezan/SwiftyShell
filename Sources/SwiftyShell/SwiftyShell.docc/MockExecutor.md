@@ -11,11 +11,10 @@ A test-double implementation of ``CommandExecutor`` that returns caller-controll
 
 ### Executing
 
-- ``execute(_:in:)-swift.method``
-- ``execute(_:in:)-swift.pipeline``
+- ``execute(_:in:)-(Command,_)``
+- ``execute(_:in:)-(Pipeline,_)``
 
 ### Related Types
 
 - ``CommandExecutor``
-- ``ShellContext``
 - ``ShellOutput``

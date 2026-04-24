@@ -6,12 +6,17 @@ A fluent wrapper for the Homebrew package manager.
 
 ### Selecting a Subcommand
 
-- ``install(_:)-swift.method``
-- ``uninstall(_:)-swift.method``
-- ``upgrade(_:)-swift.method``
+- ``install(_:)-(String...)``
+- ``install(_:)-([String])``
+- ``uninstall(_:)-(String...)``
+- ``uninstall(_:)-([String])``
+- ``upgrade(_:)-(String...)``
+- ``upgrade(_:)-([String])``
 - ``update()``
-- ``list(_:)-swift.method``
-- ``info(_:)-swift.method``
+- ``list(_:)-(String...)``
+- ``list(_:)-([String])``
+- ``info(_:)-(String...)``
+- ``info(_:)-([String])``
 - ``search(_:)``
 - ``outdated()``
 

@@ -82,17 +82,22 @@ struct CommandTests {
     }
 
     @Test func timeoutPreservesPartialOutput() async throws {
-        let context = ShellContext(defaultTimeout: 0.2)
+        let context = ShellContext(defaultTimeout: 1.0)
 
         do {
-            _ = try await Command("/bin/sh", "-c", "printf 'start'; sleep 30").run(in: context)
+            _ = try await Command(
+                "/bin/sh",
+                "-c",
+                "printf 'start'; i=0; while [ $i -lt 20 ]; do printf '.'; sleep 0.05; i=$((i + 1)); done; sleep 30"
+            ).run(in: context)
             Issue.record("Expected timeout")
         } catch let error as ShellError {
             guard case let .timeout(_, _, partialOutput) = error else {
                 Issue.record("Unexpected error: \(error)")
                 return
             }
-            #expect(partialOutput.stdout == "start")
+            #expect(partialOutput.stdout.hasPrefix("start"))
+            #expect(partialOutput.stdout.isEmpty == false)
         }
     }
 

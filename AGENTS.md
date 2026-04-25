@@ -12,7 +12,7 @@ The execution primitives: `Command`, `Pipeline`, `ShellContext`, `ShellPlatform`
 
 ### `Sources/SwiftyShell/Git/`
 
-Typed git client: `Git`, `GitStatus`, `GitStatusWorkflow`, `GitPullResult`, `GitFetchResult`, `GitWorkingTreeState`, and the internal `GitParsers` porcelain v2 parser.
+Typed git client: `Git`, `GitStatus`, `GitStatusWorkflow`, `GitSubmodule`, `GitSubmoduleStatusEntry`, `GitPullResult`, `GitFetchResult`, `GitWorkingTreeState`, and the internal `GitParsers` porcelain v2 parser.
 
 ### `Sources/SwiftyShell/Grep/`
 
@@ -46,6 +46,8 @@ Test suite. Sub-folders mirror the source layout: `Brew/`, `Common/`, `Core/`, `
 
 `validate-traits.swift` — single-file Swift script that enforces the trait wiring contract: every gated source/test file is wrapped in the matching `#if <Trait>`, every family directory has a corresponding trait declaration in `Package.swift`, and the `All` umbrella transitively enables every per-family trait. CI runs this before any build job; run it locally with `swift Scripts/validate-traits.swift`.
 
+`validate-docc-coverage.swift` — single-file Swift script that enforces authored DocC coverage: every public top-level symbol must be linked from the DocC catalog, and every public command family must have user-facing DocC with Swift examples and a topics section. CI runs this before build/test jobs; run it locally with `swift Scripts/validate-docc-coverage.swift`.
+
 ### `Example/`
 
 A standalone SwiftPM executable package that demonstrates real SwiftyShell usage. Depends on SwiftyShell via a local path reference.
@@ -67,6 +69,10 @@ swift build
 # Run all tests
 swift test
 
+# Validate trait wiring and authored DocC coverage
+swift Scripts/validate-traits.swift
+swift Scripts/validate-docc-coverage.swift
+
 # Build for release
 swift build -c release
 
@@ -84,7 +90,9 @@ Do not mark a task complete, declare work finished, or hand back to the user unt
 
 1. `swift test` — all tests green.
 2. `swift-format lint --strict` — no errors on the files you touched. If you just wrote new Swift, run `swift-format format -i <file>` first so auto-fixable issues are corrected, then re-lint to confirm.
-3. `swift package --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
+3. `swift Scripts/validate-traits.swift` — package trait wiring remains valid.
+4. `swift Scripts/validate-docc-coverage.swift` — authored DocC coverage remains valid.
+5. `swift package --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
 
 This applies to any code change (new command families, bug fixes, doc snippets that live in Swift, tests). Do not skip either gate. If a lint rule feels wrong for a specific construct, propose a `.swift-format` change in the same PR rather than bypassing the check.
 
@@ -119,6 +127,8 @@ This applies to:
 5. Include a code example in the type-level doc for all types that are primary API surface
 
 **When you add or modify any public declaration, write or update its doc comment in the same change. Do not leave undocumented public API.**
+
+**When you add or modify any public code, command family, command method, workflow, parser result, or reusable behavior, update authored DocC in `Sources/SwiftyShell/SwiftyShell.docc/` in the same change.** Doc comments alone are not enough. New public symbols must be discoverable from DocC pages, and every public command family must have user-facing DocC with realistic Swift examples and a `## Topics` section.
 
 Verify your work: after editing, scan the file for `public ` lines without a preceding `///` line.
 

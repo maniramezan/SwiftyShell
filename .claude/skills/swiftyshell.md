@@ -15,7 +15,7 @@ This skill serves two purposes:
 
 Before writing any code, follow this decision tree:
 
-1. Is this a git operation supported by the typed `Git` API (`status()`, `pull()`, `fetch()`, `branch()`, `stash()`, `worktree()`, `diff()`, `log()`, `gitConfig()`, `merge()`, `commit()`, `rebase()`)?
+1. Is this a git operation supported by the typed `Git` API (`status()`, `pull()`, `fetch()`, `branch()`, `stash()`, `worktree()`, `submodule()`, `diff()`, `log()`, `gitConfig()`, `merge()`, `commit()`, `rebase()`)?
    → Use `Git`
 2. Is this a git operation NOT covered by the typed `Git` API?
    → Use `Command("git", ...)`
@@ -189,6 +189,7 @@ public struct Git: Sendable {
     public func branch() -> GitBranch
     public func stash() -> GitStash
     public func worktree() -> GitWorktree
+    public func submodule() -> GitSubmodule
     public func diff() -> GitDiff
     public func log() -> GitLog
     public func gitConfig() -> GitConfigCommand
@@ -305,6 +306,57 @@ public struct GitWorktree: RunnableCommandFamily {
     public func run() async throws -> ShellOutput
 }
 
+public enum GitSubmoduleUpdateStrategy: Sendable, Equatable, Hashable {
+    case checkout
+    case rebase
+    case merge
+}
+
+public struct GitSubmodule: RunnableCommandFamily {
+    public func add(_ repository: String, path: String? = nil) -> Self
+    public func status() -> Self
+    public func initialize() -> Self
+    public func deinitialize() -> Self
+    public func update() -> Self
+    public func setBranch(_ branch: String, path: String) -> Self
+    public func resetBranch(path: String) -> Self
+    public func setUrl(path: String, to newURL: String) -> Self
+    public func summary() -> Self
+    public func foreach(_ command: String) -> Self
+    public func sync() -> Self
+    public func absorbGitDirectories() -> Self
+    public func quiet(_ enabled: Bool = true) -> Self
+    public func cached(_ enabled: Bool = true) -> Self
+    public func recursive(_ enabled: Bool = true) -> Self
+    public func force(_ enabled: Bool = true) -> Self
+    public func progress(_ enabled: Bool = true) -> Self
+    public func all(_ enabled: Bool = true) -> Self
+    public func branch(_ value: String) -> Self
+    public func name(_ value: String) -> Self
+    public func reference(_ repository: String) -> Self
+    public func dissociate(_ enabled: Bool = true) -> Self
+    public func refFormat(_ value: String) -> Self
+    public func depth(_ value: Int) -> Self
+    public func initializeOnUpdate(_ enabled: Bool = true) -> Self
+    public func remote(_ enabled: Bool = true) -> Self
+    public func noFetch(_ enabled: Bool = true) -> Self
+    public func updateStrategy(_ value: GitSubmoduleUpdateStrategy) -> Self
+    public func jobs(_ value: Int) -> Self
+    public func singleBranch(_ enabled: Bool = true) -> Self
+    public func noSingleBranch(_ enabled: Bool = true) -> Self
+    public func recommendShallow(_ enabled: Bool = true) -> Self
+    public func noRecommendShallow(_ enabled: Bool = true) -> Self
+    public func filter(_ value: String) -> Self
+    public func files(_ enabled: Bool = true) -> Self
+    public func summaryLimit(_ value: Int) -> Self
+    public func summaryCommit(_ value: String) -> Self
+    public func path(_ value: String) -> Self
+    public func paths(_ values: [String]) -> Self
+    public func statusEntries() -> Workflow<[GitSubmoduleStatusEntry]>
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
 public struct GitDiff: RunnableCommandFamily {
     public func format(_ value: GitDiffFormat) -> Self
     public func staged(_ enabled: Bool = true) -> Self
@@ -389,6 +441,21 @@ public struct GitDiffFileChange: Sendable {
     public let path: String
     public let originalPath: String?
     public let statusCode: String
+}
+
+public enum GitSubmoduleStatusState: Sendable, Equatable, Hashable {
+    case current
+    case uninitialized
+    case outOfSync
+    case mergeConflicted
+    case unknown(String)
+}
+
+public struct GitSubmoduleStatusEntry: Sendable {
+    public let state: GitSubmoduleStatusState
+    public let commitHash: String
+    public let path: String
+    public let description: String?
 }
 ```
 
@@ -732,7 +799,9 @@ let status = try await Git(context: context).status().run()
 
 ## Part 2: Documentation Requirements — MANDATORY
 
-**Every public declaration must have a `///` doc comment. This is a hard requirement, not a suggestion.**
+**Every public declaration must have a `///` doc comment and authored DocC coverage. This is a hard requirement, not a suggestion.**
+
+Doc comments are necessary but not sufficient. When adding or changing public code, command families, command methods, workflows, parser results, or reusable behavior, update `Sources/SwiftyShell/SwiftyShell.docc/` in the same change with discoverable, user-facing documentation and realistic Swift examples.
 
 ### What Requires a Doc Comment
 
@@ -748,11 +817,14 @@ let status = try await Git(context: context).status().run()
 2. **Method-level docs** — explain what the method _does_; call out any non-obvious side effects or semantics
 3. **Parameter docs** — use `- Parameter name:` for non-trivial parameters; `- Returns:` when the return value isn't obvious; `- Throws:` listing the `ShellError` cases that can be thrown
 4. **Cross-references** — use ``SymbolName`` double-backtick syntax to link related types
-5. **Examples** — include `///` code fences (` ``` swift `) in type-level docs for all public-facing types
+5. **Examples in doc comments** — include `///` code fences (` ``` swift `) in type-level docs for all public-facing types
+6. **Authored DocC** — link every public top-level symbol from a `.docc` Markdown page
+7. **Command family DocC** — every public command family must have a dedicated or grouped DocC page with realistic Swift examples and a `## Topics` section
+8. **No command without docs** — do not add a new command family, fluent command method, typed workflow, or structured result without adding or updating DocC examples that show how users should call it
 
 ### Verification Step
 
-After writing or modifying any Swift file, scan every line that starts with `public ` and confirm it is immediately preceded (allowing for `@` attributes and blank lines) by a `///` doc comment. If any are missing, add them before finishing.
+After writing or modifying any Swift file, scan every line that starts with `public ` and confirm it is immediately preceded (allowing for `@` attributes and blank lines) by a `///` doc comment. Then run `swift Scripts/validate-docc-coverage.swift` to confirm public symbols and command families are covered by authored DocC. If anything is missing, add it before finishing.
 
 ### Example of Correct Documentation
 
@@ -805,7 +877,8 @@ Use this section when adding or revising command families.
 8. Prefer semantic methods like `.source(_:)`, `.destination(_:)` over raw option strings
 9. Add tests for both command building and real execution where practical
 10. **Every `public` declaration must have a `///` doc comment** — apply documentation rules from Part 2
-11. **Wire the trait** — every new family must have a matching SwiftPM trait. See Part 4.
+11. **Add authored DocC** — every new command family or public command method must be documented in `Sources/SwiftyShell/SwiftyShell.docc/` with practical Swift examples and topic links
+12. **Wire the trait** — every new family must have a matching SwiftPM trait. See Part 4.
 
 ### Recommended Structure
 
@@ -990,6 +1063,8 @@ Before submitting any change to this codebase, verify:
 - [ ] Non-trivial parameters have `- Parameter name:` documentation
 - [ ] Methods that throw list the `ShellError` cases they can throw with `- Throws:`
 - [ ] Cross-references use ``SymbolName`` double-backtick syntax
+- [ ] Authored DocC links every new public symbol and includes practical examples for every new command family or command method
+- [ ] `swift Scripts/validate-docc-coverage.swift` exits clean
 - [ ] `AGENTS.md` is updated if shared agent guidance changed
 - [ ] The skill file (`.claude/skills/swiftyshell.md`) is updated if public API or shared agent guidance changed
 - [ ] If a new command family was added: source + tests are wrapped in `#if <Family>`, the trait is declared in `Package.swift`, `All` (and `CommonUtilities` if applicable) include it, and `swift Scripts/validate-traits.swift` exits clean
@@ -1000,6 +1075,7 @@ A change is not done — do not declare completion, open a PR, or hand back to t
 
 1. `swift test` — all tests green.
 2. `swift-format lint --strict` — no errors on changed files. For new Swift, run `swift-format format -i <file>` first to auto-fix, then re-lint.
-3. `swift package --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
+3. `swift Scripts/validate-docc-coverage.swift` — authored DocC links and command-family examples are present.
+4. `swift package --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
 
 The repo ships a `.swift-format` config at the root; use it. The tree is currently fully compliant (`swift-format lint --strict --recursive Sources Tests` exits clean) — keep it that way. If a lint rule is genuinely wrong for a specific construct, update `.swift-format` in the same change rather than skipping the gate.

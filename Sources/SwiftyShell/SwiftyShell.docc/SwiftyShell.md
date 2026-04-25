@@ -70,6 +70,8 @@ let output = try await Command("echo", "hello").run(in: context)
 - ``OutputDestination``
 - ``SubprocessExecutor``
 - ``FileMode``
+- ``FileMode/PermissionSet``
+- ``FileMode/SpecialBits``
 
 ### Error Handling
 
@@ -99,6 +101,10 @@ let output = try await Command("echo", "hello").run(in: context)
 - ``GitBranchEntry``
 - ``GitStash``
 - ``GitWorktree``
+- ``GitSubmodule``
+- ``GitSubmoduleUpdateStrategy``
+- ``GitSubmoduleStatusEntry``
+- ``GitSubmoduleStatusState``
 - ``GitDiff``
 - ``GitDiffFormat``
 - ``GitDiffFileChange``

@@ -2,6 +2,21 @@
 
 A fluent wrapper for the Homebrew package manager.
 
+```swift
+try await Brew(context: context)
+    .install("ripgrep", "fzf")
+    .run()
+
+let outdated = try await Brew(context: context)
+    .outdated()
+    .greedy()
+    .run()
+
+let info = try await Brew(context: context)
+    .info("swift-format")
+    .run()
+```
+
 ## Topics
 
 ### Selecting a Subcommand

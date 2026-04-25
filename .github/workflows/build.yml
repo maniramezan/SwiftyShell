@@ -19,6 +19,18 @@ jobs:
       - name: Validate trait wiring
         run: swift Scripts/validate-traits.swift
 
+  validate-docc-coverage:
+    name: Validate DocC Coverage
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
+      - name: Validate authored DocC coverage
+        run: swift Scripts/validate-docc-coverage.swift
+
   lint:
     name: swift-format lint
     runs-on: macos-15
@@ -54,7 +66,7 @@ jobs:
 
   build-macos:
     name: macOS (traits=${{ matrix.traits }})
-    needs: [validate-traits, lint, docc]
+    needs: [validate-traits, validate-docc-coverage, lint, docc]
     runs-on: macos-15
     strategy:
       fail-fast: false
@@ -86,7 +98,7 @@ jobs:
 
   build-linux:
     name: Linux (traits=${{ matrix.traits }})
-    needs: [validate-traits, lint, docc]
+    needs: [validate-traits, validate-docc-coverage, lint, docc]
     runs-on: ubuntu-latest
     container:
       image: swift:6.1

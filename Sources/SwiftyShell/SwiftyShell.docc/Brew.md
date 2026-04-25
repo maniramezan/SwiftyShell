@@ -6,6 +6,8 @@ A fluent wrapper for the Homebrew package manager.
 
 ### Selecting a Subcommand
 
+- ``subcommand(_:)-(BrewSubcommand)``
+- ``subcommand(_:)-(String)``
 - ``install(_:)-(String...)``
 - ``install(_:)-([String])``
 - ``uninstall(_:)-(String...)``
@@ -22,6 +24,8 @@ A fluent wrapper for the Homebrew package manager.
 
 ### Adding Formulae and Casks
 
+- ``arg(_:)``
+- ``args(_:)``
 - ``formula(_:)``
 - ``formulae(_:)``
 

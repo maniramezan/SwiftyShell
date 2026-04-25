@@ -19,7 +19,7 @@ Initial public release.
 - `FileMode` value type for typed POSIX permissions with owner/group/other permission sets and special bits.
 - Typed command families, each gated behind a SwiftPM package trait:
   - `Git` — `git status` with `porcelain=v2` parsing, `GitStatusWorkflow` gates, `pull`, `fetch`, `branch`, `stash`, `worktree`, `diff`, `log`, `config`, `merge`, `commit`, `rebase`.
-  - `Brew` — full Homebrew subcommand coverage including `--cask` and `--greedy`.
+  - `Brew` — full top-level Homebrew subcommand coverage including `--cask` and `--greedy`.
   - `Grep` — literal and extended-regex patterns, recursive, case-insensitive, line numbers, counts, invert match.
   - `Common/*` — `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`.
 - Umbrella traits: `CommonUtilities` (all `Common/*` families) and `All` (every family).

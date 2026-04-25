@@ -492,20 +492,66 @@ public struct Pwd: RunnableCommandFamily {
 
 ```swift
 public enum BrewSubcommand: Sendable, Equatable, Hashable {
+    case alias
+    case analytics
+    case autoremove
+    case bundle
+    case casks
+    case cleanup
+    case command
+    case commands
+    case completions
+    case config
+    case deps
+    case desc
+    case developer
+    case docs
+    case doctor
+    case fetch
+    case formulae
+    case gistLogs
+    case help
+    case home
     case install
-    case uninstall
-    case upgrade
-    case update
+    case leaves
+    case link
     case list
+    case log
+    case migrate
+    case missing
+    case options
     case info
-    case search
     case outdated
+    case pin
+    case postinstall
+    case readall
+    case reinstall
+    case search
+    case services
+    case shellenv
+    case source
+    case tap
+    case tapInfo
+    case unalias
+    case uninstall
+    case unlink
+    case unpin
+    case untap
+    case update
+    case updateIfNeeded
+    case updateReset
+    case upgrade
+    case uses
+    case whichFormula
+    case custom(String)
 }
 
 public struct Brew: RunnableCommandFamily {
     public init(context: ShellContext = .init())
 
     // Subcommand selectors (defaults to `.list`)
+    public func subcommand(_ value: BrewSubcommand) -> Self
+    public func subcommand(_ value: String) -> Self
     public func install(_ formulae: String...) -> Self
     public func install(_ formulae: [String]) -> Self
     public func uninstall(_ formulae: String...) -> Self
@@ -520,7 +566,9 @@ public struct Brew: RunnableCommandFamily {
     public func search(_ pattern: String) -> Self
     public func outdated() -> Self
 
-    // Additional positional args
+    // Additional positional args and command-specific flags
+    public func arg(_ value: String) -> Self
+    public func args(_ values: [String]) -> Self
     public func formula(_ name: String) -> Self
     public func formulae(_ names: [String]) -> Self
 
@@ -946,11 +994,12 @@ Before submitting any change to this codebase, verify:
 - [ ] The skill file (`.claude/skills/swiftyshell.md`) is updated if public API or shared agent guidance changed
 - [ ] If a new command family was added: source + tests are wrapped in `#if <Family>`, the trait is declared in `Package.swift`, `All` (and `CommonUtilities` if applicable) include it, and `swift Scripts/validate-traits.swift` exits clean
 
-## Hard Gate: Tests + swift-format
+## Hard Gate: Tests + swift-format + DocC
 
-A change is not done — do not declare completion, open a PR, or hand back to the user — until both of the following pass on every file you touched:
+A change is not done — do not declare completion, open a PR, or hand back to the user — until these gates pass on every file you touched:
 
 1. `swift test` — all tests green.
 2. `swift-format lint --strict` — no errors on changed files. For new Swift, run `swift-format format -i <file>` first to auto-fix, then re-lint.
+3. `swift package --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
 
 The repo ships a `.swift-format` config at the root; use it. The tree is currently fully compliant (`swift-format lint --strict --recursive Sources Tests` exits clean) — keep it that way. If a lint rule is genuinely wrong for a specific construct, update `.swift-format` in the same change rather than skipping the gate.

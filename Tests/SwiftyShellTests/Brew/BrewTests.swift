@@ -93,6 +93,77 @@ struct BrewTests {
         #expect(command.arguments == ["outdated", "--greedy"])
     }
 
+    @Test func buildsModeledSubcommandsThroughGenericSelector() {
+        let cases: [(BrewSubcommand, String)] = [
+            (.alias, "alias"),
+            (.analytics, "analytics"),
+            (.autoremove, "autoremove"),
+            (.bundle, "bundle"),
+            (.casks, "casks"),
+            (.cleanup, "cleanup"),
+            (.command, "command"),
+            (.commands, "commands"),
+            (.completions, "completions"),
+            (.config, "config"),
+            (.deps, "deps"),
+            (.desc, "desc"),
+            (.developer, "developer"),
+            (.docs, "docs"),
+            (.doctor, "doctor"),
+            (.fetch, "fetch"),
+            (.formulae, "formulae"),
+            (.gistLogs, "gist-logs"),
+            (.help, "help"),
+            (.home, "home"),
+            (.install, "install"),
+            (.leaves, "leaves"),
+            (.link, "link"),
+            (.list, "list"),
+            (.log, "log"),
+            (.migrate, "migrate"),
+            (.missing, "missing"),
+            (.options, "options"),
+            (.info, "info"),
+            (.outdated, "outdated"),
+            (.pin, "pin"),
+            (.postinstall, "postinstall"),
+            (.readall, "readall"),
+            (.reinstall, "reinstall"),
+            (.search, "search"),
+            (.services, "services"),
+            (.shellenv, "shellenv"),
+            (.source, "source"),
+            (.tap, "tap"),
+            (.tapInfo, "tap-info"),
+            (.unalias, "unalias"),
+            (.uninstall, "uninstall"),
+            (.unlink, "unlink"),
+            (.unpin, "unpin"),
+            (.untap, "untap"),
+            (.update, "update"),
+            (.updateIfNeeded, "update-if-needed"),
+            (.updateReset, "update-reset"),
+            (.upgrade, "upgrade"),
+            (.uses, "uses"),
+            (.whichFormula, "which-formula"),
+        ]
+
+        for (subcommand, expected) in cases {
+            let command = Brew().subcommand(subcommand).command()
+            #expect(command.arguments == [expected])
+        }
+    }
+
+    @Test func buildsCustomSubcommandWithRawArguments() {
+        let command = Brew()
+            .subcommand("external-command")
+            .arg("--flag")
+            .args(["value", "extra"])
+            .command()
+
+        #expect(command.arguments == ["external-command", "--flag", "value", "extra"])
+    }
+
     @Test func buildsListCommandWithCaskAndVerbose() {
         let command = Brew()
             .list()

@@ -73,7 +73,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 |---|---|---|---|
 | `Git` | `git` | `Git` | Structured `GitStatus`, workflow gates, concurrent fetch |
 | `Grep` | `grep` | `Grep` | Literal and regex patterns, recursive, case-insensitive |
-| `Brew` | `brew` | `Brew` | Full subcommand coverage including `--cask` and `--greedy` |
+| `Brew` | `brew` | `Brew` | Full top-level subcommand coverage, plus `--cask` and `--greedy` |
 | `Ls` | `ls` | `Ls` | All flags, recursive, human-readable sizes |
 | `Cp` | `cp` | `Cp` | Recursive, force |
 | `Mkdir` | `mkdir` | `Mkdir` | Parent directories, permissions |

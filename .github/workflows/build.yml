@@ -34,9 +34,27 @@ jobs:
       - name: swift-format lint --strict
         run: swift-format lint --strict --recursive Sources Tests Scripts
 
+  docc:
+    name: Build DocC
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
+      - name: Build documentation
+        run: |
+          swift package --allow-writing-to-directory docs \
+            generate-documentation \
+            --target SwiftyShell \
+            --output-path docs \
+            --transform-for-static-hosting \
+            --hosting-base-path SwiftyShell
+
   build-macos:
     name: macOS (traits=${{ matrix.traits }})
-    needs: [validate-traits, lint]
+    needs: [validate-traits, lint, docc]
     runs-on: macos-15
     strategy:
       fail-fast: false
@@ -68,7 +86,7 @@ jobs:
 
   build-linux:
     name: Linux (traits=${{ matrix.traits }})
-    needs: [validate-traits, lint]
+    needs: [validate-traits, lint, docc]
     runs-on: ubuntu-latest
     container:
       image: swift:6.1

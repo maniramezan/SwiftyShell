@@ -30,12 +30,13 @@ The GitHub Actions matrix runs both macOS and Linux jobs. If you are changing ex
 
 ### Definition of Done
 
-Every change — human- or agent-authored, including docs-only edits that touch Swift snippets — must satisfy both gates before it is considered done:
+Every change — human- or agent-authored, including docs-only edits that touch Swift snippets — must satisfy these gates before it is considered done:
 
 1. **Tests pass** — `swift test` is green.
 2. **Format is clean** — `swift-format lint --strict --recursive <paths-you-touched>` reports no errors, and any newly written Swift passes `swift-format format -i <file>` without a subsequent lint complaint.
+3. **DocC builds when needed** — if you changed public API or DocC content, run `swift package --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell`.
 
-Do not open a PR, mark work complete, or ask for review until both commands succeed on the files you changed. If the format rules feel wrong for a specific construct, change `.swift-format` in the same PR and explain why — don't bypass the gate.
+Do not open a PR, mark work complete, or ask for review until the relevant commands succeed on the files you changed. If the format rules feel wrong for a specific construct, change `.swift-format` in the same PR and explain why — don't bypass the gate.
 
 The tree is currently fully compliant with `.swift-format`; `swift-format lint --strict --recursive Sources Tests` exits clean. Keep it that way.
 
@@ -132,8 +133,9 @@ All error paths in new code must be tested:
 4. Update doc comments for changed public API
 5. Run `swift test` and confirm all tests pass
 6. Run `swift-format lint --strict` on the files you touched (and `swift-format format -i` to auto-fix) — no lint errors in changed files
-7. If you added or modified a command family, run `swift Scripts/validate-traits.swift` and confirm it exits clean
-8. Describe _why_ in the PR body, not just _what_
+7. If you changed public API or DocC content, run the DocC generation command from the Definition of Done and update DocC where needed
+8. If you added or modified a command family, run `swift Scripts/validate-traits.swift` and confirm it exits clean
+9. Describe _why_ in the PR body, not just _what_
 
 ### Commit Messages
 

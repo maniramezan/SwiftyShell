@@ -1,0 +1,43 @@
+name: Feature Request
+description: Suggest a command family, API, or documentation improvement
+title: "Feature: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that SwiftyShell does not support well today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe the API, command family, or documentation change you want.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example Usage
+      description: If this is an API request, show the Swift code you would like to write.
+      render: swift
+  - type: dropdown
+    id: trait
+    attributes:
+      label: Command Family Area
+      options:
+        - Core
+        - Git
+        - Brew
+        - Grep
+        - CommonUtilities
+        - Jq
+        - Documentation
+        - Other
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: How are you solving this today?

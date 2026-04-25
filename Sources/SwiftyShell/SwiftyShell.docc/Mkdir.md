@@ -5,6 +5,11 @@ A fluent wrapper for creating directories with `mkdir`.
 Use ``parents(_:)`` for nested directory creation and ``mode(_:)-(FileMode)``
 when a directory should be created with explicit POSIX permissions.
 
+This creates `/tmp/swiftyshell/logs`, creating missing parent directories as
+needed. The typed ``FileMode`` makes the intended permissions readable at the
+call site: owner can read, write, and execute; group and others can read and
+execute.
+
 ```swift
 try await Mkdir(context: context)
     .parents()

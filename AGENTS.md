@@ -79,7 +79,7 @@ swift build -c release
 # Run a single test file by class name
 swift test --filter CommandTests
 
-# Format (in place) and lint
+# Format (in place) and lint Swift sources
 swift-format format -i <file(s)>
 swift-format lint --strict --recursive <path(s)>
 ```
@@ -89,14 +89,14 @@ swift-format lint --strict --recursive <path(s)>
 Do not mark a task complete, declare work finished, or hand back to the user until both of the following pass on every file you added or modified:
 
 1. `swift test` — all tests green.
-2. `swift-format lint --strict` — no errors on the files you touched. If you just wrote new Swift, run `swift-format format -i <file>` first so auto-fixable issues are corrected, then re-lint to confirm.
+2. `swift-format lint --strict` — no errors on Swift files you touched. If you just wrote new Swift, run `swift-format format -i <file>` first so auto-fixable issues are corrected, then re-lint to confirm. Do not run `swift-format` on DocC Markdown; validate `.docc/*.md` changes with DocC coverage and generation instead.
 3. `swift Scripts/validate-traits.swift` — package trait wiring remains valid.
 4. `swift Scripts/validate-docc-coverage.swift` — authored DocC coverage remains valid.
 5. `swift package --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
 
 This applies to any code change (new command families, bug fixes, doc snippets that live in Swift, tests). Do not skip either gate. If a lint rule feels wrong for a specific construct, propose a `.swift-format` change in the same PR rather than bypassing the check.
 
-The repository ships a `.swift-format` config at the repo root that encodes the project's 4-space indentation, 120-column line length, and other style rules. The tree is currently fully compliant — `swift-format lint --strict --recursive Sources Tests Scripts` exits clean, and CI runs the same command on every push. Keep it that way.
+The repository ships a `.swift-format` config at the repo root that encodes the project's 4-space indentation, 120-column line length, and other style rules. The tree is currently fully compliant — `swift-format lint --strict --recursive Sources Tests Scripts` exits clean, and CI runs the same command on every push. Keep it that way. `swift-format` parses inputs as Swift source, so Markdown-only documentation changes should use the DocC validation gates rather than direct Markdown linting with `swift-format`.
 
 ## Key Conventions
 

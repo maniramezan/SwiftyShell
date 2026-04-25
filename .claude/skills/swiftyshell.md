@@ -1074,8 +1074,8 @@ Before submitting any change to this codebase, verify:
 A change is not done — do not declare completion, open a PR, or hand back to the user — until these gates pass on every file you touched:
 
 1. `swift test` — all tests green.
-2. `swift-format lint --strict` — no errors on changed files. For new Swift, run `swift-format format -i <file>` first to auto-fix, then re-lint.
+2. `swift-format lint --strict` — no errors on changed Swift files. For new Swift, run `swift-format format -i <file>` first to auto-fix, then re-lint. Do not run `swift-format` on DocC Markdown; validate `.docc/*.md` changes with DocC coverage and generation instead.
 3. `swift Scripts/validate-docc-coverage.swift` — authored DocC links and command-family examples are present.
 4. `swift package --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
 
-The repo ships a `.swift-format` config at the root; use it. The tree is currently fully compliant (`swift-format lint --strict --recursive Sources Tests` exits clean) — keep it that way. If a lint rule is genuinely wrong for a specific construct, update `.swift-format` in the same change rather than skipping the gate.
+The repo ships a `.swift-format` config at the root; use it for Swift source. The tree is currently fully compliant (`swift-format lint --strict --recursive Sources Tests Scripts` exits clean) — keep it that way. `swift-format` parses inputs as Swift, so Markdown-only documentation changes should use the DocC validation gates rather than direct Markdown linting with `swift-format`. If a lint rule is genuinely wrong for a specific Swift construct, update `.swift-format` in the same change rather than skipping the gate.

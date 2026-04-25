@@ -5,7 +5,9 @@ A typed entry point for common git workflows.
 ## Submodules
 
 Use ``submodule()`` when a repository needs to inspect, initialize, update, or
-manage git submodules without dropping down to a raw ``Command``.
+manage git submodules without dropping down to a raw ``Command``. The fluent
+methods mirror `git submodule` flags, while typed workflows such as
+``GitSubmodule/statusEntries()`` turn command output into Swift values.
 
 ### Inspect Submodule State
 
@@ -14,12 +16,16 @@ manage git submodules without dropping down to a raw ``Command``.
 to ``GitSubmoduleStatusState`` so callers can distinguish initialized,
 uninitialized, out-of-sync, and conflicted submodules.
 
+Use ``GitSubmodule/recursive(_:)`` when you also want nested submodules. The
+result is an array of entries, one per submodule path, that you can branch on
+without parsing stdout yourself.
+
 ```swift
 let entries = try await Git(context: context)
     .workingDirectory(repoPath)
     .submodule()
-    .recursive()
-    .statusEntries()
+    .recursive()        // Include submodules inside submodules.
+    .statusEntries()    // Parse `git submodule status` into Swift values.
     .run()
 
 for entry in entries {
@@ -40,30 +46,40 @@ for entry in entries {
 
 ### Initialize And Update
 
-For the common clone bootstrap flow, select `update`, initialize missing
-submodules, and recurse into nested modules:
+For the common clone bootstrap flow, run `git submodule update --init
+--recursive`. This checks out the submodule commits recorded by the
+superproject, initializes missing working directories, and also updates nested
+submodules. ``GitSubmodule/jobs(_:)`` lets git fetch multiple submodules in
+parallel when the installed git version supports it.
 
 ```swift
 try await Git(context: context)
     .workingDirectory(repoPath)
     .submodule()
-    .update()
-    .initializeOnUpdate()
-    .recursive()
-    .jobs(4)
+    .update()                // Select `git submodule update`.
+    .initializeOnUpdate()    // Add `--init` for missing submodules.
+    .recursive()             // Add `--recursive` for nested submodules.
+    .jobs(4)                 // Add `--jobs 4` for parallel fetches.
     .run()
 ```
 
+This example returns ``ShellOutput``. On success the repository's submodule
+working directories are present and checked out to the commits referenced by the
+current superproject commit.
+
 To track submodule remotes instead of the commit recorded by the superproject,
-use `remote()` and choose an update strategy:
+use ``GitSubmodule/remote(_:)`` and choose an update strategy. This maps to
+`git submodule update --remote --merge --recursive`, so each submodule moves to
+the configured remote-tracking branch and merges that result into the submodule
+working tree.
 
 ```swift
 try await Git(context: context)
     .workingDirectory(repoPath)
     .submodule()
     .update()
-    .remote()
-    .updateStrategy(.merge)
+    .remote()                  // Follow each submodule's configured remote branch.
+    .updateStrategy(.merge)    // Merge remote updates instead of detached checkout.
     .recursive()
     .run()
 ```
@@ -72,7 +88,8 @@ try await Git(context: context)
 
 `add(_:path:)` records a repository in `.gitmodules` and stages it for the next
 commit. Additional fluent options map to the documented `git submodule add`
-flags.
+flags. After this succeeds, `.gitmodules` and the submodule gitlink are ready to
+commit in the superproject.
 
 ```swift
 try await Git(context: context)
@@ -104,29 +121,31 @@ try await Git(context: context)
 ### Sync, Summarize, And Iterate
 
 The wrapper also covers maintenance commands that are useful in repository
-automation:
+automation. `sync` copies changed URLs from `.gitmodules` into each submodule's
+local git config. `summary` returns raw ``ShellOutput`` describing commit ranges.
+`foreach` runs the provided shell command from each submodule working directory.
 
 ```swift
 try await Git(context: context)
     .workingDirectory(repoPath)
     .submodule()
-    .sync()
-    .recursive()
+    .sync()         // Apply .gitmodules URL changes to local submodule config.
+    .recursive()    // Include nested submodules.
     .run()
 
 let summary = try await Git(context: context)
     .workingDirectory(repoPath)
     .submodule()
-    .summary()
-    .cached()
-    .summaryLimit(10)
+    .summary()             // Show submodule commit differences.
+    .cached()              // Compare against the index instead of the worktree.
+    .summaryLimit(10)      // Limit commit lines per submodule.
     .run()
 
 let foreachOutput = try await Git(context: context)
     .workingDirectory(repoPath)
     .submodule()
-    .foreach("git status --short")
-    .recursive()
+    .foreach("git status --short")    // Run this command in each submodule.
+    .recursive()                       // Also visit nested submodules.
     .run()
 ```
 

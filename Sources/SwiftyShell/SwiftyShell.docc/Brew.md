@@ -2,16 +2,41 @@
 
 A fluent wrapper for the Homebrew package manager.
 
+``Brew`` emits raw ``ShellOutput`` because Homebrew command output is still
+tool-defined text. Use the typed methods to choose the subcommand and flags, then
+inspect `stdout` or `stderr` when your automation needs the result.
+
+This installs two formulae and throws ``ShellError/exitFailure(command:output:)``
+if Homebrew reports an installation failure:
+
 ```swift
 try await Brew(context: context)
     .install("ripgrep", "fzf")
     .run()
+```
 
+Use ``outdated()`` to ask Homebrew for upgrade candidates. The `greedy` flag also
+includes casks that auto-update or are marked latest by upstream:
+
+```swift
 let outdated = try await Brew(context: context)
     .outdated()
     .greedy()
     .run()
+```
 
+The returned ``ShellOutput`` contains Homebrew's text output:
+
+```swift
+for package in outdated.stdout.split(whereSeparator: \.isNewline) {
+    print("Upgrade available:", package)
+}
+```
+
+Query package metadata with ``info(_:)-(String...)`` when your tool needs to
+display or log the current Homebrew view of a formula:
+
+```swift
 let info = try await Brew(context: context)
     .info("swift-format")
     .run()

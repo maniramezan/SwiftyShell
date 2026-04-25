@@ -3,10 +3,13 @@ import Foundation
 
 /// A fluent wrapper for the `mkdir` command.
 ///
+/// Use ``Mkdir`` to create one or more directories. This example maps to
+/// `mkdir -p -m 755 /tmp/output/logs`: parent directories are created as needed, and the typed
+/// ``FileMode`` documents the intended POSIX permissions at the call site.
+///
 /// ```swift
-/// // Create a nested directory tree
 /// try await Mkdir(context: context)
-///     .parents()
+///     .parents()    // Create missing parent directories.
 ///     .mode(
 ///         FileMode(
 ///             owner: [.read, .write, .execute],

@@ -78,13 +78,19 @@ public enum GitConfigFormat: Sendable, Equatable, Hashable {
 
 /// A fluent wrapper for `git branch`.
 ///
+/// Use ``GitBranch`` for branch listing and branch mutations. Calling ``run()`` returns raw
+/// ``ShellOutput`` from git, while ``entries()`` parses branch listings into ``GitBranchEntry``
+/// values.
+///
 /// ```swift
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .branch()
-///     .list()
-///     .all()
+///     .list()    // Select `git branch --list`.
+///     .all()     // Include remote-tracking branches.
 ///     .run()
+///
+/// print(output.stdout)
 /// ```
 public struct GitBranch: RunnableCommandFamily {
     private let state: State
@@ -228,14 +234,20 @@ public struct GitBranch: RunnableCommandFamily {
 
 /// A fluent wrapper for `git stash`.
 ///
+/// Use ``GitStash`` when automation needs to save, restore, inspect, or delete working-tree
+/// changes. This example creates a named stash and includes untracked files; on success, git's
+/// confirmation text is available in ``ShellOutput/stdout``.
+///
 /// ```swift
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .stash()
-///     .push()
-///     .message("checkpoint")
-///     .includeUntracked()
+///     .push()                 // Select `git stash push`.
+///     .message("checkpoint")    // Label the stash entry.
+///     .includeUntracked()     // Also stash untracked files.
 ///     .run()
+///
+/// print(output.stdout)
 /// ```
 public struct GitStash: RunnableCommandFamily {
     private let state: State
@@ -383,12 +395,17 @@ public struct GitStash: RunnableCommandFamily {
 
 /// A fluent wrapper for `git worktree`.
 ///
+/// Use ``GitWorktree`` to list, add, or remove linked worktrees. This example runs
+/// `git worktree list` and leaves git's tabular output in ``ShellOutput/stdout``.
+///
 /// ```swift
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .worktree()
-///     .list()
+///     .list()    // Select `git worktree list`.
 ///     .run()
+///
+/// print(output.stdout)
 /// ```
 public struct GitWorktree: RunnableCommandFamily {
     private let state: State
@@ -478,12 +495,18 @@ public struct GitWorktree: RunnableCommandFamily {
 
 /// A fluent wrapper for `git diff`.
 ///
+/// Use ``GitDiff`` for raw diff output, stats, or name/status summaries. This example returns a
+/// compact list of changed paths and status codes in ``ShellOutput/stdout``; use
+/// ``GitDiff/fileChanges()`` when you want parsed ``GitDiffFileChange`` values instead.
+///
 /// ```swift
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .diff()
-///     .format(.nameStatus)
+///     .format(.nameStatus)    // Equivalent to `git diff --name-status`.
 ///     .run()
+///
+/// print(output.stdout)
 /// ```
 public struct GitDiff: RunnableCommandFamily {
     private let state: State
@@ -592,13 +615,19 @@ public struct GitDiff: RunnableCommandFamily {
 
 /// A fluent wrapper for `git log`.
 ///
+/// Use ``GitLog`` when you need commit history. This example returns the last ten commits in git's
+/// one-line format as raw text; use ``GitLog/entries()`` when you need structured
+/// ``GitLogEntry`` values.
+///
 /// ```swift
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .log()
-///     .format(.oneline)
-///     .maxCount(10)
+///     .format(.oneline)    // Use abbreviated hash plus subject.
+///     .maxCount(10)        // Limit to the latest ten commits.
 ///     .run()
+///
+/// print(output.stdout)
 /// ```
 public struct GitLog: RunnableCommandFamily {
     private let state: State
@@ -692,12 +721,17 @@ public struct GitLog: RunnableCommandFamily {
 
 /// A fluent wrapper for `git config`.
 ///
+/// Use ``GitConfigCommand`` to read and write git configuration values. This example reads the
+/// repository-local `user.name`; the value is returned as raw text in ``ShellOutput/stdout``.
+///
 /// ```swift
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .configuration()
-///     .get("user.name")
+///     .get("user.name")    // Select `git config --get user.name`.
 ///     .run()
+///
+/// let userName = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
 /// ```
 public struct GitConfigCommand: RunnableCommandFamily {
     private let state: State
@@ -819,12 +853,18 @@ public struct GitConfigCommand: RunnableCommandFamily {
 
 /// A fluent wrapper for `git merge`.
 ///
+/// Use ``GitMerge`` to merge a branch or commit into the current branch. This example runs
+/// `git merge feature`; if git reports a conflict or another non-zero exit, SwiftyShell throws
+/// ``ShellError/exitFailure(command:output:)`` with git's diagnostics.
+///
 /// ```swift
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .merge()
-///     .branch("feature")
+///     .branch("feature")    // Merge the feature branch into the current branch.
 ///     .run()
+///
+/// print(output.stdout)
 /// ```
 public struct GitMerge: RunnableCommandFamily {
     private let state: State
@@ -899,13 +939,19 @@ public struct GitMerge: RunnableCommandFamily {
 
 /// A fluent wrapper for `git commit`.
 ///
+/// Use ``GitCommit`` to create commits from staged changes or from all tracked changes. This
+/// example maps to `git commit --all --message "Record update"`, so modified and deleted tracked
+/// files are included without a separate `git add`.
+///
 /// ```swift
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .commit()
-///     .message("Record update")
-///     .all()
+///     .message("Record update")    // Pass the commit message.
+///     .all()                       // Include all tracked modifications/deletions.
 ///     .run()
+///
+/// print(output.stdout)
 /// ```
 public struct GitCommit: RunnableCommandFamily {
     private let state: State
@@ -980,12 +1026,18 @@ public struct GitCommit: RunnableCommandFamily {
 
 /// A fluent wrapper for `git rebase`.
 ///
+/// Use ``GitRebase`` to replay the current branch onto another branch or commit. This example
+/// runs `git rebase --onto main`; rebase conflicts surface as
+/// ``ShellError/exitFailure(command:output:)`` with git's stderr attached.
+///
 /// ```swift
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .rebase()
-///     .onto("main")
+///     .onto("main")    // Rebase the current branch onto main.
 ///     .run()
+///
+/// print(output.stdout)
 /// ```
 public struct GitRebase: RunnableCommandFamily {
     private let state: State

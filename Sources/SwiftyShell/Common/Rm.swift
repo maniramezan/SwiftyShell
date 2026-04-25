@@ -3,11 +3,14 @@ import Foundation
 
 /// A fluent wrapper for the `rm` command.
 ///
+/// Use ``Rm`` to remove files or directories. Successful removals usually produce no output;
+/// failures throw ``ShellError/exitFailure(command:output:)`` with the `rm` diagnostic text in
+/// `stderr`.
+///
 /// ```swift
-/// // Remove a directory and its contents
 /// try await Rm(context: context)
-///     .recursive()
-///     .force()
+///     .recursive()    // Remove directory contents.
+///     .force()        // Do not fail for missing paths.
 ///     .path("/tmp/build")
 ///     .run()
 /// ```

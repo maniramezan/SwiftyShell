@@ -29,23 +29,34 @@ public enum GrepPattern: Sendable, Equatable, Hashable {
 ///
 /// ``Grep`` supports literal and regular-expression patterns, case-insensitive
 /// matching, recursive search, and all standard tool configuration overrides.
+/// Each run returns raw ``ShellOutput`` with matching lines in `stdout`.
+///
+/// Use ``init(_:context:)`` for literal searches. This example searches one file and includes line
+/// numbers before each match.
 ///
 /// ```swift
-/// // Literal match in a specific file
 /// let result = try await Grep("TODO", context: context)
 ///     .file("Sources/main.swift")
-///     .lineNumbers()
+///     .lineNumbers()    // Prefix each matching line with its line number.
 ///     .run()
-/// print(result.stdout)
 ///
-/// // Regex match, recursive, case-insensitive
+/// print(result.stdout)
+/// ```
+///
+/// Use ``regex(_:context:)`` when the pattern should be interpreted as an extended regular
+/// expression instead of a literal string.
+///
+/// ```swift
 /// let result = try await Grep.regex("^import\\s+Foundation", context: context)
-///     .recursive()
-///     .ignoreCase()
+///     .recursive()     // Search below Sources/.
+///     .ignoreCase()    // Match imports regardless of case.
 ///     .file("Sources/")
 ///     .run()
+/// ```
 ///
-/// // Use as a pipeline stage
+/// Build a ``Command`` with ``command()`` when `grep` should be a pipeline stage.
+///
+/// ```swift
 /// let output = try await Command("ls", "-la")
 ///     .pipe(to: Grep(".swift").command())
 ///     .run(in: context)

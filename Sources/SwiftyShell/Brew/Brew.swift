@@ -173,29 +173,47 @@ public enum BrewSubcommand: Sendable, Equatable, Hashable {
 /// `Brew(context: context).run()` safely lists installed formulae without
 /// mutating the system.
 ///
+/// Homebrew output is tool-defined text, so ``Brew`` returns raw ``ShellOutput``. Inspect `stdout`
+/// for command results and handle ``ShellError/exitFailure(command:output:)`` when Homebrew reports
+/// a non-zero exit.
+///
+/// Install formulae by selecting the `install` subcommand and passing one or more names:
+///
 /// ```swift
-/// // Install formulae
 /// try await Brew(context: context)
 ///     .install("ripgrep", "fzf")
 ///     .run()
+/// ```
 ///
-/// // Install a cask
+/// Add ``cask(_:)`` when the install target is a cask instead of a formula:
+///
+/// ```swift
 /// try await Brew(context: context)
 ///     .install("firefox")
-///     .cask()
+///     .cask()    // Add `--cask`.
 ///     .run()
+/// ```
 ///
-/// // List outdated packages (greedy includes casks with auto-updates)
+/// Query outdated packages with ``outdated()``. ``greedy(_:)`` includes casks that auto-update or
+/// are marked as latest by upstream, and the package list is returned in `stdout`.
+///
+/// ```swift
 /// let outdated = try await Brew(context: context)
 ///     .outdated()
-///     .greedy()
+///     .greedy()    // Include auto-updating/latest casks too.
 ///     .run()
-/// print(outdated.stdout)
 ///
-/// // Search for a formula
+/// print(outdated.stdout)
+/// ```
+///
+/// Search returns Homebrew's matching formulae and casks as text:
+///
+/// ```swift
 /// let matches = try await Brew(context: context)
 ///     .search("ripgrep")
 ///     .run()
+///
+/// print(matches.stdout)
 /// ```
 ///
 /// Homebrew is available on macOS and on Linux via

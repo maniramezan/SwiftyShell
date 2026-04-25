@@ -5,16 +5,24 @@ import Foundation
 /// Build a ``Pipeline`` by calling ``Command/pipe(to:)`` on the first command,
 /// then chain additional stages with ``pipe(to:)``:
 ///
+/// This builds `ls -la | grep .swift` without asking a shell to parse a pipeline string. The final
+/// stage's output is returned as ``ShellOutput``.
+///
 /// ```swift
-/// // ls -la | grep .swift
 /// let output = try await Command("ls", "-la")
 ///     .pipe(to: Grep(".swift").command())
 ///     .run(in: context)
 ///
-/// // Add a third stage
+/// print(output.stdout)
+/// ```
+///
+/// Add more stages by continuing to call ``pipe(to:)``:
+///
+/// ```swift
 /// let pipeline = Command("cat", "log.txt")
 ///     .pipe(to: Command("grep", "ERROR"))
 ///     .pipe(to: Command("wc", "-l"))
+///
 /// let count = try await pipeline.run(in: context)
 /// ```
 public struct Pipeline: Sendable {

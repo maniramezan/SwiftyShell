@@ -3,11 +3,14 @@ import Foundation
 
 /// A fluent wrapper for the `pwd` command.
 ///
+/// Use ``Pwd`` to read the command's current working directory from ``ShellOutput/stdout``.
+/// ``physical(_:)`` resolves symlinks; ``logical(_:)`` preserves the logical path when possible.
+///
 /// ```swift
-/// // Print the physical working directory
 /// let output = try await Pwd(context: context)
-///     .physical()
+///     .physical()    // Resolve symlinks before printing the path.
 ///     .run()
+///
 /// let path = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
 /// ```
 public struct Pwd: RunnableCommandFamily {

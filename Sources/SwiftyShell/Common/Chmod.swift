@@ -3,10 +3,13 @@ import Foundation
 
 /// A fluent wrapper for the `chmod` command.
 ///
+/// Use ``Chmod`` to change permissions with either a typed ``FileMode`` or a shell-ready mode
+/// string. This example recursively grants the owner full access and grants read/execute access to
+/// the group and others.
+///
 /// ```swift
-/// // Set directory permissions recursively
 /// try await Chmod(context: context)
-///     .recursive()
+///     .recursive()    // Apply the permission change to descendants too.
 ///     .mode(
 ///         FileMode(
 ///             owner: [.read, .write, .execute],

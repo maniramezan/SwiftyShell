@@ -6,23 +6,34 @@ import Foundation
 /// by naming the executable, then chain fluent modifiers to add arguments, set
 /// environment variables, redirect output, or constrain execution:
 ///
-/// ```swift
-/// // Simple command
-/// let output = try await Command("echo", "hello").run(in: context)
+/// A basic command captures stdout and stderr in ``ShellOutput``:
 ///
-/// // Fluent builder — arguments, env, working directory
-/// let output = try await Command("ruby", "deploy.rb")
+/// ```swift
+/// let output = try await Command("echo", "hello").run(in: context)
+/// print(output.stdout)
+/// ```
+///
+/// Fluent modifiers return new immutable command values, so this configures only this invocation:
+///
+/// ```swift
+/// let deployOutput = try await Command("ruby", "deploy.rb")
 ///     .env("RAILS_ENV", "production")
 ///     .workingDirectory("/var/app")
 ///     .timeout(120)
 ///     .run(in: context)
+/// ```
 ///
-/// // Redirect stdout to a file
+/// Redirect stdout when output should go to a file instead of memory:
+///
+/// ```swift
 /// try await Command("swift", "build", "--verbose")
 ///     .stdout(.file(path: "/tmp/build.log", append: false))
 ///     .run(in: context)
+/// ```
 ///
-/// // Pipe two commands together
+/// Use ``pipe(to:)`` to connect commands without writing a shell string:
+///
+/// ```swift
 /// let output = try await Command("ls", "-la")
 ///     .pipe(to: Grep(".swift").command())
 ///     .run(in: context)

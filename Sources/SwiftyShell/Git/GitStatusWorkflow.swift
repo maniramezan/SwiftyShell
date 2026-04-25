@@ -7,16 +7,23 @@ import Foundation
 /// `map`, `require`, `pull`, and `fetch` chains as ``Workflow``, while carrying
 /// the git client reference needed to start follow-up operations:
 ///
+/// Use ``require(_:equals:else:)`` to stop a workflow before a mutating follow-up command runs. In
+/// this example, `pull()` only runs if the repository has no staged, unstaged, or untracked
+/// changes; otherwise the workflow throws `MyError.dirtyTree`.
+///
 /// ```swift
-/// // Check status and conditionally pull
 /// let result = try await Git(context: context)
 ///     .workingDirectory("/path/to/repo")
 ///     .status()
 ///     .require(\.state, equals: .noChanges, else: MyError.dirtyTree)
-///     .pull()
+///     .pull()    // Runs only after the status requirement succeeds.
 ///     .run()
+/// ```
 ///
-/// // Just read status
+/// If you only need the parsed status, run the workflow directly. The result is a ``GitStatus``
+/// value rather than raw `git status` output.
+///
+/// ```swift
 /// let status: GitStatus = try await Git(context: context)
 ///     .workingDirectory("/path/to/repo")
 ///     .status()

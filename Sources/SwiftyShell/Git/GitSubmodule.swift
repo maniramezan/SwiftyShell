@@ -26,24 +26,44 @@ public enum GitSubmoduleUpdateStrategy: Sendable, Equatable, Hashable {
 
 /// A fluent wrapper for `git submodule`.
 ///
-/// Use ``Git/submodule()`` to add, initialize, update, inspect, and synchronize submodules:
+/// Use ``Git/submodule()`` to add, initialize, update, inspect, and synchronize submodules.
+///
+/// To inspect submodule state, use ``statusEntries()`` instead of parsing stdout. It runs
+/// `git submodule status`, converts each output line into ``GitSubmoduleStatusEntry``, and maps
+/// git's leading status marker into ``GitSubmoduleStatusState``. Add ``recursive(_:)`` when nested
+/// submodules should be included too.
 ///
 /// ```swift
 /// let entries = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .submodule()
-///     .recursive()
-///     .statusEntries()
+///     .recursive()        // Include submodules inside submodules.
+///     .statusEntries()    // Parse `git submodule status` into Swift values.
 ///     .run()
+/// ```
 ///
+/// `entries` contains one value per submodule path. For example, `.uninitialized` means the
+/// submodule working directory has not been created yet, while `.outOfSync` means the checked-out
+/// commit differs from the commit recorded by the superproject.
+///
+/// To bootstrap submodules after cloning a repository, combine ``update()``,
+/// ``initializeOnUpdate(_:)``, and ``recursive(_:)``. This maps to
+/// `git submodule update --init --recursive`: it initializes missing submodule working directories,
+/// checks them out at the commits recorded by the superproject, and repeats that for nested
+/// submodules.
+///
+/// ```swift
 /// try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .submodule()
-///     .update()
-///     .initializeOnUpdate()
-///     .recursive()
+///     .update()                // Select `git submodule update`.
+///     .initializeOnUpdate()    // Add `--init` for missing submodules.
+///     .recursive()             // Add `--recursive` for nested submodules.
 ///     .run()
 /// ```
+///
+/// On success, the submodule directories exist and are checked out to the revisions referenced by
+/// the current superproject commit.
 public struct GitSubmodule: RunnableCommandFamily {
     private let state: State
 

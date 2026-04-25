@@ -6,12 +6,18 @@ import Foundation
 /// Use ``MockExecutor`` in unit tests to verify that your code calls the right
 /// commands without relying on the filesystem or external tools.
 ///
+/// The fixed-output initializer makes every command return the same successful ``ShellOutput``.
+/// This is useful for tests that only care about downstream parsing or control flow.
+///
 /// ```swift
-/// // Always succeed with fixed output
 /// let context = ShellContext(executor: MockExecutor(stdout: "hello\n"))
 /// let output = try await Command("echo", "hello").run(in: context)
+/// #expect(output.stdout == "hello\n")
+/// ```
 ///
-/// // Inspect what was called
+/// Use the handler initializer when the test needs to record or vary responses by command.
+///
+/// ```swift
 /// actor Recorder {
 ///     var commands: [Command] = []
 ///     func record(_ command: Command) { commands.append(command) }

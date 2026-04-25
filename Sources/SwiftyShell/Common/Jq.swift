@@ -24,15 +24,23 @@ public struct JqArgument: Sendable, Equatable, Hashable {
 /// ``Jq`` supports raw-string output, compact output, key sorting, null input,
 /// slurp mode, and `--arg` string bindings:
 ///
+/// Use ``rawOutput(_:)`` when a filter returns a string that should be consumed as plain text
+/// instead of JSON. The first example returns the `.name` field from `package.json` in
+/// ``ShellOutput/stdout``.
+///
 /// ```swift
-/// // Extract a field as raw text
 /// let output = try await Jq(".name", context: context)
-///     .rawOutput()
+///     .rawOutput()    // Emit the string value directly, without JSON quotes.
 ///     .file("package.json")
 ///     .run()
-/// let name = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
 ///
-/// // Pass a variable into the filter
+/// let name = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+/// ```
+///
+/// Pass Swift values into filters with ``arg(_:_:)`` rather than interpolating into the jq program
+/// string. This keeps the filter stable while changing the selected id.
+///
+/// ```swift
 /// let result = try await Jq(".items[] | select(.id == $id)", context: context)
 ///     .arg("id", "abc123")
 ///     .file("data.json")

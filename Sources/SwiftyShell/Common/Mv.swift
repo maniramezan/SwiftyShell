@@ -3,8 +3,10 @@ import Foundation
 
 /// A fluent wrapper for the `mv` command.
 ///
+/// Use ``Mv`` to move or rename files and directories. Successful moves usually produce no output,
+/// so completion is the result; multiple sources require the destination to be a directory.
+///
 /// ```swift
-/// // Move a file to a new location
 /// try await Mv(context: context)
 ///     .source("/tmp/output.txt")
 ///     .destination("/var/logs/output.txt")

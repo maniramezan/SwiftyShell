@@ -3,14 +3,17 @@ import Foundation
 
 /// A fluent wrapper for the `ls` command.
 ///
+/// Use ``Ls`` when you need a typed builder for directory listings. The command returns raw
+/// ``ShellOutput``; read `stdout` to display or parse the listing.
+///
 /// ```swift
-/// // List all files including hidden ones, in long format
 /// let output = try await Ls(context: context)
-///     .all()
-///     .longFormat()
-///     .humanReadable()
+///     .all()              // Include hidden files.
+///     .longFormat()       // Include permissions, owner, size, and timestamps.
+///     .humanReadable()    // Format sizes with units such as K, M, or G.
 ///     .path("/tmp")
 ///     .run()
+///
 /// print(output.stdout)
 /// ```
 public struct Ls: RunnableCommandFamily {

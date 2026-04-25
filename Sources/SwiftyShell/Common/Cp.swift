@@ -3,10 +3,13 @@ import Foundation
 
 /// A fluent wrapper for the `cp` command.
 ///
+/// Use ``Cp`` to copy files or directories with a typed builder. Successful copies usually produce
+/// no output, so completion without ``ShellError/exitFailure(command:output:)`` is the important
+/// result.
+///
 /// ```swift
-/// // Copy a directory recursively
 /// try await Cp(context: context)
-///     .recursive()
+///     .recursive()    // Required when the source is a directory.
 ///     .source("/path/to/source")
 ///     .destination("/path/to/dest")
 ///     .run()

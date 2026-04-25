@@ -43,7 +43,7 @@ let status = try await Git()
 
 | Trait              | Enables                                                    |
 |--------------------|------------------------------------------------------------|
-| `Git`              | ``Git`` and the entire git porcelain v2 surface            |
+| `Git`              | ``Git`` including status, branch, log, diff, config, and submodule wrappers |
 | `Brew`             | ``Brew`` Homebrew wrapper                                  |
 | `Grep`             | ``Grep`` typed grep wrapper                                |
 | `Ls`               | ``Ls``                                                     |

@@ -190,5 +190,44 @@ struct GitParserTests {
             ]
         )
     }
+
+    @Test func parsesSubmoduleStatusEntries() {
+        let output = """
+             abcdef1234567890abcdef1234567890abcdef12 Vendor/Ready (heads/main)
+            -fedcba0987654321fedcba0987654321fedcba09 Vendor/Missing
+            +1234567890abcdef1234567890abcdef12345678 Vendor/Changed (v1.2.3-4-g1234567)
+            U0987654321fedcba0987654321fedcba09876543 Vendor/Conflicted
+            """
+        let entries = GitParsers.parseSubmoduleStatusEntries(output)
+
+        #expect(
+            entries == [
+                GitSubmoduleStatusEntry(
+                    state: .current,
+                    commitHash: "abcdef1234567890abcdef1234567890abcdef12",
+                    path: "Vendor/Ready",
+                    description: "(heads/main)"
+                ),
+                GitSubmoduleStatusEntry(
+                    state: .uninitialized,
+                    commitHash: "fedcba0987654321fedcba0987654321fedcba09",
+                    path: "Vendor/Missing",
+                    description: nil
+                ),
+                GitSubmoduleStatusEntry(
+                    state: .outOfSync,
+                    commitHash: "1234567890abcdef1234567890abcdef12345678",
+                    path: "Vendor/Changed",
+                    description: "(v1.2.3-4-g1234567)"
+                ),
+                GitSubmoduleStatusEntry(
+                    state: .mergeConflicted,
+                    commitHash: "0987654321fedcba0987654321fedcba09876543",
+                    path: "Vendor/Conflicted",
+                    description: nil
+                ),
+            ]
+        )
+    }
 }
 #endif

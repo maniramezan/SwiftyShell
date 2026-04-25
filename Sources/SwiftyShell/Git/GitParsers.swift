@@ -108,6 +108,26 @@ enum GitParsers {
                 )
             }
     }
+
+    static func parseSubmoduleStatusEntries(_ output: String) -> [GitSubmoduleStatusEntry] {
+        output
+            .split(whereSeparator: \.isNewline)
+            .compactMap { rawLine -> GitSubmoduleStatusEntry? in
+                guard let statePrefix = rawLine.first else { return nil }
+                let state = parseSubmoduleStatusState(String(statePrefix))
+                let body = rawLine.dropFirst().trimmingCharacters(in: .whitespaces)
+                let parts = body.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
+                guard parts.count >= 2 else { return nil }
+
+                return GitSubmoduleStatusEntry(
+                    state: state,
+                    commitHash: parts[0],
+                    path: parts[1],
+                    description: parts.count == 3 && !parts[2].isEmpty ? parts[2] : nil
+                )
+            }
+    }
+
     private static func parseDiffChangeKind(_ statusCode: String) -> GitDiffChangeKind {
         guard let leadingCode = statusCode.first else {
             return .unknown(statusCode)
@@ -130,6 +150,21 @@ enum GitParsers {
             return .typeChanged
         default:
             return .unknown(statusCode)
+        }
+    }
+
+    private static func parseSubmoduleStatusState(_ prefix: String) -> GitSubmoduleStatusState {
+        switch prefix {
+        case " ":
+            return .current
+        case "-":
+            return .uninitialized
+        case "+":
+            return .outOfSync
+        case "U":
+            return .mergeConflicted
+        default:
+            return .unknown(prefix)
         }
     }
 }

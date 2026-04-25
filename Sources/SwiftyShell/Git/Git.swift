@@ -94,6 +94,11 @@ public struct Git: ToolConfigurableCommandFamily {
         GitWorktree(git: self)
     }
 
+    /// Returns a typed wrapper for `git submodule`.
+    public func submodule() -> GitSubmodule {
+        GitSubmodule(git: self)
+    }
+
     /// Returns a typed wrapper for `git diff`.
     public func diff() -> GitDiff {
         GitDiff(git: self)

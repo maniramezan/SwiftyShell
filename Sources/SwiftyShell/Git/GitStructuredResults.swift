@@ -129,4 +129,54 @@ public struct GitDiffFileChange: Sendable, Equatable {
         self.statusCode = statusCode
     }
 }
+
+/// The state prefix reported by `git submodule status` for a submodule entry.
+public enum GitSubmoduleStatusState: Sendable, Equatable, Hashable {
+    /// The submodule is initialized and checked out at the commit recorded by the superproject.
+    case current
+
+    /// The submodule is not initialized.
+    case uninitialized
+
+    /// The checked-out submodule commit differs from the commit recorded by the superproject.
+    case outOfSync
+
+    /// The submodule has merge conflicts.
+    case mergeConflicted
+
+    /// Git reported a state prefix that is not modeled explicitly.
+    case unknown(String)
+}
+
+/// A parsed submodule status entry returned by ``GitSubmodule/statusEntries()``.
+///
+/// ```swift
+/// let submodules = try await Git(context: context)
+///     .workingDirectory(repoPath)
+///     .submodule()
+///     .recursive()
+///     .statusEntries()
+///     .run()
+/// ```
+public struct GitSubmoduleStatusEntry: Sendable, Equatable {
+    /// The state reported by the leading status prefix.
+    public let state: GitSubmoduleStatusState
+
+    /// The commit hash reported for the submodule.
+    public let commitHash: String
+
+    /// The path of the submodule relative to the superproject.
+    public let path: String
+
+    /// The optional `git describe` text reported after the path.
+    public let description: String?
+
+    /// Creates a parsed submodule status entry.
+    public init(state: GitSubmoduleStatusState, commitHash: String, path: String, description: String?) {
+        self.state = state
+        self.commitHash = commitHash
+        self.path = path
+        self.description = description
+    }
+}
 #endif

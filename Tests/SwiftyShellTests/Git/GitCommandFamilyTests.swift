@@ -67,6 +67,130 @@ struct GitCommandFamilyTests {
         #expect(command.arguments == ["worktree", "add", "-b", "feature", "../feature-worktree"])
     }
 
+    @Test func buildsSubmoduleAddCommand() {
+        let command = Git()
+            .submodule()
+            .add("https://example.com/lib.git", path: "Vendor/Lib")
+            .branch("main")
+            .name("lib")
+            .refFormat("reftable")
+            .depth(1)
+            .dissociate()
+            .command()
+
+        #expect(
+            command.arguments == [
+                "submodule",
+                "add",
+                "--branch",
+                "main",
+                "--name",
+                "lib",
+                "--dissociate",
+                "--ref-format",
+                "reftable",
+                "--depth",
+                "1",
+                "--",
+                "https://example.com/lib.git",
+                "Vendor/Lib",
+            ]
+        )
+    }
+
+    @Test func buildsSubmoduleUpdateCommand() {
+        let command = Git()
+            .submodule()
+            .update()
+            .initializeOnUpdate()
+            .recursive()
+            .remote()
+            .noFetch()
+            .updateStrategy(.merge)
+            .jobs(4)
+            .singleBranch()
+            .noRecommendShallow()
+            .filter("blob:none")
+            .path("Vendor/Lib")
+            .command()
+
+        #expect(
+            command.arguments == [
+                "submodule",
+                "update",
+                "--init",
+                "--remote",
+                "--no-fetch",
+                "--merge",
+                "--recursive",
+                "--jobs",
+                "4",
+                "--single-branch",
+                "--no-recommend-shallow",
+                "--filter",
+                "blob:none",
+                "--",
+                "Vendor/Lib",
+            ]
+        )
+    }
+
+    @Test func buildsSubmoduleSetBranchCommand() {
+        let command = Git()
+            .submodule()
+            .setBranch("stable", path: "Vendor/Lib")
+            .command()
+
+        #expect(command.arguments == ["submodule", "set-branch", "--branch", "stable", "--", "Vendor/Lib"])
+    }
+
+    @Test func buildsSubmoduleResetBranchCommand() {
+        let command = Git()
+            .submodule()
+            .resetBranch(path: "Vendor/Lib")
+            .command()
+
+        #expect(command.arguments == ["submodule", "set-branch", "--default", "--", "Vendor/Lib"])
+    }
+
+    @Test func buildsSubmoduleSetURLCommand() {
+        let command = Git()
+            .submodule()
+            .setUrl(path: "Vendor/Lib", to: "https://example.com/new-lib.git")
+            .command()
+
+        #expect(
+            command.arguments == [
+                "submodule",
+                "set-url",
+                "--",
+                "Vendor/Lib",
+                "https://example.com/new-lib.git",
+            ]
+        )
+    }
+
+    @Test func buildsSubmoduleForeachCommand() {
+        let command = Git()
+            .submodule()
+            .foreach("git status --short")
+            .recursive()
+            .command()
+
+        #expect(command.arguments == ["submodule", "foreach", "--recursive", "git status --short"])
+    }
+
+    @Test func buildsSubmoduleDeinitializeAllCommand() {
+        let command = Git()
+            .submodule()
+            .deinitialize()
+            .force()
+            .all()
+            .command()
+
+        #expect(command.arguments == ["submodule", "deinit", "--force", "--all"])
+    }
+
     @Test func buildsDiffCommandWithFormatAndPaths() {
         let command = Git()
             .diff()
@@ -247,11 +371,46 @@ struct GitCommandFamilyTests {
 
         #expect(changes.contains { $0.path == "README.md" && $0.kind == .modified })
     }
+
+    @Test func parsesTypedSubmoduleStatusEntriesFromRepository() async throws {
+        let parentURL = try makeTemporaryDirectoryForGitCommandTests()
+        let childURL = try makeTemporaryDirectoryForGitCommandTests()
+        defer { try? FileManager.default.removeItem(at: parentURL) }
+        defer { try? FileManager.default.removeItem(at: childURL) }
+
+        let context = ShellContext()
+        try await initializeRepository(at: childURL, context: context)
+        try await initializeRepository(at: parentURL, context: context)
+        _ = try await Command("git", "submodule", "add", childURL.path, "Vendor/Child")
+            .env("GIT_ALLOW_PROTOCOL", "file")
+            .workingDirectory(parentURL.path)
+            .run(in: context)
+
+        let entries = try await Git(context: context)
+            .workingDirectory(parentURL.path)
+            .submodule()
+            .statusEntries()
+            .run()
+
+        #expect(entries.count == 1)
+        #expect(entries[0].state == .current)
+        #expect(entries[0].path == "Vendor/Child")
+        #expect(!entries[0].commitHash.isEmpty)
+    }
 }
 
 private func makeTemporaryDirectoryForGitCommandTests() throws -> URL {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url
+}
+
+private func initializeRepository(at url: URL, context: ShellContext) async throws {
+    _ = try await Command("git", "init", "-b", "main").workingDirectory(url.path).run(in: context)
+    _ = try await Command("git", "config", "user.email", "test@test.com").workingDirectory(url.path).run(in: context)
+    _ = try await Command("git", "config", "user.name", "Test User").workingDirectory(url.path).run(in: context)
+    try "hello".write(to: url.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
+    _ = try await Command("git", "add", "README.md").workingDirectory(url.path).run(in: context)
+    _ = try await Command("git", "commit", "-m", "initial commit").workingDirectory(url.path).run(in: context)
 }
 #endif

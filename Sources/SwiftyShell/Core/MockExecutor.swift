@@ -55,6 +55,21 @@ public struct MockExecutor: CommandExecutor {
     }
 
     /// Executes a single command by invoking the mock handler.
+    ///
+    /// The mock validates the command's effective timeout and output-limit configuration before
+    /// invoking the handler, so misconfigured tests fail with the same
+    /// ``ShellError/invalidConfiguration(description:)`` they would in production. After the
+    /// handler returns, a non-zero exit code is translated into
+    /// ``ShellError/exitFailure(command:output:)`` to match real-executor semantics.
+    ///
+    /// - Parameters:
+    ///   - command: The command being executed.
+    ///   - context: The shell context that supplies defaults.
+    /// - Returns: The captured ``ShellOutput`` returned by the handler.
+    /// - Throws: Whatever the handler throws, plus
+    ///   ``ShellError/invalidConfiguration(description:)`` for invalid timeout/output-limit
+    ///   values and ``ShellError/exitFailure(command:output:)`` when the handler returns a
+    ///   non-zero exit code.
     public func execute(_ command: Command, in context: ShellContext) async throws -> ShellOutput {
         try validateConfiguration(for: command, in: context)
         return try validate(output: try await handler(command, context), for: command)
@@ -62,8 +77,17 @@ public struct MockExecutor: CommandExecutor {
 
     /// Executes a pipeline by running each stage's command through the handler in order.
     ///
-    /// The output from the final stage is returned. Earlier stages are executed but
-    /// their output is discarded, mirroring the stdin-chaining semantics of real pipelines.
+    /// The output from the final stage is returned. Earlier stages are still invoked through the
+    /// handler so tests can record the full sequence of commands, but their captured output is
+    /// discarded. This mirrors the stdin-chaining semantics of a real pipeline where only the
+    /// last stage's output reaches the caller.
+    ///
+    /// - Parameters:
+    ///   - pipeline: The pipeline to run.
+    ///   - context: The shell context that supplies defaults to every stage.
+    /// - Returns: The captured ``ShellOutput`` of the final stage.
+    /// - Throws: Whatever the handler throws for any stage, plus the same configuration and
+    ///   exit-code errors as ``execute(_:in:)-(Command,_)``.
     public func execute(_ pipeline: Pipeline, in context: ShellContext) async throws -> ShellOutput {
         var lastOutput = ShellOutput(stdout: "", stderr: "", exitCode: 0)
         for stage in pipeline.stages {

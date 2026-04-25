@@ -15,19 +15,42 @@ import Foundation
 /// ```
 public struct ToolConfiguration: Sendable {
     /// The shell context associated with the command family.
+    ///
+    /// Carried so the family can run built commands without callers needing to thread the
+    /// context separately.
     public let context: ShellContext
-    /// An optional executable override.
+
+    /// An optional executable override; `nil` means use ``ShellContext/searchPaths`` resolution.
     public let executableOverride: String?
+
     /// Environment variable overrides applied to the final command.
+    ///
+    /// Merged on top of ``ShellContext/environment`` at execution time.
     public let environmentOverrides: [String: String]
-    /// An optional working directory override.
+
+    /// An optional working directory override; `nil` means use ``ShellContext/workingDirectory``.
     public let workingDirectoryOverride: String?
-    /// An optional timeout override in seconds.
+
+    /// An optional timeout override in seconds; `nil` means use ``ShellContext/defaultTimeout``.
     public let timeoutOverride: TimeInterval?
-    /// An optional output limit override in bytes.
+
+    /// An optional output limit override in bytes; `nil` means use
+    /// ``ShellContext/defaultOutputLimit``.
     public let outputLimitOverride: Int?
 
     /// Creates a tool configuration with optional execution overrides.
+    ///
+    /// - Parameters:
+    ///   - context: The shell context the command family will use to run built commands.
+    ///   - executableOverride: An optional explicit executable path. When `nil`, the executor
+    ///     resolves the executable name from ``ShellContext/searchPaths``.
+    ///   - environmentOverrides: Environment variables merged on top of the context's
+    ///     environment for built commands.
+    ///   - workingDirectoryOverride: An optional working directory for built commands. When
+    ///     `nil`, the context's default applies.
+    ///   - timeoutOverride: An optional per-command timeout in seconds. Must be `>= 0`.
+    ///   - outputLimitOverride: An optional per-command captured-output limit in bytes. Must be
+    ///     `>= 0`.
     public init(
         context: ShellContext = .init(),
         executableOverride: String? = nil,
@@ -44,38 +67,61 @@ public struct ToolConfiguration: Sendable {
         self.outputLimitOverride = outputLimitOverride
     }
 
-    /// Overrides the executable used by the final command.
+    /// Returns a copy that uses the given executable path.
+    ///
+    /// - Parameter path: An absolute or relative path to the executable.
+    /// - Returns: A new configuration with the executable override applied.
     public func executable(_ path: String) -> Self {
         copy(executableOverride: path)
     }
 
-    /// Adds or replaces a single environment variable override.
+    /// Returns a copy with one environment variable set or replaced.
+    ///
+    /// - Parameters:
+    ///   - name: The environment variable name.
+    ///   - value: The value to assign.
+    /// - Returns: A new configuration with the environment override applied.
     public func env(_ name: String, _ value: String) -> Self {
         var overrides = environmentOverrides
         overrides[name] = value
         return copy(environmentOverrides: overrides)
     }
 
-    /// Merges environment variable overrides into the configuration.
+    /// Returns a copy with multiple environment variable overrides merged in.
+    ///
+    /// Keys in `values` win over any overrides previously stored on the configuration.
+    ///
+    /// - Parameter values: A dictionary of environment variable name/value pairs to merge.
+    /// - Returns: A new configuration with the merged environment overrides applied.
     public func env(_ values: [String: String]) -> Self {
         copy(environmentOverrides: environmentOverrides.merging(values) { _, new in new })
     }
 
-    /// Overrides the working directory used by the final command.
+    /// Returns a copy that runs the final command in the given working directory.
+    ///
+    /// - Parameter path: The directory in which to spawn the command.
+    /// - Returns: A new configuration with the working-directory override applied.
     public func workingDirectory(_ path: String) -> Self {
         copy(workingDirectoryOverride: path)
     }
 
-    /// Overrides the timeout used by the final command.
+    /// Returns a copy with a per-command timeout in seconds.
     ///
-    /// The timeout must be greater than or equal to zero seconds.
+    /// The value must be `>= 0`; negative values raise
+    /// ``ShellError/invalidConfiguration(description:)`` at execution time.
+    ///
+    /// - Parameter seconds: The maximum duration to wait for the built command.
+    /// - Returns: A new configuration with the timeout override applied.
     public func timeout(_ seconds: TimeInterval) -> Self {
         copy(timeoutOverride: seconds)
     }
 
-    /// Overrides the output limit used by the final command.
+    /// Returns a copy with a per-command captured-output limit in bytes.
     ///
-    /// The output limit must be greater than or equal to zero bytes.
+    /// The value must be `>= 0`.
+    ///
+    /// - Parameter bytes: The maximum number of captured-output bytes to retain in memory.
+    /// - Returns: A new configuration with the output-limit override applied.
     public func outputLimit(_ bytes: Int) -> Self {
         copy(outputLimitOverride: bytes)
     }

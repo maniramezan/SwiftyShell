@@ -223,14 +223,21 @@ public struct Brew: RunnableCommandFamily {
     private let state: State
 
     /// The shell context used when running this command family.
+    ///
+    /// Forwarded from the underlying ``ToolConfiguration`` so commands built by ``command()``
+    /// and invocations of ``run()`` share the same executor and defaults.
     public var context: ShellContext { state.config.context }
 
     /// Creates a `brew` command family bound to a shell context.
     ///
-    /// The default subcommand is ``BrewSubcommand/list``. Use one of the
-    /// subcommand methods (``install(_:)-(String...)``, ``upgrade(_:)-(String...)``,
-    /// ``uninstall(_:)-(String...)``, ``update()``, ``info(_:)-(String...)``,
-    /// ``search(_:)``, ``outdated()``) to select a different operation.
+    /// The default subcommand is ``BrewSubcommand/list`` so a freshly constructed value runs a
+    /// safe, read-only `brew list` if invoked immediately. Switch operations with one of the
+    /// subcommand selectors below (``install(_:)-(String...)``, ``upgrade(_:)-(String...)``,
+    /// ``uninstall(_:)-(String...)``, ``update()``, ``info(_:)-(String...)``, ``search(_:)``,
+    /// ``outdated()``), or use ``subcommand(_:)-(BrewSubcommand)`` for any other case.
+    ///
+    /// - Parameter context: The shell context whose executor, search paths, environment, and
+    ///   defaults will be used. Defaults to a freshly constructed ``ShellContext``.
     public init(context: ShellContext = .init()) {
         self.state = State(config: ToolConfiguration(context: context))
     }
@@ -239,167 +246,320 @@ public struct Brew: RunnableCommandFamily {
         self.state = state
     }
 
-    /// Returns a new value with updated shared tool configuration.
+    /// Returns a copy with updated shared tool configuration.
+    ///
+    /// Funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
+    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    ///
+    /// - Parameter update: A pure function that returns the next ``ToolConfiguration``.
+    /// - Returns: A new ``Brew`` value with the updated configuration applied.
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
         copy(config: update(state.config))
     }
 
-    /// Redirects stdout for the built `brew` command.
+    /// Returns a copy that routes the built `brew` command's stdout to the given destination.
+    ///
+    /// Defaults to ``OutputDestination/capture``. Homebrew writes its primary results to stdout
+    /// (e.g. `list`, `search`, `outdated` output), so this is the stream most callers inspect.
+    ///
+    /// - Parameter destination: Where the executor should send the stdout stream.
+    /// - Returns: A new ``Brew`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
         copy(stdoutDestination: destination)
     }
 
-    /// Redirects stderr for the built `brew` command.
+    /// Returns a copy that routes the built `brew` command's stderr to the given destination.
+    ///
+    /// Defaults to ``OutputDestination/capture``. Homebrew often emits progress text and
+    /// download diagnostics on stderr even on success.
+    ///
+    /// - Parameter destination: Where the executor should send the stderr stream.
+    /// - Returns: A new ``Brew`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
         copy(stderrDestination: destination)
     }
 
     // MARK: - Subcommand selectors
 
-    /// Selects any Homebrew subcommand modeled by ``BrewSubcommand``.
+    /// Returns a copy that selects the given Homebrew subcommand.
+    ///
+    /// Use this when the desired operation is modeled by a ``BrewSubcommand`` case but no
+    /// dedicated convenience method exists (e.g. ``BrewSubcommand/cleanup``,
+    /// ``BrewSubcommand/doctor``, ``BrewSubcommand/services``).
+    ///
+    /// - Parameter value: The subcommand to invoke.
+    /// - Returns: A new ``Brew`` value with the subcommand applied.
     public func subcommand(_ value: BrewSubcommand) -> Self {
         copy(subcommand: value)
     }
 
-    /// Selects a Homebrew subcommand by raw command name.
+    /// Returns a copy that selects a Homebrew subcommand by raw command name.
     ///
-    /// Use this escape hatch for external Homebrew commands or newly added Homebrew
-    /// commands before SwiftyShell adds a dedicated ``BrewSubcommand`` case.
+    /// Escape hatch for external Homebrew commands installed via taps and for newly added
+    /// Homebrew commands before SwiftyShell ships a dedicated ``BrewSubcommand`` case.
+    ///
+    /// - Parameter value: The raw subcommand name (e.g. `"bump-formula-pr"`).
+    /// - Returns: A new ``Brew`` value with the custom subcommand applied.
     public func subcommand(_ value: String) -> Self {
         subcommand(.custom(value))
     }
 
-    /// Selects the ``BrewSubcommand/install`` subcommand and appends the given formulae.
+    /// Returns a copy that selects ``BrewSubcommand/install`` and appends the given formulae.
+    ///
+    /// Pair with ``cask(_:)`` to install casks instead of formulae.
+    ///
+    /// - Parameter formulae: Names of formulae or casks to install.
+    /// - Returns: A new ``Brew`` value configured to run `brew install`.
     public func install(_ formulae: String...) -> Self {
         install(formulae)
     }
 
-    /// Selects the ``BrewSubcommand/install`` subcommand and appends the given formulae.
+    /// Returns a copy that selects ``BrewSubcommand/install`` and appends the given formulae.
+    ///
+    /// Array overload of ``install(_:)-(String...)`` for callers building the list dynamically.
+    ///
+    /// - Parameter formulae: Names of formulae or casks to install.
+    /// - Returns: A new ``Brew`` value configured to run `brew install`.
     public func install(_ formulae: [String]) -> Self {
         copy(subcommand: .install, arguments: state.arguments + formulae)
     }
 
-    /// Selects the ``BrewSubcommand/uninstall`` subcommand and appends the given formulae.
+    /// Returns a copy that selects ``BrewSubcommand/uninstall`` and appends the given formulae.
+    ///
+    /// - Parameter formulae: Names of formulae or casks to uninstall.
+    /// - Returns: A new ``Brew`` value configured to run `brew uninstall`.
     public func uninstall(_ formulae: String...) -> Self {
         uninstall(formulae)
     }
 
-    /// Selects the ``BrewSubcommand/uninstall`` subcommand and appends the given formulae.
+    /// Returns a copy that selects ``BrewSubcommand/uninstall`` and appends the given formulae.
+    ///
+    /// Array overload of ``uninstall(_:)-(String...)``.
+    ///
+    /// - Parameter formulae: Names of formulae or casks to uninstall.
+    /// - Returns: A new ``Brew`` value configured to run `brew uninstall`.
     public func uninstall(_ formulae: [String]) -> Self {
         copy(subcommand: .uninstall, arguments: state.arguments + formulae)
     }
 
-    /// Selects the ``BrewSubcommand/upgrade`` subcommand and appends the given formulae.
+    /// Returns a copy that selects ``BrewSubcommand/upgrade`` and appends the given formulae.
     ///
-    /// Pass no formulae to upgrade all installed packages.
+    /// Pass no formulae to upgrade every installed package.
+    ///
+    /// - Parameter formulae: Names of formulae or casks to upgrade.
+    /// - Returns: A new ``Brew`` value configured to run `brew upgrade`.
     public func upgrade(_ formulae: String...) -> Self {
         upgrade(formulae)
     }
 
-    /// Selects the ``BrewSubcommand/upgrade`` subcommand and appends the given formulae.
+    /// Returns a copy that selects ``BrewSubcommand/upgrade`` and appends the given formulae.
+    ///
+    /// Array overload of ``upgrade(_:)-(String...)``. Pass an empty array to upgrade everything.
+    ///
+    /// - Parameter formulae: Names of formulae or casks to upgrade.
+    /// - Returns: A new ``Brew`` value configured to run `brew upgrade`.
     public func upgrade(_ formulae: [String]) -> Self {
         copy(subcommand: .upgrade, arguments: state.arguments + formulae)
     }
 
-    /// Selects the ``BrewSubcommand/update`` subcommand.
+    /// Returns a copy that selects ``BrewSubcommand/update``.
+    ///
+    /// Updates Homebrew itself and the local formula database. Does not upgrade installed
+    /// packages — use ``upgrade(_:)-(String...)`` for that.
+    ///
+    /// - Returns: A new ``Brew`` value configured to run `brew update`.
     public func update() -> Self {
         copy(subcommand: .update)
     }
 
-    /// Selects the ``BrewSubcommand/list`` subcommand and appends the given formulae.
+    /// Returns a copy that selects ``BrewSubcommand/list`` and appends the given formulae.
+    ///
+    /// Pass no formulae to list every installed package; pass names to inspect the files
+    /// installed by specific packages.
+    ///
+    /// - Parameter formulae: Optional names of installed packages to inspect.
+    /// - Returns: A new ``Brew`` value configured to run `brew list`.
     public func list(_ formulae: String...) -> Self {
         list(formulae)
     }
 
-    /// Selects the ``BrewSubcommand/list`` subcommand and appends the given formulae.
+    /// Returns a copy that selects ``BrewSubcommand/list`` and appends the given formulae.
+    ///
+    /// Array overload of ``list(_:)-(String...)``.
+    ///
+    /// - Parameter formulae: Optional names of installed packages to inspect.
+    /// - Returns: A new ``Brew`` value configured to run `brew list`.
     public func list(_ formulae: [String]) -> Self {
         copy(subcommand: .list, arguments: state.arguments + formulae)
     }
 
-    /// Selects the ``BrewSubcommand/info`` subcommand and appends the given formulae.
+    /// Returns a copy that selects ``BrewSubcommand/info`` and appends the given formulae.
+    ///
+    /// - Parameter formulae: Names of formulae or casks to describe.
+    /// - Returns: A new ``Brew`` value configured to run `brew info`.
     public func info(_ formulae: String...) -> Self {
         info(formulae)
     }
 
-    /// Selects the ``BrewSubcommand/info`` subcommand and appends the given formulae.
+    /// Returns a copy that selects ``BrewSubcommand/info`` and appends the given formulae.
+    ///
+    /// Array overload of ``info(_:)-(String...)``.
+    ///
+    /// - Parameter formulae: Names of formulae or casks to describe.
+    /// - Returns: A new ``Brew`` value configured to run `brew info`.
     public func info(_ formulae: [String]) -> Self {
         copy(subcommand: .info, arguments: state.arguments + formulae)
     }
 
-    /// Selects the ``BrewSubcommand/search`` subcommand with the given pattern.
+    /// Returns a copy that selects ``BrewSubcommand/search`` with the given pattern.
+    ///
+    /// The pattern is forwarded to Homebrew verbatim. Homebrew accepts plain text and
+    /// `/regex/` syntax — see `man brew search` for details.
+    ///
+    /// - Parameter pattern: The search pattern (literal text or `/regex/`).
+    /// - Returns: A new ``Brew`` value configured to run `brew search`.
     public func search(_ pattern: String) -> Self {
         copy(subcommand: .search, arguments: state.arguments + [pattern])
     }
 
-    /// Selects the ``BrewSubcommand/outdated`` subcommand.
+    /// Returns a copy that selects ``BrewSubcommand/outdated``.
+    ///
+    /// Pair with ``greedy(_:)`` to also list casks that auto-update or are marked latest.
+    ///
+    /// - Returns: A new ``Brew`` value configured to run `brew outdated`.
     public func outdated() -> Self {
         copy(subcommand: .outdated)
     }
 
-    /// Appends an arbitrary argument to the selected Homebrew subcommand.
+    /// Returns a copy with one additional positional argument or flag appended.
     ///
-    /// Use this for command-specific flags that SwiftyShell does not model directly.
+    /// Escape hatch for command-specific flags that SwiftyShell does not model directly
+    /// (e.g. `--HEAD`, `--build-from-source`). Arguments are appended after the modeled
+    /// flags in the final argv.
+    ///
+    /// - Parameter value: The argument or flag to append.
+    /// - Returns: A new ``Brew`` value with the argument appended.
     public func arg(_ value: String) -> Self {
         copy(arguments: state.arguments + [value])
     }
 
-    /// Appends arbitrary arguments to the selected Homebrew subcommand.
+    /// Returns a copy with multiple positional arguments or flags appended.
     ///
-    /// Use this for command-specific flags that SwiftyShell does not model directly.
+    /// Array form of ``arg(_:)`` for adding several values at once.
+    ///
+    /// - Parameter values: The arguments or flags to append, in order.
+    /// - Returns: A new ``Brew`` value with the arguments appended.
     public func args(_ values: [String]) -> Self {
         copy(arguments: state.arguments + values)
     }
 
-    /// Appends an additional positional formula or cask name.
+    /// Returns a copy with one additional positional formula or cask name appended.
+    ///
+    /// Convenience alias for ``arg(_:)`` that reads as the package name being targeted.
+    ///
+    /// - Parameter name: The formula or cask name to append.
+    /// - Returns: A new ``Brew`` value with the name appended.
     public func formula(_ name: String) -> Self {
         copy(arguments: state.arguments + [name])
     }
 
-    /// Appends additional positional formula or cask names.
+    /// Returns a copy with multiple positional formula or cask names appended.
+    ///
+    /// Convenience alias for ``args(_:)`` that reads as the package names being targeted.
+    ///
+    /// - Parameter names: The formula or cask names to append, in order.
+    /// - Returns: A new ``Brew`` value with the names appended.
     public func formulae(_ names: [String]) -> Self {
         copy(arguments: state.arguments + names)
     }
 
     // MARK: - Flags
 
-    /// Treats the named packages as casks (`--cask`).
+    /// Returns a copy that treats the named packages as casks.
+    ///
+    /// Maps to the `--cask` flag. Mutually exclusive with ``formulaFlag(_:)`` — supplying both
+    /// is an error from `brew`.
+    ///
+    /// - Parameter enabled: `true` to add `--cask`; `false` to omit it. Defaults to `true`.
+    /// - Returns: A new ``Brew`` value with the flag applied.
     public func cask(_ enabled: Bool = true) -> Self {
         copy(usesCaskFlag: enabled)
     }
 
-    /// Treats the named packages as formulae (`--formula`).
+    /// Returns a copy that treats the named packages as formulae.
+    ///
+    /// Maps to the `--formula` flag. Mutually exclusive with ``cask(_:)``.
+    ///
+    /// - Parameter enabled: `true` to add `--formula`; `false` to omit it. Defaults to `true`.
+    /// - Returns: A new ``Brew`` value with the flag applied.
     public func formulaFlag(_ enabled: Bool = true) -> Self {
         copy(usesFormulaFlag: enabled)
     }
 
-    /// Forces the operation (`--force`).
+    /// Returns a copy that forces the operation past safety checks.
+    ///
+    /// Maps to the `--force` flag. Behavior depends on the subcommand (e.g. force-uninstall
+    /// dependencies, force-link).
+    ///
+    /// - Parameter enabled: `true` to add `--force`; `false` to omit it. Defaults to `true`.
+    /// - Returns: A new ``Brew`` value with the flag applied.
     public func force(_ enabled: Bool = true) -> Self {
         copy(isForce: enabled)
     }
 
-    /// Suppresses non-essential output (`--quiet`).
+    /// Returns a copy that suppresses non-essential Homebrew output.
+    ///
+    /// Maps to the `--quiet` flag.
+    ///
+    /// - Parameter enabled: `true` to add `--quiet`; `false` to omit it. Defaults to `true`.
+    /// - Returns: A new ``Brew`` value with the flag applied.
     public func quiet(_ enabled: Bool = true) -> Self {
         copy(isQuiet: enabled)
     }
 
-    /// Emits verbose output (`--verbose`).
+    /// Returns a copy that requests verbose Homebrew output.
+    ///
+    /// Maps to the `--verbose` flag.
+    ///
+    /// - Parameter enabled: `true` to add `--verbose`; `false` to omit it. Defaults to `true`.
+    /// - Returns: A new ``Brew`` value with the flag applied.
     public func verbose(_ enabled: Bool = true) -> Self {
         copy(isVerbose: enabled)
     }
 
-    /// Describes what would be done without running the operation (`--dry-run`).
+    /// Returns a copy that describes what would be done without running the operation.
+    ///
+    /// Maps to the `--dry-run` flag. Useful for previewing destructive operations like
+    /// ``BrewSubcommand/uninstall`` or ``BrewSubcommand/cleanup``.
+    ///
+    /// - Parameter enabled: `true` to add `--dry-run`; `false` to omit it. Defaults to `true`.
+    /// - Returns: A new ``Brew`` value with the flag applied.
     public func dryRun(_ enabled: Bool = true) -> Self {
         copy(isDryRun: enabled)
     }
 
-    /// Includes casks with auto-updates when reporting or upgrading (`--greedy`).
+    /// Returns a copy that includes auto-updating casks in reports and upgrades.
+    ///
+    /// Maps to the `--greedy` flag. Most useful with ``outdated()`` and ``upgrade(_:)-(String...)``,
+    /// where Homebrew normally hides casks that update themselves.
+    ///
+    /// - Parameter enabled: `true` to add `--greedy`; `false` to omit it. Defaults to `true`.
+    /// - Returns: A new ``Brew`` value with the flag applied.
     public func greedy(_ enabled: Bool = true) -> Self {
         copy(isGreedy: enabled)
     }
 
-    /// Builds the raw `brew` command.
+    /// Builds the raw `brew` command represented by the current builder state.
+    ///
+    /// Argv is assembled in the order: subcommand, then modeled flags (`--cask`, `--formula`,
+    /// `--force`, `--quiet`, `--verbose`, `--dry-run`, `--greedy`), then any positional
+    /// arguments accumulated via ``arg(_:)``/``args(_:)``/``formula(_:)``/``formulae(_:)`` or
+    /// the subcommand selectors. The shared ``ToolConfiguration`` overrides are merged in via
+    /// ``ToolConfiguration/apply(to:)``.
+    ///
+    /// - Returns: A ``Command`` ready for execution or pipeline composition.
     public func command() -> Command {
         var arguments: [String] = [state.subcommand.argument]
 

@@ -17,19 +17,41 @@ import Foundation
 /// When running typed command families, errors are surfaced as ``ShellError``
 /// rather than requiring manual exit-code inspection.
 public struct ShellOutput: Sendable, Equatable {
-    /// Captured stdout text.
+    /// The captured stdout text, decoded as UTF-8.
+    ///
+    /// Empty when the command produced no stdout, when stdout was routed to
+    /// ``OutputDestination/discard``, or when stdout was routed to
+    /// ``OutputDestination/file(path:append:)``.
     public var stdout: String
-    /// Captured stderr text.
+
+    /// The captured stderr text, decoded as UTF-8.
+    ///
+    /// Empty when the command produced no stderr or when stderr was routed elsewhere via
+    /// ``OutputDestination``.
     public var stderr: String
-    /// Process exit status.
+
+    /// The process exit status code.
+    ///
+    /// `0` indicates success; any non-zero value indicates failure. When using
+    /// ``Command/run(in:)`` or any typed command family's `run()`, a non-zero exit raises
+    /// ``ShellError/exitFailure(command:output:)`` rather than returning a `ShellOutput` for
+    /// the caller to inspect.
     public var exitCode: Int32
 
-    /// Indicates whether the command exited successfully.
+    /// Indicates whether the command exited successfully (``exitCode`` equals zero).
     public var isSuccess: Bool {
         exitCode == 0
     }
 
     /// Creates a shell output value from captured streams and an exit code.
+    ///
+    /// Useful for constructing ``MockExecutor`` responses in tests or for synthesizing values in
+    /// custom executors.
+    ///
+    /// - Parameters:
+    ///   - stdout: The stdout text to expose. Defaults to `""`.
+    ///   - stderr: The stderr text to expose. Defaults to `""`.
+    ///   - exitCode: The process exit status code. Use `0` to represent success.
     public init(stdout: String = "", stderr: String = "", exitCode: Int32) {
         self.stdout = stdout
         self.stderr = stderr

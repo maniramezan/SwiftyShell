@@ -20,9 +20,18 @@ public struct Ls: RunnableCommandFamily {
     private let state: State
 
     /// The shell context used when running this command family.
+    ///
+    /// Forwarded from the embedded ``ToolConfiguration`` so commands built by ``command()`` and
+    /// invocations of ``run()`` share the same executor and defaults.
     public var context: ShellContext { state.config.context }
 
     /// Creates an `ls` command family bound to a shell context.
+    ///
+    /// All builder state starts empty. With no paths configured, `ls` lists the current working
+    /// directory; supply paths with ``path(_:)`` or ``paths(_:)`` to override.
+    ///
+    /// - Parameter context: The shell context whose executor, search paths, environment, and
+    ///   defaults will be used. Defaults to a freshly constructed ``ShellContext``.
     public init(context: ShellContext = .init()) {
         self.state = State(config: ToolConfiguration(context: context))
     }
@@ -31,59 +40,120 @@ public struct Ls: RunnableCommandFamily {
         self.state = state
     }
 
-    /// Returns a new value with updated shared tool configuration.
+    /// Returns a copy with updated shared tool configuration.
+    ///
+    /// Funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
+    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    ///
+    /// - Parameter update: A pure function that returns the next ``ToolConfiguration``.
+    /// - Returns: A new ``Ls`` value with the updated configuration applied.
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
         copy(config: update(state.config))
     }
 
-    /// Redirects stdout for the built `ls` command.
+    /// Returns a copy that routes the built `ls` command's stdout to the given destination.
+    ///
+    /// Defaults to ``OutputDestination/capture``. Stdout is the listing itself, so this is the
+    /// stream most callers will inspect.
+    ///
+    /// - Parameter destination: Where the executor should send the stdout stream.
+    /// - Returns: A new ``Ls`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
         copy(stdoutDestination: destination)
     }
 
-    /// Redirects stderr for the built `ls` command.
+    /// Returns a copy that routes the built `ls` command's stderr to the given destination.
+    ///
+    /// Defaults to ``OutputDestination/capture``. `ls` writes diagnostics here when a path
+    /// cannot be read.
+    ///
+    /// - Parameter destination: Where the executor should send the stderr stream.
+    /// - Returns: A new ``Ls`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
         copy(stderrDestination: destination)
     }
 
-    /// Includes hidden files in the listing.
+    /// Returns a copy that includes hidden entries (those whose names start with `.`) in the
+    /// listing.
+    ///
+    /// Maps to the `-a` flag.
+    ///
+    /// - Parameter enabled: `true` to add `-a`; `false` to omit it. Defaults to `true`.
+    /// - Returns: A new ``Ls`` value with the flag applied.
     public func all(_ enabled: Bool = true) -> Self {
         copy(showsAllFiles: enabled)
     }
 
-    /// Uses long listing format.
+    /// Returns a copy that uses the long listing format (permissions, owner, size, timestamps).
+    ///
+    /// Maps to the `-l` flag. Pair with ``humanReadable(_:)`` to format sizes with K/M/G suffixes.
+    ///
+    /// - Parameter enabled: `true` to add `-l`; `false` to omit it. Defaults to `true`.
+    /// - Returns: A new ``Ls`` value with the flag applied.
     public func longFormat(_ enabled: Bool = true) -> Self {
         copy(usesLongFormat: enabled)
     }
 
-    /// Uses human-readable file sizes.
+    /// Returns a copy that formats sizes in the long listing format with unit suffixes.
+    ///
+    /// Maps to the `-h` flag. Has no visible effect unless combined with ``longFormat(_:)``.
+    ///
+    /// - Parameter enabled: `true` to add `-h`; `false` to omit it. Defaults to `true`.
+    /// - Returns: A new ``Ls`` value with the flag applied.
     public func humanReadable(_ enabled: Bool = true) -> Self {
         copy(usesHumanReadableSizes: enabled)
     }
 
-    /// Lists directory contents recursively.
+    /// Returns a copy that lists directory contents recursively.
+    ///
+    /// Maps to the `-R` flag. Output may be very large for deep trees; consider combining with
+    /// ``outputLimit(_:)`` or routing stdout to ``OutputDestination/file(path:append:)``.
+    ///
+    /// - Parameter enabled: `true` to add `-R`; `false` to omit it. Defaults to `true`.
+    /// - Returns: A new ``Ls`` value with the flag applied.
     public func recursive(_ enabled: Bool = true) -> Self {
         copy(isRecursive: enabled)
     }
 
-    /// Treats directories as plain entries instead of listing their contents.
+    /// Returns a copy that treats directory paths as plain entries instead of listing their
+    /// contents.
+    ///
+    /// Maps to the `-d` flag. Useful when you want metadata about the directory itself rather
+    /// than its children.
+    ///
+    /// - Parameter enabled: `true` to add `-d`; `false` to omit it. Defaults to `true`.
+    /// - Returns: A new ``Ls`` value with the flag applied.
     public func directoryAsFile(_ enabled: Bool = true) -> Self {
         copy(treatsDirectoriesAsFiles: enabled)
     }
 
-    /// Appends a path to list.
+    /// Returns a copy with one additional path appended for listing.
+    ///
+    /// Each path becomes a separate argument; with no paths configured, `ls` lists the current
+    /// working directory.
+    ///
+    /// - Parameter value: The directory or file path to list.
+    /// - Returns: A new ``Ls`` value with the path appended.
     public func path(_ value: String) -> Self {
         copy(paths: state.paths + [value])
     }
 
-    /// Appends multiple paths to list.
+    /// Returns a copy with multiple paths appended for listing.
+    ///
+    /// - Parameter values: The paths to append, in order.
+    /// - Returns: A new ``Ls`` value with the paths appended.
     public func paths(_ values: [String]) -> Self {
         copy(paths: state.paths + values)
     }
 
-    /// Builds the raw `ls` command.
+    /// Builds the raw `ls` command represented by the current builder state.
+    ///
+    /// Argv is assembled in the order: flags (`-a`, `-l`, `-h`, `-R`, `-d`), then paths. The
+    /// shared ``ToolConfiguration`` overrides are merged in via ``ToolConfiguration/apply(to:)``.
+    ///
+    /// - Returns: A ``Command`` ready for execution or pipeline composition.
     public func command() -> Command {
         var arguments: [String] = []
 

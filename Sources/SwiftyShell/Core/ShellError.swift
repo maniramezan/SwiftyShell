@@ -1,6 +1,9 @@
 import Foundation
 
 /// Identifies a command output stream.
+///
+/// Carried by ``ShellError/decodingError(command:stream:)`` to indicate which stream failed to
+/// decode as UTF-8.
 public enum StreamKind: Sendable {
     /// Standard output.
     case stdout
@@ -10,7 +13,9 @@ public enum StreamKind: Sendable {
 
 /// Errors thrown while building workflows or running shell commands.
 ///
-/// Catch ``ShellError`` to handle specific failure modes:
+/// Every public SwiftyShell entry point that can fail surfaces failures through ``ShellError``.
+/// Catch the specific case you care about and let the rest re-throw, or pattern-match on the
+/// payload to surface diagnostics:
 ///
 /// ```swift
 /// do {
@@ -24,26 +29,71 @@ public enum StreamKind: Sendable {
 /// }
 /// ```
 public enum ShellError: Error, LocalizedError, Sendable {
-    /// A timeout or output-limit value was invalid.
+    /// A timeout, output-limit, or other configuration value was invalid (for example negative).
+    ///
+    /// - Parameter description: A human-readable explanation of the misconfiguration.
     case invalidConfiguration(description: String)
-    /// The requested executable could not be resolved.
+
+    /// The requested executable could not be resolved against ``ShellContext/searchPaths``.
+    ///
+    /// The associated value is the executable name that failed to resolve.
     case commandNotFound(String)
+
     /// The command exited with a non-zero status code.
+    ///
+    /// - Parameters:
+    ///   - command: The shell-quoted display string of the command that failed.
+    ///   - output: The captured ``ShellOutput`` (including ``ShellOutput/exitCode``).
     case exitFailure(command: String, output: ShellOutput)
-    /// The command exceeded the configured timeout.
+
+    /// The command exceeded the configured timeout and was terminated.
+    ///
+    /// - Parameters:
+    ///   - command: The shell-quoted display string of the command that timed out.
+    ///   - duration: The timeout in seconds that was exceeded.
+    ///   - partialOutput: Whatever output was captured before the process was terminated.
     case timeout(command: String, duration: TimeInterval, partialOutput: ShellOutput)
-    /// A captured output stream could not be decoded as UTF-8.
+
+    /// A captured output stream contained bytes that could not be decoded as UTF-8.
+    ///
+    /// - Parameters:
+    ///   - command: The shell-quoted display string of the command whose output failed to decode.
+    ///   - stream: Which stream failed to decode (``StreamKind/stdout`` or
+    ///     ``StreamKind/stderr``).
     case decodingError(command: String, stream: StreamKind)
-    /// Captured output exceeded the configured limit.
+
+    /// Captured output exceeded the configured limit and the process was terminated.
+    ///
+    /// - Parameters:
+    ///   - command: The shell-quoted display string of the command.
+    ///   - limit: The output limit in bytes that was exceeded.
+    ///   - partialOutput: Whatever output was captured up to the limit.
     case outputLimitExceeded(command: String, limit: Int, partialOutput: ShellOutput)
-    /// The command was cancelled before completion.
+
+    /// The command was cancelled (typically via task cancellation) before it completed.
+    ///
+    /// - Parameters:
+    ///   - command: The shell-quoted display string of the cancelled command.
+    ///   - partialOutput: Whatever output was captured before cancellation.
     case cancelled(command: String, partialOutput: ShellOutput)
-    /// The process could not be started.
+
+    /// The process could not be started (for example missing permissions or invalid arguments).
+    ///
+    /// - Parameters:
+    ///   - command: The shell-quoted display string of the command.
+    ///   - reason: A human-readable description of why the spawn failed.
     case spawnError(command: String, reason: String)
-    /// A workflow requirement failed.
+
+    /// A workflow precondition supplied to ``Workflow/require(_:else:)`` (or its key-path
+    /// overload) failed.
+    ///
+    /// - Parameter description: A human-readable explanation of the failed condition.
     case workflowConditionFailed(description: String)
 
     /// A localized description of the shell error.
+    ///
+    /// Suitable for display to end users. For richer machine-readable detail, switch on the
+    /// case directly to access associated values such as ``ShellOutput`` or `partialOutput`.
     public var errorDescription: String? {
         switch self {
         case let .invalidConfiguration(description):

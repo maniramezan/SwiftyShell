@@ -33,24 +33,55 @@ public struct GitStatusWorkflow: Sendable {
     let git: Git
     let workflow: Workflow<GitStatus>
 
-    /// Runs the underlying git status workflow.
+    /// Runs the underlying git status workflow and returns the parsed result.
+    ///
+    /// `consuming` because ``Workflow`` is single-use; running the same workflow twice would
+    /// re-execute every queued step. After this call the value is consumed and may not be
+    /// reused.
+    ///
+    /// - Returns: The parsed ``GitStatus`` value produced by `git status --porcelain=v2 --branch`.
+    /// - Throws: ``ShellError`` if `git` exits non-zero, the output cannot be parsed, or any
+    ///   `require` predicate added earlier in the chain fails.
     public consuming func run() async throws -> GitStatus {
         try await workflow.run()
     }
 
-    /// Maps the git status value using a synchronous transform.
+    /// Maps the parsed git status value using a synchronous transform.
+    ///
+    /// Drops the git client reference and produces a plain ``Workflow`` carrying the
+    /// transformed value. Use this once you no longer need to chain another typed git
+    /// operation onto the result.
+    ///
+    /// - Parameter transform: A pure function applied to the parsed ``GitStatus``.
+    /// - Returns: A ``Workflow`` that produces the transformed value when run.
     public func map<T>(
         _ transform: @escaping @Sendable (GitStatus) throws -> T
     ) -> Workflow<T> {
         workflow.map(transform)
     }
 
-    /// Maps the git status value using a key path.
+    /// Maps the parsed git status value using a key path.
+    ///
+    /// Convenience for projecting a single field (e.g. `status.map(\.branch)`). Like the
+    /// closure overload, the result is a plain ``Workflow``.
+    ///
+    /// - Parameter keyPath: The key path to extract from the parsed ``GitStatus``.
+    /// - Returns: A ``Workflow`` that produces the projected value when run.
     public func map<T>(_ keyPath: KeyPath<GitStatus, T>) -> Workflow<T> {
         workflow.map(keyPath)
     }
 
-    /// Requires the git status to satisfy a predicate.
+    /// Requires the parsed git status to satisfy a predicate before the workflow continues.
+    ///
+    /// Lets the workflow keep its ``GitStatusWorkflow`` shape so subsequent calls like
+    /// ``pull()`` and ``fetch()`` remain available. If the predicate returns `false` or throws,
+    /// the workflow rejects with the supplied error.
+    ///
+    /// - Parameters:
+    ///   - predicate: A pure check applied to the parsed ``GitStatus``.
+    ///   - error: The error thrown when the predicate is unsatisfied. Defaults to
+    ///     ``ShellError/workflowConditionFailed(description:)``.
+    /// - Returns: A new ``GitStatusWorkflow`` that fails fast when the predicate does not hold.
     public func require(
         _ predicate: @escaping @Sendable (GitStatus) throws -> Bool,
         else error: @autoclosure @escaping @Sendable () -> Error = ShellError.workflowConditionFailed(
@@ -60,7 +91,17 @@ public struct GitStatusWorkflow: Sendable {
         GitStatusWorkflow(git: git, workflow: workflow.require(predicate, else: error()))
     }
 
-    /// Requires a git status key path to equal an expected value.
+    /// Requires a key path on the parsed git status to equal an expected value.
+    ///
+    /// Sugar over ``require(_:else:)`` for the common case of comparing one field to a literal
+    /// (e.g. `require(\.state, equals: .noChanges)`).
+    ///
+    /// - Parameters:
+    ///   - keyPath: The key path to read from the parsed ``GitStatus``.
+    ///   - expected: The required value at that key path.
+    ///   - error: The error thrown when the value does not match. Defaults to
+    ///     ``ShellError/workflowConditionFailed(description:)``.
+    /// - Returns: A new ``GitStatusWorkflow`` that fails fast when the values differ.
     public func require<T: Equatable & Sendable>(
         _ keyPath: KeyPath<GitStatus, T>,
         equals expected: T,
@@ -71,13 +112,23 @@ public struct GitStatusWorkflow: Sendable {
         GitStatusWorkflow(git: git, workflow: workflow.require(keyPath, equals: expected, else: error()))
     }
 
-    /// Continues the workflow with `git pull` if status succeeds.
+    /// Continues the workflow with `git pull` once the status step succeeds.
+    ///
+    /// Use after ``require(_:else:)`` to gate the pull on a clean working tree, a specific
+    /// branch, or any other predicate.
+    ///
+    /// - Returns: A ``Workflow`` that produces a ``GitPullResult`` describing the post-pull
+    ///   branch state.
     public func pull() -> Workflow<GitPullResult> {
         let git = git
         return workflow.flatMap { _ in git.pull() }
     }
 
-    /// Continues the workflow with `git fetch` if status succeeds.
+    /// Continues the workflow with `git fetch` once the status step succeeds.
+    ///
+    /// The remote is auto-detected: `origin` if present, otherwise the first configured remote.
+    ///
+    /// - Returns: A ``Workflow`` that produces a ``GitFetchResult`` describing the fetched remote.
     public func fetch() -> Workflow<GitFetchResult> {
         let git = git
         return workflow.flatMap { _ in git.fetch() }

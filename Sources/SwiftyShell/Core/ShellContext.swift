@@ -70,31 +70,73 @@ public enum ShellPlatform: Sendable {
 /// must share the same mock).
 public struct ShellContext: Sendable {
     /// Default search paths used to resolve executables by name.
+    ///
+    /// Computed once at process start by reading the parent process's `PATH` (via
+    /// `ProcessInfo.processInfo.environment`) and falling back to the platform defaults from
+    /// ``ShellPlatform/defaultSearchPaths`` when `PATH` is missing or empty.
     public static let defaultSearchPaths: [String] = defaultSearchPaths(
         environment: ProcessInfo.processInfo.environment
     )
 
     /// The executor responsible for running commands and pipelines.
+    ///
+    /// Defaults to ``SubprocessExecutor`` (real process execution). Substitute ``MockExecutor``
+    /// in tests to capture commands without spawning processes.
     public let executor: any CommandExecutor
+
     /// Search paths used to resolve executable names.
+    ///
+    /// Used by the executor when ``Command/executableName`` is a bare program name. Paths are
+    /// tried in order; the first existing executable wins. Ignored when an explicit path is
+    /// supplied via ``Command/executable(_:)``.
     public let searchPaths: [String]
+
     /// Base environment variables used for command execution.
+    ///
+    /// Per-command overrides (``Command/env(_:_:)``, ``Command/env(_:)``) are merged on top of
+    /// this dictionary at execution time. Defaults to the parent process's environment.
     public let environment: [String: String]
-    /// An optional default working directory.
+
+    /// An optional default working directory inherited by every command.
+    ///
+    /// Per-command overrides via ``Command/workingDirectory(_:)`` take precedence. When `nil`,
+    /// the executor inherits the calling process's current working directory.
     public let workingDirectory: String?
-    /// An optional default timeout in seconds.
+
+    /// An optional default timeout in seconds applied to every command.
+    ///
+    /// When `nil`, commands run without a timeout unless one is supplied via
+    /// ``Command/timeout(_:)``. Negative values raise
+    /// ``ShellError/invalidConfiguration(description:)`` at execution time.
     public let defaultTimeout: TimeInterval?
+
     /// The default maximum captured output size in bytes.
+    ///
+    /// Applies to the combined captured stdout and stderr per command. When exceeded, the
+    /// executor raises ``ShellError/outputLimitExceeded(command:limit:partialOutput:)``.
+    /// Defaults to `10_485_760` (10 MB). Per-command overrides via ``Command/outputLimit(_:)``
+    /// take precedence.
     public let defaultOutputLimit: Int
 
     /// Creates a shell context with execution defaults.
     ///
-    /// - Parameter executor: The executor responsible for running commands and pipelines.
-    /// - Parameter searchPaths: The search paths used to resolve executable names.
-    /// - Parameter environment: The base environment variables used for command execution.
-    /// - Parameter workingDirectory: The default working directory for commands that do not override it.
-    /// - Parameter defaultTimeout: The default timeout in seconds for commands that do not override it. The value must be greater than or equal to zero when provided.
-    /// - Parameter defaultOutputLimit: The maximum captured output size in bytes for commands that do not override it. The value must be greater than or equal to zero.
+    /// All parameters have sensible defaults for ad-hoc use; supply specific values when you want
+    /// the same defaults to apply across many commands (for example a fixed working directory
+    /// for an entire CLI subcommand, or a global timeout for safety).
+    ///
+    /// - Parameters:
+    ///   - executor: The executor responsible for running commands and pipelines. Defaults to
+    ///     ``SubprocessExecutor``; use ``MockExecutor`` in tests.
+    ///   - searchPaths: The search paths used to resolve executable names by their bare name.
+    ///     Defaults to ``defaultSearchPaths``.
+    ///   - environment: The base environment variables used for command execution. Defaults to
+    ///     `ProcessInfo.processInfo.environment`.
+    ///   - workingDirectory: The default working directory for commands that do not override it.
+    ///     Pass `nil` (the default) to inherit the calling process's working directory.
+    ///   - defaultTimeout: The default timeout in seconds for commands that do not override it.
+    ///     Must be `>= 0` when provided. Pass `nil` (the default) to leave commands unbounded.
+    ///   - defaultOutputLimit: The maximum captured output size in bytes for commands that do
+    ///     not override it. Must be `>= 0`. Defaults to `10_485_760` (10 MB).
     public init(
         executor: any CommandExecutor = SubprocessExecutor(),
         searchPaths: [String] = ShellContext.defaultSearchPaths,

@@ -6,18 +6,86 @@ import Darwin
 import Glibc
 #endif
 
-/// The default executor that runs commands using `Process`.
+/// The default ``CommandExecutor`` that runs commands using Foundation's `Process`.
+///
+/// `SubprocessExecutor` is what ``ShellContext/init(executor:searchPaths:environment:workingDirectory:defaultTimeout:defaultOutputLimit:)``
+/// installs by default. It spawns a real OS process for each ``Command`` or ``Pipeline``
+/// stage, wires stdin/stdout/stderr per the configured ``OutputDestination``, enforces
+/// per-command timeouts and output limits, and converts non-zero exits into ``ShellError``.
+///
+/// You normally do not construct this type directly — `ShellContext()` already uses it.
+/// Construct one explicitly only when you need to inject it into a context that requires
+/// a non-default executor argument:
+///
+/// ```swift
+/// let context = ShellContext(executor: SubprocessExecutor())
+/// let output = try await Command("echo", "hi").run(in: context)
+/// ```
+///
+/// To replace real process execution in tests, pass ``MockExecutor`` to the same
+/// `executor:` parameter instead.
+///
+/// > Note: `SubprocessExecutor` lives under the `Internal/` folder for organizational
+/// > reasons, but it is intentionally `public` because it is the default value used by
+/// > `ShellContext.init`.
 public struct SubprocessExecutor: CommandExecutor {
     /// Creates a subprocess-backed command executor.
+    ///
+    /// The executor is stateless; every ``execute(_:in:)-(Command,_)`` and
+    /// ``execute(_:in:)-(Pipeline,_)`` call spawns a fresh `Process` configured from the
+    /// supplied ``Command`` and ``ShellContext``.
     public init() {}
 
-    /// Executes a single command in the given shell context.
+    /// Executes a single ``Command`` in the given ``ShellContext`` and returns its captured output.
+    ///
+    /// Resolves the executable against `context.searchPaths`, merges environment
+    /// overrides on top of `context.environment`, applies the working directory, timeout,
+    /// and output limit (with command-level overrides winning), and runs the process while
+    /// streaming stdout and stderr per the configured ``OutputDestination``.
+    ///
+    /// Failure modes are surfaced as ``ShellError``:
+    /// - ``ShellError/commandNotFound(_:)`` if the executable cannot be located.
+    /// - ``ShellError/invalidConfiguration(description:)`` for negative timeouts or output limits.
+    /// - ``ShellError/spawnError(command:reason:)`` if `Process.run()` itself fails.
+    /// - ``ShellError/exitFailure(command:output:)`` for non-zero exit codes.
+    /// - ``ShellError/timeout(command:duration:partialOutput:)`` if the timeout elapses.
+    /// - ``ShellError/outputLimitExceeded(command:limit:partialOutput:)`` if captured output overflows the limit.
+    /// - ``ShellError/cancelled(command:partialOutput:)`` if the surrounding `Task` is cancelled.
+    ///
+    /// - Parameters:
+    ///   - command: The fully-configured ``Command`` to spawn.
+    ///   - context: The ``ShellContext`` providing defaults for environment, search paths, and limits.
+    /// - Returns: The captured ``ShellOutput`` on a successful zero-exit run.
+    /// - Throws: ``ShellError`` for any of the failure modes listed above.
     public func execute(_ command: Command, in context: ShellContext) async throws -> ShellOutput {
         let resolved = try ResolvedCommand(command: command, context: context)
         return try await SingleCommandRunner(resolved: resolved).run()
     }
 
-    /// Executes a pipeline in the given shell context.
+    /// Executes a ``Pipeline`` in the given ``ShellContext`` and returns the final stage's output.
+    ///
+    /// Spawns one `Process` per pipeline stage, wires consecutive stages together via
+    /// `Pipe`, captures the final stage's stdout into ``ShellOutput/stdout``, and
+    /// concatenates every stage's stderr into ``ShellOutput/stderr``. The shortest
+    /// non-`nil` stage timeout governs the whole pipeline; the first non-zero stage exit
+    /// terminates the remaining stages.
+    ///
+    /// Failure modes mirror ``execute(_:in:)-(Command,_)``:
+    /// - ``ShellError/exitFailure(command:output:)`` is thrown for the *first* failing
+    ///   stage (with that stage's display string), not necessarily the last.
+    /// - ``ShellError/timeout(command:duration:partialOutput:)`` reports the final stage's
+    ///   display string when the pipeline-wide timeout elapses.
+    /// - ``ShellError/outputLimitExceeded(command:limit:partialOutput:)`` may be thrown for
+    ///   any stage that overflows its individual ``ToolConfiguration/outputLimit(_:)`` for stderr,
+    ///   or for the final stage's stdout overflow.
+    ///
+    /// - Parameters:
+    ///   - pipeline: The ``Pipeline`` of commands to spawn, in order.
+    ///   - context: The ``ShellContext`` providing defaults for each stage.
+    /// - Returns: A ``ShellOutput`` whose `stdout` is the final stage's captured output and
+    ///   whose `stderr` is the concatenated stderr of all stages.
+    /// - Throws: ``ShellError`` describing the first failing stage, a timeout, an output
+    ///   limit overflow, a spawn error, or task cancellation.
     public func execute(_ pipeline: Pipeline, in context: ShellContext) async throws -> ShellOutput {
         let resolved = try pipeline.stages.map { try ResolvedCommand(command: $0, context: context) }
         return try await PipelineRunner(resolved: resolved).run()

@@ -27,18 +27,43 @@ import Foundation
 /// ```
 public struct Pipeline: Sendable {
     /// The ordered command stages in the pipeline.
+    ///
+    /// Stages are connected stdout-to-stdin in declaration order. The first stage receives the
+    /// executor's normal stdin (typically inherited from the parent process); the last stage's
+    /// stdout is what ``run(in:)`` returns.
     public let stages: [Command]
 
     internal init(stages: [Command]) {
         self.stages = stages
     }
 
-    /// Appends another command to the pipeline.
+    /// Returns a new pipeline with `next` appended as a downstream stage.
+    ///
+    /// Existing stages are preserved. The current pipeline's final stage's stdout becomes
+    /// `next`'s stdin.
+    ///
+    /// ```swift
+    /// let pipeline = Command("ls", "-la")
+    ///     .pipe(to: Command("grep", ".swift"))
+    ///     .pipe(to: Command("wc", "-l"))   // appended via this method
+    /// ```
+    ///
+    /// - Parameter next: The command to append as the new final stage.
+    /// - Returns: A new ``Pipeline`` with the additional stage.
     public func pipe(to next: Command) -> Self {
         Self(stages: stages + [next])
     }
 
-    /// Runs the pipeline using the provided shell context.
+    /// Runs the pipeline using the provided shell context and returns the final stage's output.
+    ///
+    /// All stages run concurrently as separate processes; the executor wires stdout-to-stdin
+    /// between them. A failure in any stage surfaces as ``ShellError`` from this call.
+    ///
+    /// - Parameter context: The shell context that supplies defaults to every stage. Defaults
+    ///   to a freshly constructed ``ShellContext``.
+    /// - Returns: The captured ``ShellOutput`` of the final stage.
+    /// - Throws: ``ShellError`` if any stage fails to spawn, exits non-zero, times out, exceeds
+    ///   an output limit, or is cancelled.
     public func run(in context: ShellContext = .init()) async throws -> ShellOutput {
         try await context.executor.execute(self, in: context)
     }

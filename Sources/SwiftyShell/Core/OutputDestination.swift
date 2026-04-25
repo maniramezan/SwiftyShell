@@ -36,10 +36,31 @@ import Foundation
 ///     .run(in: context)
 /// ```
 public enum OutputDestination: Sendable, Equatable {
-    /// Captures the stream in memory and returns it in `ShellOutput`.
+    /// Captures the stream in memory and returns it via ``ShellOutput/stdout`` or
+    /// ``ShellOutput/stderr``.
+    ///
+    /// This is the default. Captured bytes count toward ``ShellContext/defaultOutputLimit`` (or
+    /// the per-command override applied via ``Command/outputLimit(_:)``); exceeding that limit
+    /// raises ``ShellError/outputLimitExceeded(command:limit:partialOutput:)``.
     case capture
-    /// Discards the stream.
+
+    /// Discards the stream entirely.
+    ///
+    /// Discarded bytes never reach memory and do not contribute to the output limit. Use this
+    /// for streams whose content is intentionally unwanted (for example noisy progress
+    /// messages).
     case discard
-    /// Writes the stream to a file, optionally appending.
+
+    /// Writes the stream to a file at `path`.
+    ///
+    /// File destinations bypass in-memory capture, making them well-suited to large outputs such
+    /// as build logs or generated artifacts. The corresponding field on ``ShellOutput`` is left
+    /// empty when this destination is used.
+    ///
+    /// - Parameters:
+    ///   - path: The absolute or relative file path to write to. Relative paths are resolved
+    ///     against the executor's working directory at spawn time.
+    ///   - append: When `true`, output is appended to any existing file contents. When `false`,
+    ///     the file is truncated before writing.
     case file(path: String, append: Bool)
 }

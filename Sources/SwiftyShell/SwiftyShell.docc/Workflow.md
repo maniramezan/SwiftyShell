@@ -43,7 +43,7 @@ To wrap arbitrary `async` work, construct a ``Workflow`` directly:
 
 ```swift
 let count = Workflow {
-    let output = try await Command("git", "rev-list", "--count", "HEAD").run(in: context)
+    let output = try await Command("git", arguments: "rev-list", "--count", "HEAD").run(in: context)
     return Int(output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
 }
 

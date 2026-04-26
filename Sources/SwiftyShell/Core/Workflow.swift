@@ -10,7 +10,7 @@ import Foundation
 ///
 /// ```swift
 /// let shaWorkflow: Workflow<String> = Workflow {
-///     let output = try await Command("git", "rev-parse", "HEAD").run(in: context)
+///     let output = try await Command("git", arguments: "rev-parse", "HEAD").run(in: context)
 ///     return output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
 /// }
 ///
@@ -65,7 +65,7 @@ public struct Workflow<Value>: Sendable {
     /// `transform` throws, the new workflow re-throws the error from ``run()``.
     ///
     /// ```swift
-    /// let trimmedWorkflow = Workflow { try await Command("git", "rev-parse", "HEAD").run().stdout }
+    /// let trimmedWorkflow = Workflow { try await Command("git", arguments: "rev-parse", "HEAD").run().stdout }
     ///     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
     /// ```
     ///

@@ -62,7 +62,7 @@ public enum GrepPattern: Sendable, Equatable, Hashable {
 /// Build a ``Command`` with ``command()`` when `grep` should be a pipeline stage.
 ///
 /// ```swift
-/// let output = try await Command("ls", "-la")
+/// let output = try await Command("ls", arguments: "-la")
 ///     .pipe(to: Grep(".swift").command())
 ///     .run(in: context)
 /// ```

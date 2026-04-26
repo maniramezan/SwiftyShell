@@ -43,7 +43,7 @@ let status = try await Git(context: context)
 try await Brew(context: context).install("ripgrep", "fzf").run()
 
 // Escape hatch: run anything not yet modelled
-let output = try await Command("echo", "hello").run(in: context)
+let output = try await Command("echo", arguments: "hello").run(in: context)
 ```
 
 ## Topics

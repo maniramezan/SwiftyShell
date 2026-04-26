@@ -212,7 +212,7 @@ public struct MyWorkflowClient: ToolConfigurableCommandFamily {
     /// Builds a workflow that processes data.
     public func process(_ input: String) -> Workflow<String> {
         Workflow {
-            let output = try await Command("my-tool", input).run(in: self.context)
+            let output = try await Command("my-tool", arguments: input).run(in: self.context)
             return output.stdout
         }
     }
@@ -257,7 +257,7 @@ For every new command family, add:
 ```swift
 #if MyTool
 @Test func myToolRealExecution() async throws {
-    guard (try? await Command("my-tool", "--version").run(in: .init()))?.isSuccess == true else {
+    guard (try? await Command("my-tool", arguments: "--version").run(in: .init()))?.isSuccess == true else {
         return
     }
     let output = try await MyTool().inputFile("fixtures/sample.json").run()

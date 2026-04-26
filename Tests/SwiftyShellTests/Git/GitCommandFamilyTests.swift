@@ -259,7 +259,7 @@ struct GitCommandFamilyTests {
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
         let context = ShellContext()
-        _ = try await Command("git", "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
         _ = try await Git(context: context)
             .workingDirectory(repoURL.path)
             .gitConfig()
@@ -284,13 +284,17 @@ struct GitCommandFamilyTests {
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
         let context = ShellContext()
-        _ = try await Command("git", "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
-        _ = try await Command("git", "-C", repoURL.path, "config", "user.email", "test@test.com").run(in: context)
-        _ = try await Command("git", "-C", repoURL.path, "config", "user.name", "Test").run(in: context)
+        _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.email", "test@test.com").run(
+            in: context
+        )
+        _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.name", "Test").run(in: context)
 
         try "hello".write(to: repoURL.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
-        _ = try await Command("git", "add", "README.md").workingDirectory(repoURL.path).run(in: context)
-        _ = try await Command("git", "commit", "-m", "initial commit").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "add", "README.md").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "commit", "-m", "initial commit").workingDirectory(repoURL.path).run(
+            in: context
+        )
 
         let output = try await Git(context: context)
             .workingDirectory(repoURL.path)
@@ -307,12 +311,16 @@ struct GitCommandFamilyTests {
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
         let context = ShellContext()
-        _ = try await Command("git", "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
-        _ = try await Command("git", "-C", repoURL.path, "config", "user.email", "test@test.com").run(in: context)
-        _ = try await Command("git", "-C", repoURL.path, "config", "user.name", "Test User").run(in: context)
+        _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.email", "test@test.com").run(
+            in: context
+        )
+        _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.name", "Test User").run(in: context)
         try "hello".write(to: repoURL.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
-        _ = try await Command("git", "add", "README.md").workingDirectory(repoURL.path).run(in: context)
-        _ = try await Command("git", "commit", "-m", "initial commit").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "add", "README.md").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "commit", "-m", "initial commit").workingDirectory(repoURL.path).run(
+            in: context
+        )
 
         let entries = try await Git(context: context)
             .workingDirectory(repoURL.path)
@@ -328,13 +336,17 @@ struct GitCommandFamilyTests {
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
         let context = ShellContext()
-        _ = try await Command("git", "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
-        _ = try await Command("git", "-C", repoURL.path, "config", "user.email", "test@test.com").run(in: context)
-        _ = try await Command("git", "-C", repoURL.path, "config", "user.name", "Test User").run(in: context)
+        _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.email", "test@test.com").run(
+            in: context
+        )
+        _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.name", "Test User").run(in: context)
 
         try "hello".write(to: repoURL.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
-        _ = try await Command("git", "add", "README.md").workingDirectory(repoURL.path).run(in: context)
-        _ = try await Command("git", "commit", "-m", "initial commit").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "add", "README.md").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "commit", "-m", "initial commit").workingDirectory(repoURL.path).run(
+            in: context
+        )
 
         let entries = try await Git(context: context)
             .workingDirectory(repoURL.path)
@@ -353,13 +365,17 @@ struct GitCommandFamilyTests {
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
         let context = ShellContext()
-        _ = try await Command("git", "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
-        _ = try await Command("git", "-C", repoURL.path, "config", "user.email", "test@test.com").run(in: context)
-        _ = try await Command("git", "-C", repoURL.path, "config", "user.name", "Test User").run(in: context)
+        _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.email", "test@test.com").run(
+            in: context
+        )
+        _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.name", "Test User").run(in: context)
 
         try "hello".write(to: repoURL.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
-        _ = try await Command("git", "add", "README.md").workingDirectory(repoURL.path).run(in: context)
-        _ = try await Command("git", "commit", "-m", "initial commit").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "add", "README.md").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "commit", "-m", "initial commit").workingDirectory(repoURL.path).run(
+            in: context
+        )
 
         try "updated".write(to: repoURL.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
 
@@ -381,7 +397,7 @@ struct GitCommandFamilyTests {
         let context = ShellContext()
         try await initializeRepository(at: childURL, context: context)
         try await initializeRepository(at: parentURL, context: context)
-        _ = try await Command("git", "submodule", "add", childURL.path, "Vendor/Child")
+        _ = try await Command("git", arguments: "submodule", "add", childURL.path, "Vendor/Child")
             .env("GIT_ALLOW_PROTOCOL", "file")
             .workingDirectory(parentURL.path)
             .run(in: context)
@@ -406,11 +422,17 @@ private func makeTemporaryDirectoryForGitCommandTests() throws -> URL {
 }
 
 private func initializeRepository(at url: URL, context: ShellContext) async throws {
-    _ = try await Command("git", "init", "-b", "main").workingDirectory(url.path).run(in: context)
-    _ = try await Command("git", "config", "user.email", "test@test.com").workingDirectory(url.path).run(in: context)
-    _ = try await Command("git", "config", "user.name", "Test User").workingDirectory(url.path).run(in: context)
+    _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(url.path).run(in: context)
+    _ = try await Command("git", arguments: "config", "user.email", "test@test.com").workingDirectory(url.path).run(
+        in: context
+    )
+    _ = try await Command("git", arguments: "config", "user.name", "Test User").workingDirectory(url.path).run(
+        in: context
+    )
     try "hello".write(to: url.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
-    _ = try await Command("git", "add", "README.md").workingDirectory(url.path).run(in: context)
-    _ = try await Command("git", "commit", "-m", "initial commit").workingDirectory(url.path).run(in: context)
+    _ = try await Command("git", arguments: "add", "README.md").workingDirectory(url.path).run(in: context)
+    _ = try await Command("git", arguments: "commit", "-m", "initial commit").workingDirectory(url.path).run(
+        in: context
+    )
 }
 #endif

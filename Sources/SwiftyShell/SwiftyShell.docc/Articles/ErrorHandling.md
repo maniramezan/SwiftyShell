@@ -67,7 +67,7 @@ The process ran and exited with a non-zero status code. The associated ``ShellOu
 
 ```swift
 do {
-    try await Command("swift", "test").run(in: context)
+    try await Command("swift", arguments: "test").run(in: context)
 } catch ShellError.exitFailure(let cmd, let output) {
     print("\(cmd) failed with exit code \(output.exitCode)")
     print(output.stderr)
@@ -98,7 +98,7 @@ The command ran longer than the configured limit. The ``ShellError/timeout(comma
 let context = ShellContext(defaultTimeout: 30)
 
 do {
-    try await Command("curl", "https://example.com/large-file").run(in: context)
+    try await Command("curl", arguments: "https://example.com/large-file").run(in: context)
 } catch ShellError.timeout(let cmd, let duration, let partial) {
     print("\(cmd) timed out after \(duration)s")
     print("Partial stdout:", partial.stdout.prefix(200))
@@ -109,10 +109,10 @@ Per-command overrides let you relax the limit for one call without changing the 
 
 ```swift
 // Inherits the 30-second context default
-try await Command("swift", "package", "resolve").run(in: context)
+try await Command("swift", arguments: "package", "resolve").run(in: context)
 
 // Needs more time — override for this call only
-try await Command("swift", "test", "--filter", "CommandTests")
+try await Command("swift", arguments: "test", "--filter", "CommandTests")
     .timeout(600)
     .run(in: context)
 ```
@@ -123,7 +123,7 @@ The accumulated captured output exceeded the configured limit. Like `timeout`, t
 
 ```swift
 // Redirect verbose output to a file instead of capturing it
-try await Command("swift", "build", "--verbose")
+try await Command("swift", arguments: "build", "--verbose")
     .stdout(.file(path: "/tmp/build.log", append: false))
     .stderr(.file(path: "/tmp/build.log", append: true))
     .run(in: context)

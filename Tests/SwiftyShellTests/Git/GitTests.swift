@@ -9,7 +9,7 @@ struct GitTests {
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
         let context = ShellContext()
-        _ = try await Command("git", "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
         try "hello".write(to: repoURL.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
 
         let status = try await Git(context: context)
@@ -27,7 +27,7 @@ struct GitTests {
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
         let context = ShellContext()
-        _ = try await Command("git", "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
 
         let status = try await Git(context: context)
             .workingDirectory(repoURL.path)
@@ -43,12 +43,14 @@ struct GitTests {
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
         let context = ShellContext()
-        _ = try await Command("git", "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
-        _ = try await Command("git", "-C", repoURL.path, "config", "user.email", "test@test.com").run(in: context)
-        _ = try await Command("git", "-C", repoURL.path, "config", "user.name", "Test").run(in: context)
+        _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.email", "test@test.com").run(
+            in: context
+        )
+        _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.name", "Test").run(in: context)
 
         try "hello".write(to: repoURL.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
-        _ = try await Command("git", "add", "README.md").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "add", "README.md").workingDirectory(repoURL.path).run(in: context)
 
         let status = try await Git(context: context)
             .workingDirectory(repoURL.path)
@@ -66,14 +68,18 @@ struct GitTests {
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
         let context = ShellContext()
-        _ = try await Command("git", "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
-        _ = try await Command("git", "-C", repoURL.path, "config", "user.email", "test@test.com").run(in: context)
-        _ = try await Command("git", "-C", repoURL.path, "config", "user.name", "Test").run(in: context)
+        _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.email", "test@test.com").run(
+            in: context
+        )
+        _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.name", "Test").run(in: context)
 
         // Commit an initial file
         try "hello".write(to: repoURL.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
-        _ = try await Command("git", "add", "README.md").workingDirectory(repoURL.path).run(in: context)
-        _ = try await Command("git", "commit", "-m", "initial").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "add", "README.md").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "commit", "-m", "initial").workingDirectory(repoURL.path).run(
+            in: context
+        )
 
         // Modify without staging
         try "hello world".write(to: repoURL.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
@@ -94,7 +100,7 @@ struct GitTests {
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
         let context = ShellContext()
-        _ = try await Command("git", "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
         try "hello".write(to: repoURL.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
 
         do {
@@ -117,7 +123,9 @@ struct GitTests {
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
         let context = ShellContext()
-        _ = try await Command("git", "init", "-b", "feature-branch").workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "init", "-b", "feature-branch").workingDirectory(repoURL.path).run(
+            in: context
+        )
 
         let status = try await Git(context: context)
             .workingDirectory(repoURL.path)

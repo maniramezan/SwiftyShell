@@ -110,7 +110,7 @@ struct GrepTests {
     }
 
     @Test func runsRegexMatchInPipeline() async throws {
-        let output = try await Command("printf", "alpha\nbeta42\ngamma\n")
+        let output = try await Command("printf", arguments: "alpha\nbeta42\ngamma\n")
             .pipe(to: Grep.regex(#"beta[0-9]+"#).command())
             .run(in: ShellContext())
 

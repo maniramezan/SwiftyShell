@@ -20,7 +20,7 @@ struct JqCommandTests {
     }
 
     @Test func transformsJsonWhenJqIsAvailable() async throws {
-        guard (try? await Command("jq", "--version").run(in: ShellContext())) != nil else {
+        guard (try? await Command("jq", arguments: "--version").run(in: ShellContext())) != nil else {
             return
         }
 

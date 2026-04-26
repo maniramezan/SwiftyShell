@@ -31,7 +31,7 @@ When composing pipelines, build a ``Command`` from the typed family and pass it
 to ``Command/pipe(to:)``:
 
 ```swift
-let swiftFiles = try await Command("ls", "Sources")
+let swiftFiles = try await Command("ls", arguments: "Sources")
     .pipe(to: Grep(".swift").command())
     .run(in: context)
 ```

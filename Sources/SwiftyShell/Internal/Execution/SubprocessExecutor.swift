@@ -19,7 +19,7 @@ import Glibc
 ///
 /// ```swift
 /// let context = ShellContext(executor: SubprocessExecutor())
-/// let output = try await Command("echo", "hi").run(in: context)
+/// let output = try await Command("echo", arguments: "hi").run(in: context)
 /// ```
 ///
 /// To replace real process execution in tests, pass ``MockExecutor`` to the same

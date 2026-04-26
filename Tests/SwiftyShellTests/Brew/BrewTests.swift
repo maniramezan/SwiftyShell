@@ -236,7 +236,7 @@ struct BrewTests {
     }
 
     @Test func executesRealBrewWhenAvailable() async throws {
-        guard (try? await Command("brew", "--version").run(in: ShellContext()))?.isSuccess == true else {
+        guard (try? await Command("brew", arguments: "--version").run(in: ShellContext()))?.isSuccess == true else {
             return
         }
 

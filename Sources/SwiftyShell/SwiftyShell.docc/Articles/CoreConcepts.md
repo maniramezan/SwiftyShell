@@ -43,12 +43,12 @@ Per-command overrides take priority over context defaults, which take priority o
 let context = ShellContext(defaultTimeout: 30)
 
 // This call times out after 300 s, not 30 s
-try await Command("swift", "build")
+try await Command("swift", arguments: "build")
     .timeout(300)
     .run(in: context)
 
 // This call still uses the 30-second context default
-try await Command("swift", "package", "resolve").run(in: context)
+try await Command("swift", arguments: "package", "resolve").run(in: context)
 ```
 
 ### Customising the Search Path
@@ -79,7 +79,7 @@ let context = ShellContext(executor: mock)
 
 // Both calls go through the mock — no real processes spawned
 let status = try await Git(context: context).status().run()
-let output = try await Command("echo", "hello").run(in: context)
+let output = try await Command("echo", arguments: "hello").run(in: context)
 ```
 
 ## Commands
@@ -91,7 +91,7 @@ let output = try await Command("echo", "hello").run(in: context)
 Build a command by naming the executable and chaining modifier methods. Each modifier returns a new copy — ``Command`` is immutable:
 
 ```swift
-let cmd = Command("ruby", "deploy.rb")
+let cmd = Command("ruby", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .workingDirectory("/var/app")
     .timeout(300)
@@ -110,10 +110,10 @@ Arguments are an array, not a shell string. SwiftyShell never invokes a shell in
 
 ```swift
 // Safe: the space in "/tmp/My Project" is one argument, not two
-try await Command("ls", "-la", "/tmp/My Project").run(in: context)
+try await Command("ls", arguments: "-la", "/tmp/My Project").run(in: context)
 
 // This would be wrong with a shell string; here it works correctly
-try await Command("grep", "-r", "TODO: fix this", "Sources/").run(in: context)
+try await Command("grep", arguments: "-r", "TODO: fix this", "Sources/").run(in: context)
 ```
 
 ### Output Destinations
@@ -126,12 +126,12 @@ let output = try await Command("ls").run(in: context)
 print(output.stdout)
 
 // Discard — throw the stream away
-try await Command("brew", "update")
+try await Command("brew", arguments: "update")
     .stderr(.discard)
     .run(in: context)
 
 // File — write stdout to a log; append stderr to the same log
-try await Command("swift", "build", "--verbose")
+try await Command("swift", arguments: "build", "--verbose")
     .stdout(.file(path: "/tmp/build.log", append: false))
     .stderr(.file(path: "/tmp/build.log", append: true))
     .run(in: context)
@@ -142,7 +142,7 @@ try await Command("swift", "build", "--verbose")
 ``ShellOutput`` captures the result of running a command or pipeline:
 
 ```swift
-let output = try await Command("git", "rev-parse", "HEAD").run(in: context)
+let output = try await Command("git", arguments: "rev-parse", "HEAD").run(in: context)
 
 // Inspect the result
 if output.isSuccess {
@@ -161,9 +161,9 @@ if output.isSuccess {
 
 ```swift
 // ls -la | grep .swift | wc -l
-let count = try await Command("ls", "-la")
-    .pipe(to: Command("grep", ".swift"))
-    .pipe(to: Command("wc", "-l"))
+let count = try await Command("ls", arguments: "-la")
+    .pipe(to: Command("grep", arguments: ".swift"))
+    .pipe(to: Command("wc", arguments: "-l"))
     .run(in: context)
 
 print(count.stdout.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -173,7 +173,7 @@ Typed command families hand back a raw ``Command`` via ``RunnableCommandFamily/c
 
 ```swift
 // List only Swift source files with line numbers
-let result = try await Command("ls", "-la")
+let result = try await Command("ls", arguments: "-la")
     .pipe(to: Grep(".swift", context: context).command())
     .run(in: context)
 ```

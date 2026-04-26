@@ -27,7 +27,7 @@ SwiftyShell has two complementary execution styles:
 Build a `Command` or `Pipeline`, override config as needed, then run it in a `ShellContext`:
 
 ```swift
-let output = try await Command("ruby", "deploy.rb")
+let output = try await Command("\1", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .timeout(120)
     .run(in: context)

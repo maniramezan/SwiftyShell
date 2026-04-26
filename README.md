@@ -19,7 +19,7 @@ try await Git(context: context)
     .run()
 
 // Escape hatch: run anything not yet modelled
-let output = try await Command("my-tool", "--flag").run(in: context)
+let output = try await Command("my-tool", arguments: "--flag").run(in: context)
 ```
 
 ## Why Type-Safe?
@@ -28,7 +28,7 @@ let output = try await Command("my-tool", "--flag").run(in: context)
 - **Structured results where they matter.** `Git` returns `GitStatus`; `ShellError` has named cases. No grepping stderr to decide what failed.
 - **Workflow gates.** `require(_:equals:)` makes conditional chains — like "only pull if clean" — first-class, testable primitives.
 - **Test without spawning processes.** Swap the executor for `MockExecutor` and every typed call becomes observable in unit tests.
-- **`Command` is still there.** When you need something SwiftyShell hasn't modelled yet, `Command("tool", "arg").run(in: context)` is the same fluent API — no separate lower-level world.
+- **`Command` is still there.** When you need something SwiftyShell hasn't modelled yet, `Command("tool", arguments: "arg").run(in: context)` is the same fluent API — no separate lower-level world.
 
 ## Installation
 
@@ -83,7 +83,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Pwd` | `pwd` | `Pwd` | Physical and logical paths |
 | `Jq` | `jq` | `Jq` | Filter expressions, `--arg` bindings, raw output |
 
-When the tool you need isn't listed, `Command("tool", "arg").run(in: context)` is the fluent escape hatch. If you use the same tool repeatedly, promoting it to a typed family is straightforward — see below.
+When the tool you need isn't listed, `Command("tool", arguments: "arg").run(in: context)` is the fluent escape hatch. If you use the same tool repeatedly, promoting it to a typed family is straightforward — see below.
 
 ## Generate Your Own Typed Commands with AI
 

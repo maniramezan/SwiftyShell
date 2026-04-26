@@ -59,7 +59,7 @@ public enum ShellPlatform: Sendable {
 /// )
 ///
 /// // Override per command — does not mutate the context
-/// try await Command("swift", "build", "--verbose")
+/// try await Command("swift", arguments: "build", "--verbose")
 ///     .timeout(300)                   // overrides the 30-second default for this call only
 ///     .run(in: context)
 /// ```

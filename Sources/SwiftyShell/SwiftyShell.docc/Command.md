@@ -18,7 +18,7 @@ The simplest call is just an executable name and arguments:
 
 ```swift
 let context = ShellContext()
-let output = try await Command("echo", "Hello, SwiftyShell!").run(in: context)
+let output = try await Command("echo", arguments: "Hello, SwiftyShell!").run(in: context)
 print(output.stdout)
 ```
 
@@ -26,7 +26,7 @@ For longer-running tools, layer on overrides for environment, working
 directory, and timeout:
 
 ```swift
-try await Command("ruby", "deploy.rb")
+try await Command("ruby", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .workingDirectory("/var/app")
     .timeout(300)
@@ -37,7 +37,7 @@ When you want to redirect output to a file instead of capturing it, use
 ``OutputDestination/file(path:append:)`` on ``stdout(_:)`` and ``stderr(_:)``:
 
 ```swift
-try await Command("swift", "build", "--verbose")
+try await Command("swift", arguments: "build", "--verbose")
     .stdout(.file(path: "/tmp/build.log", append: false))
     .stderr(.file(path: "/tmp/build.log", append: true))
     .run(in: context)

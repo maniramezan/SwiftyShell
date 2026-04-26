@@ -15,7 +15,7 @@ import Foundation
 /// Discard a stream when the caller intentionally does not need it:
 ///
 /// ```swift
-/// try await Command("make", "clean")
+/// try await Command("make", arguments: "clean")
 ///     .stderr(.discard)
 ///     .run(in: context)
 /// ```
@@ -23,7 +23,7 @@ import Foundation
 /// Write to a file when output can be large or should become a build artifact:
 ///
 /// ```swift
-/// try await Command("swift", "build", "--verbose")
+/// try await Command("swift", arguments: "build", "--verbose")
 ///     .stdout(.file(path: "/tmp/build.log", append: false))
 ///     .run(in: context)
 /// ```
@@ -31,7 +31,7 @@ import Foundation
 /// Append mode preserves existing file contents:
 ///
 /// ```swift
-/// try await Command("swift", "build")
+/// try await Command("swift", arguments: "build")
 ///     .stderr(.file(path: "/tmp/build.log", append: true))
 ///     .run(in: context)
 /// ```

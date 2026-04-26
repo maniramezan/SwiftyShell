@@ -8,7 +8,7 @@ import Foundation
 /// ```swift
 /// // Use MockExecutor in tests:
 /// let context = ShellContext(executor: MockExecutor(stdout: "main\n"))
-/// let output = try await Command("git", "branch").run(in: context)
+/// let output = try await Command("git", arguments: "branch").run(in: context)
 ///
 /// // Custom executor that logs before running:
 /// struct LoggingExecutor: CommandExecutor {

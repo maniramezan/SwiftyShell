@@ -19,7 +19,7 @@ public enum StreamKind: Sendable {
 ///
 /// ```swift
 /// do {
-///     let output = try await Command("git", "push").run(in: context)
+///     let output = try await Command("git", arguments: "push").run(in: context)
 /// } catch ShellError.commandNotFound(let cmd) {
 ///     print("\(cmd) is not installed or not on the search path")
 /// } catch ShellError.exitFailure(_, let output) {

@@ -45,8 +45,8 @@ struct PipelineTests {
     }
 
     @Test func pipelineSucceeds() async throws {
-        let output = try await Command("printf", "alpha\nbeta\n")
-            .pipe(to: Command("grep", "beta"))
+        let output = try await Command("printf", arguments: "alpha\nbeta\n")
+            .pipe(to: Command("grep", arguments: "beta"))
             .run(in: ShellContext())
 
         #expect(output.stdout == "beta\n")
@@ -54,7 +54,7 @@ struct PipelineTests {
 
     @Test func pipelineFailsOnIntermediateStage() async throws {
         do {
-            _ = try await Command("/bin/sh", "-c", "printf 'broken' >&2; exit 9")
+            _ = try await Command("/bin/sh", arguments: "-c", "printf 'broken' >&2; exit 9")
                 .pipe(to: Command("cat"))
                 .run(in: ShellContext())
             Issue.record("Expected exitFailure")
@@ -70,16 +70,16 @@ struct PipelineTests {
     }
 
     @Test func threeStagesPipeline() async throws {
-        let output = try await Command("printf", "alpha\nbeta\ngamma\n")
-            .pipe(to: Command("grep", "-v", "beta"))
-            .pipe(to: Command("tr", "a-z", "A-Z"))
+        let output = try await Command("printf", arguments: "alpha\nbeta\ngamma\n")
+            .pipe(to: Command("grep", arguments: "-v", "beta"))
+            .pipe(to: Command("tr", arguments: "a-z", "A-Z"))
             .run(in: ShellContext())
         #expect(output.stdout == "ALPHA\nGAMMA\n")
     }
 
     @Test func pipelineExtensionOnPipelineType() async throws {
-        let pipeline = Command("printf", "1\n2\n3\n")
-            .pipe(to: Command("grep", "2"))
+        let pipeline = Command("printf", arguments: "1\n2\n3\n")
+            .pipe(to: Command("grep", arguments: "2"))
         let output =
             try await pipeline
             .pipe(to: Command("cat"))

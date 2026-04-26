@@ -155,9 +155,9 @@ so you can pipe them without dropping out of the typed world:
 
 ```swift
 // ls -la | grep .swift | wc -l
-let output = try await Command("ls", "-la")
+let output = try await Command("ls", arguments: "-la")
     .pipe(to: Grep(".swift", context: context).command())
-    .pipe(to: Command("wc", "-l"))
+    .pipe(to: Command("wc", arguments: "-l"))
     .run(in: context)
 ```
 
@@ -168,17 +168,17 @@ fluent builder style, so your code does not change shape:
 
 ```swift
 // Simple invocation
-let output = try await Command("echo", "Hello, SwiftyShell!").run(in: context)
+let output = try await Command("echo", arguments: "Hello, SwiftyShell!").run(in: context)
 
 // Arguments, env, working directory, timeout
-try await Command("ruby", "deploy.rb")
+try await Command("ruby", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .workingDirectory("/var/app")
     .timeout(300)
     .run(in: context)
 
 // Redirect stdout/stderr
-try await Command("swift", "build", "--verbose")
+try await Command("swift", arguments: "build", "--verbose")
     .stdout(.file(path: "/tmp/build.log", append: false))
     .stderr(.file(path: "/tmp/build.log", append: true))
     .run(in: context)
@@ -193,7 +193,7 @@ typed family is a good investment — see <doc:BuildingCommandFamilies>.
 families and raw commands:
 
 ```swift
-let output = try await Command("git", "log", "--oneline", "-5").run(in: context)
+let output = try await Command("git", arguments: "log", "--oneline", "-5").run(in: context)
 
 if output.isSuccess {
     for line in output.stdout.split(whereSeparator: \.isNewline) {
@@ -229,7 +229,7 @@ tests see every call:
 ```swift
 // In production code — accept a ShellContext
 func buildProject(context: ShellContext) async throws -> String {
-    let output = try await Command("swift", "build").run(in: context)
+    let output = try await Command("swift", arguments: "build").run(in: context)
     return output.stdout
 }
 
@@ -269,7 +269,7 @@ let context = ShellContext(defaultTimeout: 30)
 try await Git(context: context).timeout(60).fetch().run()
 
 // Per raw command
-try await Command("curl", apiURL)
+try await Command("curl", arguments: apiURL)
     .timeout(10)
     .run(in: context)
 ```

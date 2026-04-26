@@ -24,7 +24,7 @@ struct CommandTests {
 
     @Test func runsSimpleCommand() async throws {
         let context = ShellContext()
-        let output = try await Command("echo", "hello").run(in: context)
+        let output = try await Command("echo", arguments: "hello").run(in: context)
         #expect(output.stdout == "hello\n")
         #expect(output.stderr.isEmpty)
         #expect(output.exitCode == 0)
@@ -34,7 +34,7 @@ struct CommandTests {
         let context = ShellContext(executor: MockExecutor(stdout: "out", stderr: "err", exitCode: 7))
 
         do {
-            _ = try await Command("fake-tool", "arg").run(in: context)
+            _ = try await Command("fake-tool", arguments: "arg").run(in: context)
             Issue.record("Expected exitFailure")
         } catch let error as ShellError {
             guard case let .exitFailure(command, output) = error else {
@@ -67,7 +67,7 @@ struct CommandTests {
         let context = ShellContext()
 
         do {
-            _ = try await Command("/bin/sh", "-c", "printf 'out'; printf 'err' >&2; exit 7").run(in: context)
+            _ = try await Command("/bin/sh", arguments: "-c", "printf 'out'; printf 'err' >&2; exit 7").run(in: context)
             Issue.record("Expected exitFailure")
         } catch let error as ShellError {
             guard case let .exitFailure(command, output) = error else {
@@ -87,7 +87,7 @@ struct CommandTests {
         do {
             _ = try await Command(
                 "/bin/sh",
-                "-c",
+                arguments: "-c",
                 "printf 'start'; i=0; while [ $i -lt 20 ]; do printf '.'; sleep 0.05; i=$((i + 1)); done; sleep 30"
             ).run(in: context)
             Issue.record("Expected timeout")
@@ -105,7 +105,7 @@ struct CommandTests {
         let context = ShellContext(defaultOutputLimit: 4)
 
         do {
-            _ = try await Command("/bin/sh", "-c", "printf 'abcdef'").run(in: context)
+            _ = try await Command("/bin/sh", arguments: "-c", "printf 'abcdef'").run(in: context)
             Issue.record("Expected outputLimitExceeded")
         } catch let error as ShellError {
             guard case let .outputLimitExceeded(_, limit, partialOutput) = error else {
@@ -123,7 +123,7 @@ struct CommandTests {
         do {
             _ = try await Command(
                 "/bin/sh",
-                "-c",
+                arguments: "-c",
                 "i=0; while [ $i -lt 20000 ]; do printf 'abcdefghij'; i=$((i + 1)); done"
             ).run(in: context)
             Issue.record("Expected outputLimitExceeded")
@@ -140,7 +140,7 @@ struct CommandTests {
 
     @Test func negativeTimeoutIsRejected() async throws {
         do {
-            _ = try await Command("echo", "hello")
+            _ = try await Command("echo", arguments: "hello")
                 .timeout(-1)
                 .run(in: ShellContext())
             Issue.record("Expected invalidConfiguration")
@@ -155,7 +155,7 @@ struct CommandTests {
 
     @Test func negativeContextTimeoutIsRejected() async throws {
         do {
-            _ = try await Command("echo", "hello").run(in: ShellContext(defaultTimeout: -1))
+            _ = try await Command("echo", arguments: "hello").run(in: ShellContext(defaultTimeout: -1))
             Issue.record("Expected invalidConfiguration")
         } catch let error as ShellError {
             guard case let .invalidConfiguration(description) = error else {
@@ -168,7 +168,7 @@ struct CommandTests {
 
     @Test func negativeOutputLimitIsRejected() async throws {
         do {
-            _ = try await Command("echo", "hello")
+            _ = try await Command("echo", arguments: "hello")
                 .outputLimit(-1)
                 .run(in: ShellContext())
             Issue.record("Expected invalidConfiguration")
@@ -183,7 +183,7 @@ struct CommandTests {
 
     @Test func negativeContextOutputLimitIsRejected() async throws {
         do {
-            _ = try await Command("echo", "hello").run(in: ShellContext(defaultOutputLimit: -1))
+            _ = try await Command("echo", arguments: "hello").run(in: ShellContext(defaultOutputLimit: -1))
             Issue.record("Expected invalidConfiguration")
         } catch let error as ShellError {
             guard case let .invalidConfiguration(description) = error else {
@@ -196,7 +196,7 @@ struct CommandTests {
 
     @Test func decodingErrorIncludesCommandName() async throws {
         do {
-            _ = try await Command("/bin/sh", "-c", "printf '\\377'").run(in: ShellContext())
+            _ = try await Command("/bin/sh", arguments: "-c", "printf '\\377'").run(in: ShellContext())
             Issue.record("Expected decodingError")
         } catch let error as ShellError {
             guard case let .decodingError(command, stream) = error else {
@@ -211,7 +211,7 @@ struct CommandTests {
     @Test func cancellationPreservesPartialOutput() async throws {
         let context = ShellContext()
         let task = Task {
-            try await Command("/bin/sh", "-c", "printf 'start'; sleep 2").run(in: context)
+            try await Command("/bin/sh", arguments: "-c", "printf 'start'; sleep 2").run(in: context)
         }
 
         try await Task.sleep(nanoseconds: 200_000_000)
@@ -258,7 +258,7 @@ struct CommandTests {
     }
 
     @Test func builderTimeout() {
-        let command = Command("sleep", "10").timeout(5.0)
+        let command = Command("sleep", arguments: "10").timeout(5.0)
         #expect(command.timeoutOverride == 5.0)
     }
 
@@ -281,12 +281,12 @@ struct CommandTests {
     }
 
     @Test func displayStringQuotesArgumentsWithSpaces() {
-        let command = Command("echo", "hello world", "foo")
+        let command = Command("echo", arguments: "hello world", "foo")
         #expect(command.displayString() == #"echo "hello world" foo"#)
     }
 
     @Test func displayStringUsesResolvedExecutable() {
-        let command = Command("echo", "hi")
+        let command = Command("echo", arguments: "hi")
         #expect(command.displayString(using: "/bin/echo") == "/bin/echo hi")
     }
 
@@ -303,7 +303,7 @@ struct CommandTests {
     }
 
     @Test func discardStdoutProducesEmptyOutput() async throws {
-        let output = try await Command("echo", "hello")
+        let output = try await Command("echo", arguments: "hello")
             .stdout(.discard)
             .run(in: ShellContext())
         #expect(output.stdout.isEmpty)
@@ -311,7 +311,7 @@ struct CommandTests {
     }
 
     @Test func envOverrideIsPassedToSubprocess() async throws {
-        let output = try await Command("/bin/sh", "-c", "echo $TEST_VAR_SWIFTYSHELL")
+        let output = try await Command("/bin/sh", arguments: "-c", "echo $TEST_VAR_SWIFTYSHELL")
             .env("TEST_VAR_SWIFTYSHELL", "hello123")
             .run(in: ShellContext())
         #expect(output.stdout == "hello123\n")
@@ -320,7 +320,7 @@ struct CommandTests {
     @Test func perCommandTimeoutOverridesContext() async throws {
         let context = ShellContext(defaultTimeout: 10.0)
         do {
-            _ = try await Command("/bin/sh", "-c", "printf 'hi'; sleep 30")
+            _ = try await Command("/bin/sh", arguments: "-c", "printf 'hi'; sleep 30")
                 .timeout(0.2)
                 .run(in: context)
             Issue.record("Expected timeout")

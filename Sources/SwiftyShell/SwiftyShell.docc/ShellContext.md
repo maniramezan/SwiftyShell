@@ -19,7 +19,7 @@ and a 10 MB output cap:
 import SwiftyShell
 
 let context = ShellContext()
-let output = try await Command("uname", "-a").run(in: context)
+let output = try await Command("uname", arguments: "-a").run(in: context)
 ```
 
 For longer-running scripts, set program-wide defaults at construction time so
@@ -32,7 +32,7 @@ let buildContext = ShellContext(
     defaultOutputLimit: 50_000_000   // 50 MB for verbose build output
 )
 
-try await Command("swift", "build", "--verbose").run(in: buildContext)
+try await Command("swift", arguments: "build", "--verbose").run(in: buildContext)
 ```
 
 When tools live outside the standard `PATH` — common with Homebrew on Apple

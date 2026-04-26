@@ -9,7 +9,7 @@ import Foundation
 /// stage's output is returned as ``ShellOutput``.
 ///
 /// ```swift
-/// let output = try await Command("ls", "-la")
+/// let output = try await Command("ls", arguments: "-la")
 ///     .pipe(to: Grep(".swift").command())
 ///     .run(in: context)
 ///
@@ -19,9 +19,9 @@ import Foundation
 /// Add more stages by continuing to call ``pipe(to:)``:
 ///
 /// ```swift
-/// let pipeline = Command("cat", "log.txt")
-///     .pipe(to: Command("grep", "ERROR"))
-///     .pipe(to: Command("wc", "-l"))
+/// let pipeline = Command("cat", arguments: "log.txt")
+///     .pipe(to: Command("grep", arguments: "ERROR"))
+///     .pipe(to: Command("wc", arguments: "-l"))
 ///
 /// let count = try await pipeline.run(in: context)
 /// ```
@@ -43,9 +43,9 @@ public struct Pipeline: Sendable {
     /// `next`'s stdin.
     ///
     /// ```swift
-    /// let pipeline = Command("ls", "-la")
-    ///     .pipe(to: Command("grep", ".swift"))
-    ///     .pipe(to: Command("wc", "-l"))   // appended via this method
+    /// let pipeline = Command("ls", arguments: "-la")
+    ///     .pipe(to: Command("grep", arguments: ".swift"))
+    ///     .pipe(to: Command("wc", arguments: "-l"))   // appended via this method
     /// ```
     ///
     /// - Parameter next: The command to append as the new final stage.

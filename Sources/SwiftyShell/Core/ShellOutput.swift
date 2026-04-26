@@ -6,7 +6,7 @@ import Foundation
 /// what the process produced:
 ///
 /// ```swift
-/// let output = try await Command("git", "rev-parse", "HEAD").run(in: context)
+/// let output = try await Command("git", arguments: "rev-parse", "HEAD").run(in: context)
 /// let sha = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
 ///
 /// guard output.isSuccess else {

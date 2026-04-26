@@ -18,7 +18,7 @@ Before writing any code, follow this decision tree:
 1. Is this a git operation supported by the typed `Git` API (`status()`, `pull()`, `fetch()`, `branch()`, `stash()`, `worktree()`, `submodule()`, `diff()`, `log()`, `gitConfig()`, `merge()`, `commit()`, `rebase()`)?
    → Use `Git`
 2. Is this a git operation NOT covered by the typed `Git` API?
-   → Use `Command("git", ...)`
+   → Use `Command("\1", arguments: ...)`
 3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`)?
    → Use the typed wrapper
 4. Is this a `grep` or `jq` operation?
@@ -699,7 +699,7 @@ public struct MockExecutor: CommandExecutor {
 1. Always `import SwiftyShell`
 2. All `run()` calls are `async throws` — the caller must be in an `async` context
 3. Never construct raw shell strings as the primary execution model
-4. Prefer `Git` when the operation is covered by the typed git API; otherwise use `Command("git", ...)`
+4. Prefer `Git` when the operation is covered by the typed git API; otherwise use `Command("\1", arguments: ...)`
 5. Prefer key-path `require` over closure `require` when checking a single property equality
 6. Prefer `async let` / `TaskGroup` for concurrent runs — do not serialize what can run in parallel
 7. Always pass an explicit `ShellContext` rather than relying on the default `.init()`
@@ -714,12 +714,12 @@ public struct MockExecutor: CommandExecutor {
 let output = try await Command("mkdir").arg("-p").arg(outputDir).run(in: context)
 
 // Pipeline
-let output = try await Command("ls", "-la")
+let output = try await Command("\1", arguments: "-la")
     .pipe(to: Grep(".swift").command())
     .run(in: context)
 
 // Redirect stdout to file
-try await Command("make", "release")
+try await Command("\1", arguments: "release")
     .stdout(.file(path: logPath, append: false))
     .run(in: context)
 
@@ -749,7 +749,7 @@ try await withThrowingTaskGroup(of: GitFetchResult.self) { group in
 }
 
 // Environment override
-try await Command("ruby", "deploy.rb")
+try await Command("\1", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .run(in: context)
 

@@ -19,7 +19,7 @@ For simple scenarios, return a fixed ``ShellOutput`` for every call:
     let mock = MockExecutor(stdout: "Build complete.\n")
     let context = ShellContext(executor: mock)
 
-    let output = try await Command("swift", "build").run(in: context)
+    let output = try await Command("swift", arguments: "build").run(in: context)
 
     #expect(output.stdout == "Build complete.\n")
 }

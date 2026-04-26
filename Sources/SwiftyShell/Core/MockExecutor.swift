@@ -11,7 +11,7 @@ import Foundation
 ///
 /// ```swift
 /// let context = ShellContext(executor: MockExecutor(stdout: "hello\n"))
-/// let output = try await Command("echo", "hello").run(in: context)
+/// let output = try await Command("echo", arguments: "hello").run(in: context)
 /// #expect(output.stdout == "hello\n")
 /// ```
 ///

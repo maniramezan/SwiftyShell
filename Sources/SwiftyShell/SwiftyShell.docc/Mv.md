@@ -32,7 +32,7 @@ try await Mv(context: context)
 
 - ``force(_:)``
 
-### Sources And Destination
+### Sources and Destination
 
 - ``source(_:)``
 - ``sources(_:)``

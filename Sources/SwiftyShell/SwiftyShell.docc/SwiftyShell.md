@@ -78,7 +78,7 @@ let output = try await Command("echo", arguments: "hello").run(in: context)
 - ``ShellError``
 - ``StreamKind``
 
-### Workflows
+### Workflow
 
 - ``Workflow``
 

@@ -40,7 +40,7 @@ let generated = try await Jq("{ok: true}", context: context)
 
 ## Topics
 
-### Creating A Filter
+### Creating a Filter
 
 - ``init(_:context:)``
 - ``filter(_:)``

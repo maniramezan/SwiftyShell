@@ -148,7 +148,7 @@ try await Chmod(context: context)
     .run()
 ```
 
-### Pipelines of Typed Commands
+### Pipeline with Typed Commands
 
 Typed families hand out ``Command`` values via ``RunnableCommandFamily/command()``,
 so you can pipe them without dropping out of the typed world:
@@ -257,7 +257,7 @@ let mock = MockExecutor { command, _ in
 let context = ShellContext(executor: mock)
 ```
 
-## Timeouts and Cancellation
+## Timeouts and cancellation
 
 Set timeouts at the context level, per typed client, or per raw command. All levels accept `TimeInterval` (seconds):
 

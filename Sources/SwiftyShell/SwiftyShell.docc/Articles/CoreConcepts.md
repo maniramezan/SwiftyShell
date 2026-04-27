@@ -82,7 +82,7 @@ let status = try await Git(context: context).status().run()
 let output = try await Command("echo", arguments: "hello").run(in: context)
 ```
 
-## Commands
+## Command
 
 ``Command`` is the fundamental unit of execution. Every typed command family produces a ``Command`` internally and runs it through the context's executor.
 
@@ -155,7 +155,7 @@ if output.isSuccess {
 
 > Note: Typed command families (``Git``, ``Brew``, etc.) throw ``ShellError/exitFailure(command:output:)`` on non-zero exit codes, so you typically only inspect ``ShellOutput`` directly when working with raw ``Command`` calls.
 
-## Pipelines
+## Pipeline
 
 ``Pipeline`` connects commands with Unix pipes. Build one by calling ``Command/pipe(to:)`` on the first command, then chain additional stages:
 

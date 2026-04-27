@@ -38,7 +38,7 @@ let swiftFiles = try await Command("ls", arguments: "Sources")
 
 ## Topics
 
-### Creating A Search
+### Creating a Search
 
 - ``init(_:context:)``
 - ``regex(_:context:)``

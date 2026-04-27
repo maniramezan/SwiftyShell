@@ -37,7 +37,7 @@ do {
 }
 ```
 
-## Code Generation Rules the Skill Enforces
+## Code Generation Rules
 
 The skill instills a decision tree for type selection. Given a task, the assistant:
 

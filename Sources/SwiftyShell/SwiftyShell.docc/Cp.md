@@ -34,7 +34,7 @@ try await Cp(context: context)
 - ``recursive(_:)``
 - ``force(_:)``
 
-### Sources And Destination
+### Sources and Destination
 
 - ``source(_:)``
 - ``sources(_:)``

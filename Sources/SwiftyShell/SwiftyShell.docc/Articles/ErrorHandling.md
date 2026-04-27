@@ -26,7 +26,7 @@ do {
 
 ## Error Cases
 
-### Configuration Errors
+### Configuration Error
 
 #### `invalidConfiguration`
 
@@ -129,7 +129,7 @@ try await Command("swift", arguments: "build", "--verbose")
     .run(in: context)
 ```
 
-### Stream Errors
+### Stream Error
 
 #### `decodingError`
 

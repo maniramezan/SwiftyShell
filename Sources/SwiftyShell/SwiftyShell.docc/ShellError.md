@@ -50,7 +50,7 @@ For a complete walkthrough — including each case's recovery strategy — see
 
 ## Topics
 
-### Configuration Errors
+### Configuration Error
 
 - ``invalidConfiguration(description:)``
 
@@ -65,15 +65,15 @@ For a complete walkthrough — including each case's recovery strategy — see
 - ``timeout(command:duration:partialOutput:)``
 - ``outputLimitExceeded(command:limit:partialOutput:)``
 
-### Stream Errors
+### Stream Error
 
 - ``decodingError(command:stream:)``
 
-### Task Errors
+### Task Error
 
 - ``canceled(command:partialOutput:)``
 
-### Workflow Errors
+### Workflow Error
 
 - ``workflowConditionFailed(description:)``
 

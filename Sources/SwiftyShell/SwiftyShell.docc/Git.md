@@ -2,7 +2,7 @@
 
 A typed entry point for common git workflows.
 
-## Submodules
+## Submodule
 
 Use ``submodule()`` when a repository needs to inspect, initialize, update, or
 manage git submodules without dropping down to a raw ``Command``. The fluent
@@ -44,7 +44,7 @@ for entry in entries {
 }
 ```
 
-### Initialize And Update
+### Initialize and Update
 
 For the common clone bootstrap flow, run `git submodule update --init
 --recursive`. This checks out the submodule commits recorded by the
@@ -84,12 +84,12 @@ try await Git(context: context)
     .run()
 ```
 
-### Add And Configure A Submodule
+### Add and Configure a Submodule
 
 `add(_:path:)` records a repository in `.gitmodules` and stages it for the next
 commit. Additional fluent options map to the documented `git submodule add`
 flags. After this succeeds, `.gitmodules` and the submodule gitlink are ready to
-commit in the superproject.
+be committed to the superproject.
 
 ```swift
 try await Git(context: context)
@@ -118,7 +118,7 @@ try await Git(context: context)
     .run()
 ```
 
-### Sync, Summarize, And Iterate
+### Sync, Summarize, and Iterate
 
 The wrapper also covers maintenance commands that are useful in repository
 automation. `sync` copies changed URLs from `.gitmodules` into each submodule's

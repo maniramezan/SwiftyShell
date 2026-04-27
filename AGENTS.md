@@ -58,7 +58,7 @@ A standalone SwiftPM executable package that demonstrates real SwiftyShell usage
 
 ### `.codex/skills/`
 
-`swiftyshell.md` — a thin pointer for Codex/GPT-style assistants that redirects to `.claude/skills/swiftyshell.md`. Do not fork the skill content here; keep `.claude/skills/swiftyshell.md` as the canonical shared skill file.
+`swiftyshell.md` — a **symlink** that resolves to `.claude/skills/swiftyshell.md`. There is only one file on disk; both paths serve the same content. Do not replace the symlink with a copy or fork the content here. To update skill content, edit `.claude/skills/swiftyshell.md` directly.
 
 ## Build and Test Commands
 

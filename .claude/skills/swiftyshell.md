@@ -77,7 +77,7 @@ public struct ShellContext: Sendable {
 
 ```swift
 public struct Command: Sendable {
-    public init(_ executable: String, _ arguments: String...)
+    public init(_ executable: String, arguments: String...)
 
     public func executable(_ path: String) -> Self
     public func arg(_ value: String) -> Self
@@ -542,6 +542,17 @@ public struct Mv: RunnableCommandFamily {
     public func source(_ path: String) -> Self
     public func sources(_ paths: [String]) -> Self
     public func destination(_ path: String) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct Chmod: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func recursive(_ enabled: Bool = true) -> Self    // -R
+    public func mode(_ value: FileMode) -> Self              // typed mode
+    public func mode(_ value: String) -> Self                // raw octal/symbolic string
+    public func path(_ value: String) -> Self
+    public func paths(_ values: [String]) -> Self
     public func command() -> Command
     public func run() async throws -> ShellOutput
 }

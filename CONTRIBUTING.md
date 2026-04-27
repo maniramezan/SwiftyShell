@@ -56,12 +56,6 @@ The tree is currently fully compliant with `.swift-format`; `swift-format lint -
 - All public types must conform to `Sendable`
 - Use `Result` or `throws` for explicit error handling
 
-### Access Control
-
-- Default to the most restrictive access level that meets the need
-- Implementation details go in `Internal/` but may still be `public` if the spec requires it
-- Mark types `@unchecked Sendable` only when thread-safety is verified and documented with a comment explaining why
-
 ### Adding a New Typed Command Family
 
 A typed client (like `Git` or `Grep`) is worth adding when it provides meaningful value over raw `Command` usage — typed results, conditional follow-up steps, or a large discoverable option surface.
@@ -127,7 +121,9 @@ All error paths in new code must be tested:
 
 ## Pull Requests
 
-1. Branch from `main`: `git checkout -b feature/<name>`
+Before opening a PR, open a GitHub issue to describe the change and get agreement on the approach.
+
+1. Branch from `main` and open a PR when ready
 2. Keep PRs focused — one logical change per PR
 3. Include tests for all new behavior
 4. Update doc comments for changed public API
@@ -136,20 +132,6 @@ All error paths in new code must be tested:
 7. If you changed public API or DocC content, run the DocC generation command from the Definition of Done and update DocC where needed
 8. If you added or modified a command family, run `swift Scripts/validate-traits.swift` and confirm it exits clean
 9. Describe _why_ in the PR body, not just _what_
-
-### Commit Messages
-
-Use the imperative mood in the subject line:
-
-```
-Add Brew.outdated() command
-Fix terminationHandler race in SubprocessExecutor
-```
-
-Co-author attribution is welcome:
-```
-Co-Authored-By: Your Name <you@example.com>
-```
 
 ## Maintainer Automation Notes
 

@@ -42,9 +42,9 @@ struct ShellErrorTests {
         #expect(error.errorDescription == "'find .' exceeded the output limit of 1024 bytes")
     }
 
-    @Test func cancelledDescription() {
-        let error = ShellError.cancelled(command: "sleep 10", partialOutput: emptyOutput)
-        #expect(error.errorDescription == "'sleep 10' was cancelled")
+    @Test func canceledDescription() {
+        let error = ShellError.canceled(command: "sleep 10", partialOutput: emptyOutput)
+        #expect(error.errorDescription == "'sleep 10' was canceled")
     }
 
     @Test func spawnErrorDescription() {

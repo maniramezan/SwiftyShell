@@ -63,7 +63,7 @@ public struct Pipeline: Sendable {
     ///   to a freshly constructed ``ShellContext``.
     /// - Returns: The captured ``ShellOutput`` of the final stage.
     /// - Throws: ``ShellError`` if any stage fails to spawn, exits non-zero, times out, exceeds
-    ///   an output limit, or is cancelled.
+    ///   an output limit, or is canceled.
     public func run(in context: ShellContext = .init()) async throws -> ShellOutput {
         try await context.executor.execute(self, in: context)
     }

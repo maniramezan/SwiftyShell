@@ -70,12 +70,12 @@ public enum ShellError: Error, LocalizedError, Sendable {
     ///   - partialOutput: Whatever output was captured up to the limit.
     case outputLimitExceeded(command: String, limit: Int, partialOutput: ShellOutput)
 
-    /// The command was cancelled (typically via task cancellation) before it completed.
+    /// The command was canceled (typically via task cancellation) before it completed.
     ///
     /// - Parameters:
-    ///   - command: The shell-quoted display string of the cancelled command.
+    ///   - command: The shell-quoted display string of the canceled command.
     ///   - partialOutput: Whatever output was captured before cancellation.
-    case cancelled(command: String, partialOutput: ShellOutput)
+    case canceled(command: String, partialOutput: ShellOutput)
 
     /// The process could not be started (for example missing permissions or invalid arguments).
     ///
@@ -108,8 +108,8 @@ public enum ShellError: Error, LocalizedError, Sendable {
             return "Failed to decode \(stream) output for '\(command)' as UTF-8"
         case let .outputLimitExceeded(command, limit, _):
             return "'\(command)' exceeded the output limit of \(limit) bytes"
-        case let .cancelled(command, _):
-            return "'\(command)' was cancelled"
+        case let .canceled(command, _):
+            return "'\(command)' was canceled"
         case let .spawnError(command, reason):
             return "Failed to spawn '\(command)': \(reason)"
         case let .workflowConditionFailed(description):
@@ -140,9 +140,9 @@ extension ShellError: CustomDebugStringConvertible {
         case let .outputLimitExceeded(command, limit, partialOutput):
             return
                 "ShellError.outputLimitExceeded(command: \(command.debugDescription), limit: \(limit), partialOutput: \(partialOutput.debugDescription))"
-        case let .cancelled(command, partialOutput):
+        case let .canceled(command, partialOutput):
             return
-                "ShellError.cancelled(command: \(command.debugDescription), partialOutput: \(partialOutput.debugDescription))"
+                "ShellError.canceled(command: \(command.debugDescription), partialOutput: \(partialOutput.debugDescription))"
         default:
             return "ShellError(\(errorDescription ?? localizedDescription))"
         }

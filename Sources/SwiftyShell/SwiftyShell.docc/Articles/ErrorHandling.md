@@ -137,9 +137,9 @@ The captured output could not be decoded as UTF-8. This happens with binary outp
 
 ### Task and Workflow Errors
 
-#### `cancelled`
+#### `canceled`
 
-The Swift `Task` enclosing the `run()` call was cancelled. SwiftyShell sends SIGTERM then SIGKILL to the subprocess and rethrows as `ShellError.cancelled`. The partial output captured so far is attached.
+The Swift `Task` enclosing the `run()` call was canceled. SwiftyShell sends SIGTERM then SIGKILL to the subprocess and rethrows as `ShellError.canceled`. The partial output captured so far is attached.
 
 ```swift
 let task = Task {
@@ -148,7 +148,7 @@ let task = Task {
 
 // … later:
 task.cancel()
-// The task throws ShellError.cancelled(command:partialOutput:)
+// The task throws ShellError.canceled(command:partialOutput:)
 ```
 
 Standard Swift structured-concurrency cancellation (`withTaskCancellationHandler`, task groups, `Task.checkCancellation()`) also propagates automatically.
@@ -183,7 +183,7 @@ do {
     // Specific: non-zero exit
     print(output.stderr)
 } catch let error as ShellError {
-    // Everything else (timeout, cancelled, …)
+    // Everything else (timeout, canceled, …)
     print("Unexpected shell error:", error)
 } catch {
     // Non-ShellError failures (e.g. from your own workflow code)
@@ -202,5 +202,5 @@ do {
 | `timeout` | Exceeded time limit | Inspect `partialOutput`; increase limit or redirect to file |
 | `outputLimitExceeded` | Output exceeded limit | Increase `outputLimit` or redirect to file |
 | `decodingError` | Output is not valid UTF-8 | Redirect to file; read as `Data` |
-| `cancelled` | Parent Swift task was cancelled | Inspect `partialOutput`; propagate cancellation |
+| `canceled` | Parent Swift task was canceled | Inspect `partialOutput`; propagate cancellation |
 | `workflowConditionFailed` | A `require` predicate returned false | Handle the specific gate condition |

@@ -186,7 +186,7 @@ public struct GitSubmodule: RunnableCommandFamily {
 
     /// Selects `git submodule set-branch --default -- <path>` to clear a recorded tracking branch.
     ///
-    /// Reverts the submodule to the default tracking behaviour (typically the upstream `HEAD`).
+    /// Reverts the submodule to the default tracking behavior (typically the upstream `HEAD`).
     ///
     /// - Parameter path: Path of the submodule whose tracking branch should be reset.
     /// - Returns: A new ``GitSubmodule`` value targeting `set-branch` with `--default`.
@@ -269,7 +269,7 @@ public struct GitSubmodule: RunnableCommandFamily {
 
     /// Traverses nested submodules for commands that support recursive operation.
     ///
-    /// Maps to the `--recursive` flag. Recognised by `status`, `update`, `foreach`, and `sync`.
+    /// Maps to the `--recursive` flag. Recognized by `status`, `update`, `foreach`, and `sync`.
     ///
     /// - Parameter enabled: When `true`, adds `--recursive`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the recursive flag toggled.
@@ -451,7 +451,7 @@ public struct GitSubmodule: RunnableCommandFamily {
         copy(singleBranch: enabled ? false : state.singleBranch, noSingleBranch: enabled)
     }
 
-    /// Honours `.gitmodules` shallow-clone recommendations when updating submodules.
+    /// Honors `.gitmodules` shallow-clone recommendations when updating submodules.
     ///
     /// Maps to the `--recommend-shallow` flag. Mutually exclusive with
     /// ``noRecommendShallow(_:)`` — enabling one clears the other.

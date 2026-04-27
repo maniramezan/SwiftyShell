@@ -121,7 +121,7 @@ This applies to:
 
 **Rules:**
 1. Type-level docs explain what the type _is_ and when to use it
-2. Method-level docs explain what the method _does_ and note any non-obvious behaviour
+2. Method-level docs explain what the method _does_ and note any non-obvious behavior
 3. Parameter docs (`- Parameter name:`) for non-trivial parameters
 4. Use ``SymbolName`` double-backtick links to cross-reference related types
 5. Include a code example in the type-level doc for all types that are primary API surface

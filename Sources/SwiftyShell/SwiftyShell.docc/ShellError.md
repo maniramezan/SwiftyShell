@@ -40,8 +40,8 @@ The cases group naturally by failure source:
 - **Stream errors** — ``decodingError(command:stream:)`` is raised when output
   is not valid UTF-8. Redirect to a file with
   ``OutputDestination/file(path:append:)`` and read it as `Data` instead.
-- **Task and workflow errors** — ``cancelled(command:partialOutput:)`` is
-  raised when the surrounding `Task` is cancelled, and
+- **Task and workflow errors** — ``canceled(command:partialOutput:)`` is
+  raised when the surrounding `Task` is canceled, and
   ``workflowConditionFailed(description:)`` when a ``Workflow/require(_:else:)-swift.method``
   predicate returns `false`.
 
@@ -71,7 +71,7 @@ For a complete walkthrough — including each case's recovery strategy — see
 
 ### Task Errors
 
-- ``cancelled(command:partialOutput:)``
+- ``canceled(command:partialOutput:)``
 
 ### Workflow Errors
 

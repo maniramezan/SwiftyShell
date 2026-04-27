@@ -221,7 +221,7 @@ struct CommandTests {
             _ = try await task.value
             Issue.record("Expected cancellation")
         } catch let error as ShellError {
-            guard case let .cancelled(_, partialOutput) = error else {
+            guard case let .canceled(_, partialOutput) = error else {
                 Issue.record("Unexpected error: \(error)")
                 return
             }

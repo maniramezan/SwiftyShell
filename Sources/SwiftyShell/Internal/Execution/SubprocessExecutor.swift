@@ -50,7 +50,7 @@ public struct SubprocessExecutor: CommandExecutor {
     /// - ``ShellError/exitFailure(command:output:)`` for non-zero exit codes.
     /// - ``ShellError/timeout(command:duration:partialOutput:)`` if the timeout elapses.
     /// - ``ShellError/outputLimitExceeded(command:limit:partialOutput:)`` if captured output overflows the limit.
-    /// - ``ShellError/cancelled(command:partialOutput:)`` if the surrounding `Task` is cancelled.
+    /// - ``ShellError/canceled(command:partialOutput:)`` if the surrounding `Task` is canceled.
     ///
     /// - Parameters:
     ///   - command: The fully-configured ``Command`` to spawn.
@@ -342,7 +342,7 @@ private struct SingleCommandRunner {
                 stderrCapture: stderrCapture,
                 exitCode: process.terminationStatus
             )
-            throw ShellError.cancelled(command: resolved.displayCommand, partialOutput: output)
+            throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
         } catch let error as ShellError {
             throw error
         } catch {
@@ -509,7 +509,7 @@ private struct PipelineRunner {
                 ),
                 exitCode: processes.last?.terminationStatus ?? -1
             )
-            throw ShellError.cancelled(command: finalCommand.displayCommand, partialOutput: output)
+            throw ShellError.canceled(command: finalCommand.displayCommand, partialOutput: output)
         } catch let error as ShellError {
             throw error
         } catch {

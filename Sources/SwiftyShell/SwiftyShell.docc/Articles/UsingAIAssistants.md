@@ -11,15 +11,19 @@ The skill serves two purposes:
 1. **Generating SwiftyShell code** from a plain-language task description
 2. **Adding new command families** following established project conventions
 
-## Loading the Skill in Claude Code
+## Loading the Skill
 
-The skill is automatically loaded when you open this repository in Claude Code (the `.claude/skills/swiftyshell.md` path is referenced from `CLAUDE.md`). You can also invoke it explicitly with a slash command if your Claude Code session has skills configured.
+The skill lives at `.claude/skills/swiftyshell.md` and is symlinked from `.codex/skills/swiftyshell.md`, so both Claude and Codex agents resolve the same file — there is only one copy on disk.
+
+**Claude Code** loads the skill automatically when you open this repository (the path is referenced from `CLAUDE.md`). You can also invoke it explicitly with a slash command if your session has skills configured.
+
+**Codex** picks it up via `.codex/skills/swiftyshell.md`. Point Codex at this repository and the skill is available without any additional setup.
 
 Once loaded, describe the shell task you want to perform:
 
 > "I need to check that a git repo's working tree is clean before running a deploy script. If it has uncommitted changes, the deploy should abort."
 
-Claude will generate typed SwiftyShell code using the correct APIs:
+The assistant will generate typed SwiftyShell code using the correct APIs:
 
 ```swift
 do {
@@ -73,7 +77,7 @@ The skill file must reflect the *implemented* API, not the spec. Whenever you:
 - Add or rename a `ShellError` case
 - Change execution semantics
 
-…update `.claude/skills/swiftyshell.md` and `AGENTS.md` in the same pull request. The skill's maintenance section explains the exact checklist.
+…update `.claude/skills/swiftyshell.md` and `AGENTS.md` in the same pull request. Because `.codex/skills/swiftyshell.md` is a symlink to that file, both Claude and Codex pick up the change automatically. The skill's maintenance section explains the exact checklist.
 
 ## Related
 

@@ -107,7 +107,7 @@ This does **not** mean every executable on the system gets its own Swift type, o
 
 - The most specific timeout wins (per-command > per-client > context default).
 - On timeout: `SIGTERM` → short grace period → `SIGKILL` → `ShellError.timeout` with partial output.
-- Swift task cancellation follows the same `SIGTERM` → `SIGKILL` sequence and throws `ShellError.cancelled`.
+- Swift task cancellation follows the same `SIGTERM` → `SIGKILL` sequence and throws `ShellError.canceled`.
 - stdin is always closed (`/dev/null`) for all spawned processes.
 
 ### Deferred Workflow Semantics

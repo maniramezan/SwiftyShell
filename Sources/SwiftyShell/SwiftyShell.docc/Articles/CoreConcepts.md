@@ -27,7 +27,7 @@ import SwiftyShell
 // Most programs share one context
 let context = ShellContext()
 
-// With defaults customised for a long-running build script
+// With defaults customized for a long-running build script
 let buildContext = ShellContext(
     workingDirectory: "/var/app",
     defaultTimeout: 120,
@@ -51,7 +51,7 @@ try await Command("swift", arguments: "build")
 try await Command("swift", arguments: "package", "resolve").run(in: context)
 ```
 
-### Customising the Search Path
+### Customizing the Search Path
 
 If an executable lives outside the default `PATH` — common with Homebrew on Apple Silicon or tools installed into non-standard locations — extend the search paths:
 

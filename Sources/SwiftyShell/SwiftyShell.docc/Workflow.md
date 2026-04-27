@@ -7,7 +7,7 @@ A reusable asynchronous workflow that can be transformed and composed.
 A ``Workflow`` wraps an `async` operation that produces a single value of type
 `Value`. The wrapped work is **lazy** — nothing executes until you call
 ``run()`` — and **single-use**: each ``Workflow`` instance is consumed by the
-first ``run()`` call. Compose new behaviour by chaining ``map(_:)-((Value)->T)``,
+first ``run()`` call. Compose new behavior by chaining ``map(_:)-((Value)->T)``,
 ``flatMap(_:)``, ``then(_:)``, and the ``require(_:else:)-swift.method`` /
 ``require(_:equals:else:)`` gates, then await ``run()`` once at the end.
 

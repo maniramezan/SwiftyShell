@@ -274,13 +274,13 @@ try await Command("curl", arguments: apiURL)
     .run(in: context)
 ```
 
-Swift task cancellation propagates automatically. Cancelling the enclosing `Task` sends SIGTERM then SIGKILL to the subprocess, and `run()` throws ``ShellError/cancelled(command:partialOutput:)``:
+Swift task cancellation propagates automatically. Cancelling the enclosing `Task` sends SIGTERM then SIGKILL to the subprocess, and `run()` throws ``ShellError/canceled(command:partialOutput:)``:
 
 ```swift
 let task = Task {
     try await Command("long-running-tool").run(in: context)
 }
-task.cancel()  // subprocess is terminated; throws ShellError.cancelled
+task.cancel()  // subprocess is terminated; throws ShellError.canceled
 ```
 
 ## Concurrent Commands

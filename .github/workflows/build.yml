@@ -16,4 +16,4 @@ jobs:
     uses: ./.github/workflows/reusable-ci.yml
     with:
       enforce_coverage: true
-      minimum_line_coverage: "83.6233"
+      minimum_line_coverage: "84"

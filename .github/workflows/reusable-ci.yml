@@ -17,7 +17,7 @@ on:
         description: Minimum package line coverage percentage.
         required: false
         type: string
-        default: "83.6233"
+        default: "84"
 
 jobs:
   validate-traits:

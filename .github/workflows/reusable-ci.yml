@@ -213,7 +213,7 @@ jobs:
 
       - name: Resolve coverage report path
         id: coverage
-        run: echo "path=$(swift test --enable-all-traits --show-codecov-path)" >> "$GITHUB_OUTPUT"
+        run: echo "path=$(swift test --enable-all-traits --enable-code-coverage --show-codecov-path)" >> "$GITHUB_OUTPUT"
 
       - name: Enforce package coverage threshold
         run: |

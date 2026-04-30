@@ -236,13 +236,12 @@ jobs:
             ${{ runner.os }}-coverage-
             ${{ runner.os }}-build-All-
 
-      - name: Run tests with coverage
-        run: swift test --enable-all-traits --enable-code-coverage
-
       - name: Resolve coverage report path
         id: coverage
         run: echo "path=$(swift test --enable-all-traits --enable-code-coverage --show-codecov-path)" >> "$GITHUB_OUTPUT"
 
+      - name: Run tests with coverage
+        run: swift test --enable-all-traits --enable-code-coverage
       - name: Enforce package coverage threshold
         run: |
           swift Scripts/validate-code-coverage.swift \

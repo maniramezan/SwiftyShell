@@ -16,6 +16,43 @@ struct GitCommandFamilyTests {
         #expect(command.workingDirectoryOverride == "/tmp/repo")
     }
 
+    @Test func buildsBranchCreateCommandWithStartPoint() {
+        let command = Git()
+            .branch()
+            .named("feature/demo")
+            .startPoint("origin/main")
+            .command()
+
+        #expect(command.arguments == ["branch", "feature/demo", "origin/main"])
+    }
+
+    @Test func buildsBranchRenameCurrentCommand() {
+        let command = Git()
+            .branch()
+            .move(to: "stable")
+            .command()
+
+        #expect(command.arguments == ["branch", "-m", "stable"])
+    }
+
+    @Test func buildsBranchDeleteCommand() {
+        let command = Git()
+            .branch()
+            .delete("feature/demo")
+            .command()
+
+        #expect(command.arguments == ["branch", "-d", "feature/demo"])
+    }
+
+    @Test func buildsBranchForceDeleteCommand() {
+        let command = Git()
+            .branch()
+            .forceDelete("feature/demo")
+            .command()
+
+        #expect(command.arguments == ["branch", "-D", "feature/demo"])
+    }
+
     @Test func buildsStashPushCommand() {
         let command = Git()
             .stash()
@@ -25,6 +62,35 @@ struct GitCommandFamilyTests {
             .command()
 
         #expect(command.arguments == ["stash", "push", "--include-untracked", "-m", "checkpoint"])
+    }
+
+    @Test func buildsStashPopCommand() {
+        let command = Git()
+            .stash()
+            .pop()
+            .reference("stash@{0}")
+            .command()
+
+        #expect(command.arguments == ["stash", "pop", "stash@{0}"])
+    }
+
+    @Test func buildsStashApplyCommand() {
+        let command = Git()
+            .stash()
+            .apply()
+            .reference("stash@{3}")
+            .command()
+
+        #expect(command.arguments == ["stash", "apply", "stash@{3}"])
+    }
+
+    @Test func buildsStashListCommand() {
+        let command = Git()
+            .stash()
+            .list()
+            .command()
+
+        #expect(command.arguments == ["stash", "list"])
     }
 
     @Test func buildsStashShowCommand() {
@@ -47,6 +113,25 @@ struct GitCommandFamilyTests {
         #expect(command.arguments == ["stash", "drop", "stash@{0}"])
     }
 
+    @Test func buildsStashDropCommand() {
+        let command = Git()
+            .stash()
+            .drop()
+            .reference("stash@{4}")
+            .command()
+
+        #expect(command.arguments == ["stash", "drop", "stash@{4}"])
+    }
+
+    @Test func buildsStashClearCommand() {
+        let command = Git()
+            .stash()
+            .clear()
+            .command()
+
+        #expect(command.arguments == ["stash", "clear"])
+    }
+
     @Test func buildsStashBranchCommand() {
         let command = Git()
             .stash()
@@ -57,6 +142,24 @@ struct GitCommandFamilyTests {
         #expect(command.arguments == ["stash", "branch", "recover-work", "stash@{2}"])
     }
 
+    @Test func buildsStashCreateCommand() {
+        let command = Git()
+            .stash()
+            .create()
+            .command()
+
+        #expect(command.arguments == ["stash", "create"])
+    }
+
+    @Test func buildsWorktreeListCommand() {
+        let command = Git()
+            .worktree()
+            .list()
+            .command()
+
+        #expect(command.arguments == ["worktree", "list"])
+    }
+
     @Test func buildsWorktreeAddCommand() {
         let command = Git()
             .worktree()
@@ -65,6 +168,15 @@ struct GitCommandFamilyTests {
             .command()
 
         #expect(command.arguments == ["worktree", "add", "-b", "feature", "../feature-worktree"])
+    }
+
+    @Test func buildsWorktreeRemoveCommand() {
+        let command = Git()
+            .worktree()
+            .remove("../feature-worktree")
+            .command()
+
+        #expect(command.arguments == ["worktree", "remove", "../feature-worktree"])
     }
 
     @Test func buildsSubmoduleAddCommand() {
@@ -98,6 +210,38 @@ struct GitCommandFamilyTests {
         )
     }
 
+    @Test func buildsSubmoduleStatusCommandWithCachedRecursivePaths() {
+        let command = Git()
+            .submodule()
+            .status()
+            .cached()
+            .recursive()
+            .paths(["Vendor/Lib", "Vendor/Tools"])
+            .command()
+
+        #expect(
+            command.arguments == [
+                "submodule",
+                "status",
+                "--cached",
+                "--recursive",
+                "--",
+                "Vendor/Lib",
+                "Vendor/Tools",
+            ]
+        )
+    }
+
+    @Test func buildsSubmoduleInitializeCommandForMultiplePaths() {
+        let command = Git()
+            .submodule()
+            .initialize()
+            .paths(["Vendor/Lib", "Vendor/Tools"])
+            .command()
+
+        #expect(command.arguments == ["submodule", "init", "--", "Vendor/Lib", "Vendor/Tools"])
+    }
+
     @Test func buildsSubmoduleUpdateCommand() {
         let command = Git()
             .submodule()
@@ -129,6 +273,42 @@ struct GitCommandFamilyTests {
                 "--no-recommend-shallow",
                 "--filter",
                 "blob:none",
+                "--",
+                "Vendor/Lib",
+            ]
+        )
+    }
+
+    @Test func buildsSubmoduleUpdateCommandWithAlternateFlags() {
+        let command = Git()
+            .submodule()
+            .update()
+            .force()
+            .progress()
+            .reference("/tmp/reference.git")
+            .dissociate()
+            .refFormat("files")
+            .depth(2)
+            .noSingleBranch()
+            .recommendShallow()
+            .path("Vendor/Lib")
+            .command()
+
+        #expect(
+            command.arguments == [
+                "submodule",
+                "update",
+                "--force",
+                "--progress",
+                "--reference",
+                "/tmp/reference.git",
+                "--dissociate",
+                "--ref-format",
+                "files",
+                "--depth",
+                "2",
+                "--no-single-branch",
+                "--recommend-shallow",
                 "--",
                 "Vendor/Lib",
             ]
@@ -189,6 +369,65 @@ struct GitCommandFamilyTests {
             .command()
 
         #expect(command.arguments == ["submodule", "deinit", "--force", "--all"])
+    }
+
+    @Test func buildsSubmoduleSummaryCommand() {
+        let command = Git()
+            .submodule()
+            .summary()
+            .cached()
+            .files()
+            .summaryLimit(5)
+            .summaryCommit("HEAD~1")
+            .paths(["Vendor/Lib", "Vendor/Tools"])
+            .command()
+
+        #expect(
+            command.arguments == [
+                "submodule",
+                "summary",
+                "--cached",
+                "--files",
+                "--summary-limit",
+                "5",
+                "HEAD~1",
+                "--",
+                "Vendor/Lib",
+                "Vendor/Tools",
+            ]
+        )
+    }
+
+    @Test func buildsSubmoduleSyncCommand() {
+        let command = Git()
+            .submodule()
+            .sync()
+            .recursive()
+            .paths(["Vendor/Lib", "Vendor/Tools"])
+            .command()
+
+        #expect(
+            command.arguments == [
+                "submodule",
+                "sync",
+                "--recursive",
+                "--",
+                "Vendor/Lib",
+                "Vendor/Tools",
+            ]
+        )
+    }
+
+    @Test func buildsSubmoduleDefaultCommandWithStatusOptions() {
+        let command = Git()
+            .submodule()
+            .quiet()
+            .cached()
+            .recursive()
+            .path("Vendor/Lib")
+            .command()
+
+        #expect(command.arguments == ["submodule", "--quiet", "--cached", "--recursive", "--", "Vendor/Lib"])
     }
 
     @Test func buildsDiffCommandWithFormatAndPaths() {

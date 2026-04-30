@@ -15,6 +15,27 @@ private actor InvocationRecorder {
 }
 
 struct PipelineTests {
+    @Test func pipelineDescriptionRendersShellStyleStages() {
+        let pipeline = Command("printf", arguments: "alpha\nbeta\n")
+            .pipe(to: Command("grep", arguments: "beta"))
+            .pipe(to: Command("wc", arguments: "-l"))
+
+        #expect(pipeline.description.contains("printf"))
+        #expect(pipeline.description.contains("grep beta"))
+        #expect(pipeline.description.contains("wc -l"))
+        #expect(pipeline.description.contains(" | "))
+    }
+
+    @Test func pipelineDebugDescriptionIncludesStageDebugStrings() {
+        let pipeline = Command("echo", arguments: "hello world")
+            .pipe(to: Command("grep", arguments: "hello"))
+
+        #expect(pipeline.debugDescription.contains("Pipeline("))
+        #expect(pipeline.debugDescription.contains("Command("))
+        #expect(pipeline.debugDescription.contains("hello world"))
+        #expect(pipeline.debugDescription.contains("grep hello"))
+    }
+
     @Test func mockPipelineStopsOnFirstFailure() async throws {
         let recorder = InvocationRecorder()
         let context = ShellContext(

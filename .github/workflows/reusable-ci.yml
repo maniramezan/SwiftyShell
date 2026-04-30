@@ -227,7 +227,7 @@ jobs:
 
   coverage:
     name: Coverage Gate
-    if: ${{ inputs.enforce_coverage }}
+    if: ${{ inputs.enforce_coverage && inputs.trait_matrix != '[]' }}
     needs: [validate-traits, validate-docc-coverage, lint]
     runs-on: macos-15
     steps:

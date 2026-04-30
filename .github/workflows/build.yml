@@ -33,10 +33,10 @@ jobs:
           echo "Changed files:"
           echo "$CHANGED"
 
-          # Changes to Core, Internal, Package.swift, or the ungated shared test
-          # helper (CommonTestSupport.swift) affect every trait build.
-          if echo "$CHANGED" | grep -qE '^(Package\.swift$|Package\.resolved$|Sources/SwiftyShell/Core/|Sources/SwiftyShell/Internal/|Tests/SwiftyShellTests/Common/CommonTestSupport\.swift$)'; then
-            echo "Full matrix required (core/package change detected)"
+          # Changes to Core, Internal, Package.swift, CI workflows, or the
+          # ungated shared test helper affect every trait build.
+          if echo "$CHANGED" | grep -qE '^(Package\.swift$|Package\.resolved$|\.github/workflows/|Sources/SwiftyShell/Core/|Sources/SwiftyShell/Internal/|Tests/SwiftyShellTests/Common/CommonTestSupport\.swift$)'; then
+            echo "Full matrix required (core/package/CI workflow change detected)"
             echo "matrix=$FULL" >> "$GITHUB_OUTPUT"
             exit 0
           fi

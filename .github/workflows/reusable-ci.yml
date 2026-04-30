@@ -1,0 +1,272 @@
+name: Reusable CI
+
+on:
+  workflow_call:
+    inputs:
+      deploy_pages:
+        description: Upload and deploy the generated DocC site.
+        required: false
+        type: boolean
+        default: false
+      enforce_coverage:
+        description: Enforce the minimum package line coverage threshold.
+        required: false
+        type: boolean
+        default: false
+      minimum_line_coverage:
+        description: Minimum package line coverage percentage.
+        required: false
+        type: string
+        default: "84"
+      trait_matrix:
+        description: >
+          JSON array of traits to build and test (e.g. '["Git","All"]').
+          Pass '[]' to skip all build and test jobs.
+          Defaults to the full matrix when omitted.
+        required: false
+        type: string
+        default: '["", "Git", "Brew", "Grep", "CommonUtilities", "All"]'
+
+jobs:
+  validate-traits:
+    name: Validate Trait Wiring
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate trait wiring
+        run: swift Scripts/validate-traits.swift
+
+  validate-docc-coverage:
+    name: Validate DocC Coverage
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate authored DocC coverage
+        run: swift Scripts/validate-docc-coverage.swift
+
+  lint:
+    name: swift-format lint
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache Homebrew downloads
+        uses: actions/cache@v5
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: ${{ runner.os }}-brew-swift-format
+
+      - name: Ensure swift-format is available
+        run: |
+          if ! command -v swift-format >/dev/null 2>&1; then
+            brew install swift-format
+          fi
+
+      - name: Show swift-format version
+        run: swift-format --version
+
+      - name: swift-format lint --strict
+        run: swift-format lint --strict --recursive Sources Tests Scripts
+
+  docc:
+    name: Build DocC
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            .build
+            ~/.swiftpm/cache
+            ~/Library/Caches/org.swift.swiftpm
+            ~/.cache/org.swift.swiftpm
+          key: ${{ runner.os }}-docc-${{ hashFiles('Package.resolved', 'Package.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-docc-
+
+      - name: Build documentation
+        run: |
+          swift package --allow-writing-to-directory docs \
+            generate-documentation \
+            --target SwiftyShell \
+            --output-path docs \
+            --transform-for-static-hosting \
+            --hosting-base-path SwiftyShell
+
+      - name: Add root redirect
+        if: ${{ inputs.deploy_pages }}
+        run: |
+          cat > docs/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta name="color-scheme" content="light dark">
+            <meta http-equiv="refresh" content="0; url=/SwiftyShell/documentation/swiftyshell/">
+            <link rel="canonical" href="/SwiftyShell/documentation/swiftyshell/">
+            <title>SwiftyShell Documentation</title>
+            <style>
+              :root {
+                color-scheme: light dark;
+              }
+
+              body {
+                margin: 0;
+                min-height: 100vh;
+                display: grid;
+                place-items: center;
+                padding: 2rem;
+                font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                background: Canvas;
+                color: CanvasText;
+              }
+
+              a {
+                color: LinkText;
+              }
+            </style>
+          </head>
+          <body>
+            <p>Redirecting to <a href="/SwiftyShell/documentation/swiftyshell/">documentation</a>...</p>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload Pages artifact
+        if: ${{ inputs.deploy_pages }}
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs
+
+  build-macos:
+    name: macOS (traits=${{ matrix.traits }})
+    needs: [validate-traits, validate-docc-coverage, lint, docc]
+    if: ${{ inputs.trait_matrix != '[]' }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        traits: ${{ fromJSON(inputs.trait_matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            .build
+            ~/.swiftpm/cache
+            ~/Library/Caches/org.swift.swiftpm
+            ~/.cache/org.swift.swiftpm
+          key: ${{ runner.os }}-build-${{ matrix.traits }}-${{ hashFiles('Package.resolved', 'Package.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ matrix.traits }}-
+            ${{ runner.os }}-build-
+
+      - name: Resolve trait flag
+        id: flag
+        run: |
+          if [ -z "${{ matrix.traits }}" ]; then
+            echo "args=" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=--traits ${{ matrix.traits }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        run: swift build -c release ${{ steps.flag.outputs.args }}
+
+      - name: Test
+        run: swift test ${{ steps.flag.outputs.args }}
+
+  build-linux:
+    name: Linux (traits=${{ matrix.traits }})
+    needs: [validate-traits, validate-docc-coverage, lint, docc]
+    if: ${{ inputs.trait_matrix != '[]' }}
+    runs-on: ubuntu-24.04
+    container:
+      image: swift:6.1
+    strategy:
+      fail-fast: false
+      matrix:
+        traits: ${{ fromJSON(inputs.trait_matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            .build
+            ~/.swiftpm/cache
+            ~/Library/Caches/org.swift.swiftpm
+            ~/.cache/org.swift.swiftpm
+          key: ${{ runner.os }}-build-${{ matrix.traits }}-${{ hashFiles('Package.resolved', 'Package.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ matrix.traits }}-
+            ${{ runner.os }}-build-
+
+      - name: Resolve trait flag
+        id: flag
+        run: |
+          if [ -z "${{ matrix.traits }}" ]; then
+            echo "args=" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=--traits ${{ matrix.traits }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        run: swift build -c release ${{ steps.flag.outputs.args }}
+
+      - name: Test
+        run: swift test ${{ steps.flag.outputs.args }}
+
+  coverage:
+    name: Coverage Gate
+    if: ${{ inputs.enforce_coverage }}
+    needs: [validate-traits, validate-docc-coverage, lint]
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            .build
+            ~/.swiftpm/cache
+            ~/Library/Caches/org.swift.swiftpm
+            ~/.cache/org.swift.swiftpm
+          key: ${{ runner.os }}-coverage-${{ hashFiles('Package.resolved', 'Package.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-coverage-
+            ${{ runner.os }}-build-All-
+
+      - name: Resolve coverage report path
+        id: coverage
+        run: echo "path=$(swift test --enable-all-traits --enable-code-coverage --show-codecov-path)" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests with coverage
+        run: swift test --enable-all-traits --enable-code-coverage
+      - name: Enforce package coverage threshold
+        run: |
+          swift Scripts/validate-code-coverage.swift \
+            --input "${{ steps.coverage.outputs.path }}" \
+            --minimum-line-coverage "${{ inputs.minimum_line_coverage }}"
+
+  deploy:
+    name: Deploy DocC
+    if: ${{ inputs.deploy_pages }}
+    needs: [validate-traits, validate-docc-coverage, lint, docc, build-macos, build-linux]
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

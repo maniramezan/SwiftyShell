@@ -1,15 +1,19 @@
-name: Build and Test
+name: Pull Request Checks
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # On PRs: compute which traits are affected by the changed files so build and
-  # test jobs run only the relevant matrix entries.  On push to main the full
-  # matrix always runs.
+  # Compute which traits are affected by the changed files so the reusable CI
+  # workflow runs only the relevant build/test matrix entries.
   detect-traits:
     name: Detect Affected Traits
     runs-on: ubuntu-latest
@@ -24,12 +28,6 @@ jobs:
         id: compute
         run: |
           FULL='["", "Git", "Brew", "Grep", "CommonUtilities", "All"]'
-
-          # Pushes to main always run the full matrix.
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "matrix=$FULL" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
 
           CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
           echo "Changed files:"
@@ -77,150 +75,10 @@ jobs:
           echo "Affected traits: $json"
           echo "matrix=$json" >> "$GITHUB_OUTPUT"
 
-  validate-traits:
-    name: Validate Trait Wiring
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v6.0.2
-
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.3.app
-
-      - name: Validate trait wiring
-        run: swift Scripts/validate-traits.swift
-
-  validate-docc-coverage:
-    name: Validate DocC Coverage
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v6.0.2
-
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.3.app
-
-      - name: Validate authored DocC coverage
-        run: swift Scripts/validate-docc-coverage.swift
-
-  lint:
-    name: swift-format lint
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v6.0.2
-
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.3.app
-
-      - name: Cache Homebrew downloads
-        uses: actions/cache@v4
-        with:
-          path: ~/Library/Caches/Homebrew
-          key: ${{ runner.os }}-brew-swift-format
-
-      - name: Install swift-format
-        run: brew install swift-format
-
-      - name: swift-format lint --strict
-        run: swift-format lint --strict --recursive Sources Tests Scripts
-
-  docc:
-    name: Build DocC
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v6.0.2
-
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.3.app
-
-      - name: Cache SPM dependencies
-        uses: actions/cache@v4
-        with:
-          path: .build
-          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
-          restore-keys: |
-            ${{ runner.os }}-spm-
-
-      - name: Build documentation
-        run: |
-          swift package --allow-writing-to-directory docs \
-            generate-documentation \
-            --target SwiftyShell \
-            --output-path docs \
-            --transform-for-static-hosting \
-            --hosting-base-path SwiftyShell
-
-  build-macos:
-    name: macOS (traits=${{ matrix.traits }})
-    needs: [detect-traits, validate-traits, validate-docc-coverage, lint, docc]
-    if: ${{ needs.detect-traits.outputs.matrix != '[]' }}
-    runs-on: macos-15
-    strategy:
-      fail-fast: false
-      matrix:
-        traits: ${{ fromJSON(needs.detect-traits.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@v6.0.2
-
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.3.app
-
-      - name: Cache SPM dependencies
-        uses: actions/cache@v4
-        with:
-          path: .build
-          key: ${{ runner.os }}-spm-${{ matrix.traits }}-${{ hashFiles('Package.resolved') }}
-          restore-keys: |
-            ${{ runner.os }}-spm-${{ matrix.traits }}-
-            ${{ runner.os }}-spm-
-
-      - name: Resolve trait flag
-        id: flag
-        run: |
-          if [ -z "${{ matrix.traits }}" ]; then
-            echo "args=" >> "$GITHUB_OUTPUT"
-          else
-            echo "args=--traits ${{ matrix.traits }}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Build
-        run: swift build -c release ${{ steps.flag.outputs.args }}
-
-      - name: Test
-        run: swift test ${{ steps.flag.outputs.args }}
-
-  build-linux:
-    name: Linux (traits=${{ matrix.traits }})
-    needs: [detect-traits, validate-traits, validate-docc-coverage, lint, docc]
-    if: ${{ needs.detect-traits.outputs.matrix != '[]' }}
-    runs-on: ubuntu-latest
-    container:
-      image: swift:6.1
-    strategy:
-      fail-fast: false
-      matrix:
-        traits: ${{ fromJSON(needs.detect-traits.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@v6.0.2
-
-      - name: Cache SPM dependencies
-        uses: actions/cache@v4
-        with:
-          path: .build
-          key: ${{ runner.os }}-spm-${{ matrix.traits }}-${{ hashFiles('Package.resolved') }}
-          restore-keys: |
-            ${{ runner.os }}-spm-${{ matrix.traits }}-
-            ${{ runner.os }}-spm-
-
-      - name: Resolve trait flag
-        id: flag
-        run: |
-          if [ -z "${{ matrix.traits }}" ]; then
-            echo "args=" >> "$GITHUB_OUTPUT"
-          else
-            echo "args=--traits ${{ matrix.traits }}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Build
-        run: swift build -c release ${{ steps.flag.outputs.args }}
-
-      - name: Test
-        run: swift test ${{ steps.flag.outputs.args }}
+  ci:
+    needs: detect-traits
+    uses: ./.github/workflows/reusable-ci.yml
+    with:
+      enforce_coverage: true
+      minimum_line_coverage: "84"
+      trait_matrix: ${{ needs.detect-traits.outputs.matrix }}

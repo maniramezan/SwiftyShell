@@ -18,6 +18,14 @@ on:
         required: false
         type: string
         default: "84"
+      trait_matrix:
+        description: >
+          JSON array of traits to build and test (e.g. '["Git","All"]').
+          Pass '[]' to skip all build and test jobs.
+          Defaults to the full matrix when omitted.
+        required: false
+        type: string
+        default: '["", "Git", "Brew", "Grep", "CommonUtilities", "All"]'
 
 jobs:
   validate-traits:
@@ -138,11 +146,12 @@ jobs:
   build-macos:
     name: macOS (traits=${{ matrix.traits }})
     needs: [validate-traits, validate-docc-coverage, lint, docc]
+    if: ${{ inputs.trait_matrix != '[]' }}
     runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
-        traits: ["", "Git", "Brew", "Grep", "CommonUtilities", "All"]
+        traits: ${{ fromJSON(inputs.trait_matrix) }}
     steps:
       - uses: actions/checkout@v6
 
@@ -177,13 +186,14 @@ jobs:
   build-linux:
     name: Linux (traits=${{ matrix.traits }})
     needs: [validate-traits, validate-docc-coverage, lint, docc]
+    if: ${{ inputs.trait_matrix != '[]' }}
     runs-on: ubuntu-24.04
     container:
       image: swift:6.1
     strategy:
       fail-fast: false
       matrix:
-        traits: ["", "Git", "Brew", "Grep", "CommonUtilities", "All"]
+        traits: ${{ fromJSON(inputs.trait_matrix) }}
     steps:
       - uses: actions/checkout@v6
 
@@ -217,7 +227,7 @@ jobs:
 
   coverage:
     name: Coverage Gate
-    if: ${{ inputs.enforce_coverage }}
+    if: ${{ inputs.enforce_coverage && inputs.trait_matrix != '[]' }}
     needs: [validate-traits, validate-docc-coverage, lint]
     runs-on: macos-15
     steps:

@@ -12,8 +12,73 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Compute which traits are affected by the changed files so the reusable CI
+  # workflow runs only the relevant build/test matrix entries.
+  detect-traits:
+    name: Detect Affected Traits
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.compute.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Compute affected traits
+        id: compute
+        run: |
+          FULL='["", "Git", "Brew", "Grep", "CommonUtilities", "All"]'
+
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          # Changes to Core, Internal, Package.swift, CI workflows, or the
+          # ungated shared test helper affect every trait build.
+          if echo "$CHANGED" | grep -qE '^(Package\.swift$|Package\.resolved$|\.github/workflows/|Sources/SwiftyShell/Core/|Sources/SwiftyShell/Internal/|Tests/SwiftyShellTests/Common/CommonTestSupport\.swift$)'; then
+            echo "Full matrix required (core/package/CI workflow change detected)"
+            echo "matrix=$FULL" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          traits=()
+
+          # Core-only build ("") is needed only when ungated test files change.
+          echo "$CHANGED" | grep -qE '^Tests/SwiftyShellTests/(Core/|Pipelines/)' && traits+=("")
+
+          # Per-family builds — only when that family's sources or tests changed.
+          family_traits=()
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Git/|Tests/SwiftyShellTests/Git/)' && family_traits+=("Git")
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Brew/|Tests/SwiftyShellTests/Brew/)' && family_traits+=("Brew")
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Grep/|Tests/SwiftyShellTests/Grep/)' && family_traits+=("Grep")
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/|Tests/SwiftyShellTests/Common/)' && family_traits+=("CommonUtilities")
+          traits+=("${family_traits[@]}")
+
+          # "All" umbrella whenever any family changed.
+          [ ${#family_traits[@]} -gt 0 ] && traits+=("All")
+
+          # Nothing source-relevant changed — skip all builds.
+          if [ ${#traits[@]} -eq 0 ]; then
+            echo "No source changes detected — skipping builds."
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Serialize to a JSON array.
+          json="["
+          for i in "${!traits[@]}"; do
+            [[ $i -gt 0 ]] && json+=","
+            json+="\"${traits[$i]}\""
+          done
+          json+="]"
+
+          echo "Affected traits: $json"
+          echo "matrix=$json" >> "$GITHUB_OUTPUT"
+
   ci:
+    needs: detect-traits
     uses: ./.github/workflows/reusable-ci.yml
     with:
       enforce_coverage: true
       minimum_line_coverage: "84"
+      trait_matrix: ${{ needs.detect-traits.outputs.matrix }}

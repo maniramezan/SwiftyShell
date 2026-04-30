@@ -14,11 +14,11 @@ import Foundation
 
 struct CoverageTotals {
     let coveredLines: Int
-    let totalLines: Int
+    let executableLines: Int
 
     var percent: Double {
-        guard totalLines > 0 else { return 0 }
-        return (Double(coveredLines) / Double(totalLines)) * 100
+        guard executableLines > 0 else { return 0 }
+        return (Double(coveredLines) / Double(executableLines)) * 100
     }
 }
 

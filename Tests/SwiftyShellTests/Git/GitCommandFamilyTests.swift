@@ -371,6 +371,16 @@ struct GitCommandFamilyTests {
         #expect(command.arguments == ["submodule", "deinit", "--force", "--all"])
     }
 
+    @Test func buildsSubmoduleDeinitializePathCommand() {
+        let command = Git()
+            .submodule()
+            .deinitialize()
+            .path("Vendor/Lib")
+            .command()
+
+        #expect(command.arguments == ["submodule", "deinit", "--", "Vendor/Lib"])
+    }
+
     @Test func buildsSubmoduleSummaryCommand() {
         let command = Git()
             .submodule()
@@ -411,6 +421,24 @@ struct GitCommandFamilyTests {
                 "submodule",
                 "sync",
                 "--recursive",
+                "--",
+                "Vendor/Lib",
+                "Vendor/Tools",
+            ]
+        )
+    }
+
+    @Test func buildsSubmoduleAbsorbGitDirectoriesCommand() {
+        let command = Git()
+            .submodule()
+            .absorbGitDirectories()
+            .paths(["Vendor/Lib", "Vendor/Tools"])
+            .command()
+
+        #expect(
+            command.arguments == [
+                "submodule",
+                "absorbgitdirs",
                 "--",
                 "Vendor/Lib",
                 "Vendor/Tools",
@@ -651,6 +679,60 @@ struct GitCommandFamilyTests {
         #expect(entries[0].state == .current)
         #expect(entries[0].path == "Vendor/Child")
         #expect(!entries[0].commitHash.isEmpty)
+    }
+
+    @Test func parsesTypedSubmoduleStatusEntriesFromMockedStatusCommand() async throws {
+        actor Recorder {
+            var commands: [Command] = []
+
+            func record(_ command: Command) {
+                commands.append(command)
+            }
+
+            func snapshot() -> [Command] {
+                commands
+            }
+        }
+
+        let recorder = Recorder()
+        let output = " abcdef1234567890abcdef1234567890abcdef12 Vendor/Ready (heads/main)\n"
+        let context = ShellContext(
+            executor: MockExecutor { command, _ in
+                await recorder.record(command)
+                return ShellOutput(stdout: output, stderr: "", exitCode: 0)
+            }
+        )
+
+        let entries = try await Git(context: context)
+            .submodule()
+            .recursive()
+            .cached()
+            .path("Vendor/Ready")
+            .statusEntries()
+            .run()
+
+        #expect(
+            entries == [
+                GitSubmoduleStatusEntry(
+                    state: .current,
+                    commitHash: "abcdef1234567890abcdef1234567890abcdef12",
+                    path: "Vendor/Ready",
+                    description: "(heads/main)"
+                )
+            ]
+        )
+        #expect(
+            await recorder.snapshot().map(\.arguments) == [
+                [
+                    "submodule",
+                    "status",
+                    "--cached",
+                    "--recursive",
+                    "--",
+                    "Vendor/Ready",
+                ]
+            ]
+        )
     }
 }
 

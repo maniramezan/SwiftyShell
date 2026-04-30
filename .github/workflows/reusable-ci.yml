@@ -253,10 +253,6 @@ jobs:
     name: Deploy DocC
     if: ${{ inputs.deploy_pages }}
     needs: [validate-traits, validate-docc-coverage, lint, docc, build-macos, build-linux]
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
     runs-on: ubuntu-24.04
     environment:
       name: github-pages

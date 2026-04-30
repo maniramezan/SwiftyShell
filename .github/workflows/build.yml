@@ -7,6 +7,76 @@ on:
     branches: [main]
 
 jobs:
+  # On PRs: compute which traits are affected by the changed files so build and
+  # test jobs run only the relevant matrix entries.  On push to main the full
+  # matrix always runs.
+  detect-traits:
+    name: Detect Affected Traits
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.compute.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Compute affected traits
+        id: compute
+        run: |
+          FULL='["", "Git", "Brew", "Grep", "CommonUtilities", "All"]'
+
+          # Pushes to main always run the full matrix.
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "matrix=$FULL" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          # Changes to Core, Internal, Package.swift, or the ungated shared test
+          # helper (CommonTestSupport.swift) affect every trait build.
+          if echo "$CHANGED" | grep -qE '^(Package\.swift$|Package\.resolved$|Sources/SwiftyShell/Core/|Sources/SwiftyShell/Internal/|Tests/SwiftyShellTests/Common/CommonTestSupport\.swift$)'; then
+            echo "Full matrix required (core/package change detected)"
+            echo "matrix=$FULL" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          traits=()
+
+          # Core-only build ("") is needed only when ungated test files change.
+          echo "$CHANGED" | grep -qE '^Tests/SwiftyShellTests/(Core/|Pipelines/)' && traits+=("")
+
+          # Per-family builds — only when that family's sources or tests changed.
+          family_traits=()
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Git/|Tests/SwiftyShellTests/Git/)' && family_traits+=("Git")
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Brew/|Tests/SwiftyShellTests/Brew/)' && family_traits+=("Brew")
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Grep/|Tests/SwiftyShellTests/Grep/)' && family_traits+=("Grep")
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/|Tests/SwiftyShellTests/Common/)' && family_traits+=("CommonUtilities")
+          traits+=("${family_traits[@]}")
+
+          # "All" umbrella whenever any family changed.
+          [ ${#family_traits[@]} -gt 0 ] && traits+=("All")
+
+          # Nothing source-relevant changed — skip all builds.
+          if [ ${#traits[@]} -eq 0 ]; then
+            echo "No source changes detected — skipping builds."
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Serialize to a JSON array.
+          json="["
+          for i in "${!traits[@]}"; do
+            [[ $i -gt 0 ]] && json+=","
+            json+="\"${traits[$i]}\""
+          done
+          json+="]"
+
+          echo "Affected traits: $json"
+          echo "matrix=$json" >> "$GITHUB_OUTPUT"
+
   validate-traits:
     name: Validate Trait Wiring
     runs-on: macos-15
@@ -80,15 +150,13 @@ jobs:
 
   build-macos:
     name: macOS (traits=${{ matrix.traits }})
-    needs: [validate-traits, validate-docc-coverage, lint, docc]
+    needs: [detect-traits, validate-traits, validate-docc-coverage, lint, docc]
+    if: ${{ needs.detect-traits.outputs.matrix != '[]' }}
     runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
-        # "" exercises the new opt-in default (Core only). Per-family entries
-        # ensure every family compiles and tests in isolation. "All" covers
-        # the full public surface previously verified by the unflagged build.
-        traits: ["", "Git", "Brew", "Grep", "CommonUtilities", "All"]
+        traits: ${{ fromJSON(needs.detect-traits.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -121,14 +189,15 @@ jobs:
 
   build-linux:
     name: Linux (traits=${{ matrix.traits }})
-    needs: [validate-traits, validate-docc-coverage, lint, docc]
+    needs: [detect-traits, validate-traits, validate-docc-coverage, lint, docc]
+    if: ${{ needs.detect-traits.outputs.matrix != '[]' }}
     runs-on: ubuntu-latest
     container:
       image: swift:6.1
     strategy:
       fail-fast: false
       matrix:
-        traits: ["", "Git", "Brew", "Grep", "CommonUtilities", "All"]
+        traits: ${{ fromJSON(needs.detect-traits.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6.0.2
 

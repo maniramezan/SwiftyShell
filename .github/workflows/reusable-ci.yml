@@ -44,6 +44,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Cache Homebrew downloads
+        uses: actions/cache@v5
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: ${{ runner.os }}-brew-swift-format
+
+      - name: Ensure swift-format is available
+        run: |
+          if ! command -v swift-format >/dev/null 2>&1; then
+            brew install swift-format
+          fi
+
       - name: Show swift-format version
         run: swift-format --version
 
@@ -59,7 +71,11 @@ jobs:
       - name: Cache SPM dependencies
         uses: actions/cache@v5
         with:
-          path: .build
+          path: |
+            .build
+            ~/.swiftpm/cache
+            ~/Library/Caches/org.swift.swiftpm
+            ~/.cache/org.swift.swiftpm
           key: ${{ runner.os }}-docc-${{ hashFiles('Package.resolved', 'Package.swift') }}
           restore-keys: |
             ${{ runner.os }}-docc-
@@ -133,7 +149,11 @@ jobs:
       - name: Cache SPM dependencies
         uses: actions/cache@v5
         with:
-          path: .build
+          path: |
+            .build
+            ~/.swiftpm/cache
+            ~/Library/Caches/org.swift.swiftpm
+            ~/.cache/org.swift.swiftpm
           key: ${{ runner.os }}-build-${{ matrix.traits }}-${{ hashFiles('Package.resolved', 'Package.swift') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ matrix.traits }}-
@@ -170,7 +190,11 @@ jobs:
       - name: Cache SPM dependencies
         uses: actions/cache@v5
         with:
-          path: .build
+          path: |
+            .build
+            ~/.swiftpm/cache
+            ~/Library/Caches/org.swift.swiftpm
+            ~/.cache/org.swift.swiftpm
           key: ${{ runner.os }}-build-${{ matrix.traits }}-${{ hashFiles('Package.resolved', 'Package.swift') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ matrix.traits }}-
@@ -202,7 +226,11 @@ jobs:
       - name: Cache SPM dependencies
         uses: actions/cache@v5
         with:
-          path: .build
+          path: |
+            .build
+            ~/.swiftpm/cache
+            ~/Library/Caches/org.swift.swiftpm
+            ~/.cache/org.swift.swiftpm
           key: ${{ runner.os }}-coverage-${{ hashFiles('Package.resolved', 'Package.swift') }}
           restore-keys: |
             ${{ runner.os }}-coverage-

@@ -49,7 +49,7 @@ To compose with other commands, use ``pipe(to:)`` to build a ``Pipeline``.
 
 ### Creating a Command
 
-- ``init(_:_:)``
+- ``init(_:arguments:)``
 
 ### Adding Arguments
 

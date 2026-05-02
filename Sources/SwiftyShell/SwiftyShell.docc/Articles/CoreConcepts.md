@@ -178,7 +178,7 @@ let result = try await Command("ls", arguments: "-la")
     .run(in: context)
 ```
 
-The final stage's stdout is returned as ``ShellOutput``. Earlier stages' stdout feeds into the next stage's stdin.
+The final stage's stdout is returned as ``ShellOutput``. Earlier stages' stdout feeds into the next stage's stdin. Stderr from every stage is accumulated in stage order. If a pipeline times out, is canceled, or exceeds a captured output limit, the thrown ``ShellError`` carries the partial output captured up to that point.
 
 ## Executor Protocol
 
@@ -191,7 +191,9 @@ public protocol CommandExecutor: Sendable {
 }
 ```
 
-``SubprocessExecutor`` is the default production executor. ``MockExecutor`` is the test double. You can also implement your own — for example, to add structured logging around every command:
+``SubprocessExecutor`` is the default production executor and is backed by the `swift-subprocess` package. It resolves executables from ``ShellContext/searchPaths``, runs single commands and pipelines as subprocesses, and preserves partial captured output for timeout, cancellation, and output-limit failures. On Unix platforms each spawned process runs as its own process group leader; timeout and cancellation teardown signals are sent directly to that process, which is PID-reuse-safe on Linux via `pidfd_send_signal`.
+
+``MockExecutor`` is the test double. You can also implement your own — for example, to add structured logging around every command:
 
 ```swift
 struct LoggingExecutor: CommandExecutor {

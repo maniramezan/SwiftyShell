@@ -30,18 +30,19 @@ do {
 The cases group naturally by failure source:
 
 - **Configuration errors** — ``invalidConfiguration(description:)`` is thrown
-  before any process spawns when a timeout or output limit is negative.
+  before any process spawns when a timeout is negative or non-finite, or when
+  an output limit is negative.
 - **Execution errors** — ``commandNotFound(_:)``, ``spawnError(command:reason:)``,
   and ``exitFailure(command:output:)`` cover the lifecycle of finding,
   launching, and waiting on a subprocess.
 - **Resource errors** — ``timeout(command:duration:partialOutput:)`` and
   ``outputLimitExceeded(command:limit:partialOutput:)`` carry the captured
-  output up to the point the process was terminated.
+  output up to the point the process or pipeline was terminated.
 - **Stream errors** — ``decodingError(command:stream:)`` is raised when output
   is not valid UTF-8. Redirect to a file with
   ``OutputDestination/file(path:append:)`` and read it as `Data` instead.
 - **Task and workflow errors** — ``canceled(command:partialOutput:)`` is
-  raised when the surrounding `Task` is canceled, and
+  raised when the surrounding `Task` is canceled and carries partial output, and
   ``workflowConditionFailed(description:)`` when a ``Workflow/require(_:else:)-swift.method``
   predicate returns `false`.
 

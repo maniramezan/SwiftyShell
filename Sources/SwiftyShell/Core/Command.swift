@@ -43,7 +43,7 @@ import Foundation
 public struct Command: Sendable {
     /// The executable name originally requested for the command.
     ///
-    /// This is the value passed to ``init(executable:arguments:)``. It may be a bare program name (such as
+    /// This is the value passed to ``init(_:arguments:)``. It may be a bare program name (such as
     /// `"git"`) which the executor resolves against ``ShellContext/searchPaths``, or it may be
     /// an absolute path. Use ``executableOverride`` to inspect any explicit override applied via
     /// ``executable(_:)``.

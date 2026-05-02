@@ -87,6 +87,22 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 
 When the tool you need isn't listed, `Command("tool", arguments: "arg").run(in: context)` is the fluent escape hatch. If you use the same tool repeatedly, promoting it to a typed family is straightforward — see below.
 
+## Execution Semantics
+
+`SubprocessExecutor` is the default production executor and is backed by Apple's `swift-subprocess` package. It runs each `Command` as a subprocess, connects `Pipeline` stages with OS pipes, and preserves captured partial output on timeouts, output-limit failures, and Swift task cancellation.
+
+Timeouts are user-controlled through `ShellContext(defaultTimeout:)` or `Command.timeout(_:)`. When SwiftyShell must stop a running command or pipeline, it sends `SIGTERM` to the subprocess process group, waits briefly for graceful shutdown, then sends `SIGKILL` so shell wrappers and their child processes do not continue running in the background.
+
+```swift
+do {
+    try await Command("long-running-tool")
+        .timeout(5)
+        .run(in: context)
+} catch ShellError.timeout(_, _, let partial) {
+    print("Captured before timeout:", partial.stdout)
+}
+```
+
 ## Generate Your Own Typed Commands with AI
 
 SwiftyShell ships an agent skill at `.claude/skills/swiftyshell.md` that teaches Claude (and compatible AI tools) the full API, coding conventions, and documentation requirements. Load it and describe the tool you want wrapped in plain English:

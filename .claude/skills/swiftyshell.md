@@ -137,7 +137,7 @@ public enum ShellError: Error, LocalizedError {
     case timeout(command: String, duration: TimeInterval, partialOutput: ShellOutput)
     case decodingError(command: String, stream: StreamKind)
     case outputLimitExceeded(command: String, limit: Int, partialOutput: ShellOutput)
-    case cancelled(command: String, partialOutput: ShellOutput)
+    case canceled(command: String, partialOutput: ShellOutput)
     case spawnError(command: String, reason: String)
     case workflowConditionFailed(description: String)
 }
@@ -704,6 +704,8 @@ public struct MockExecutor: CommandExecutor {
 ```
 
 `MockExecutor` mirrors real `run()` semantics for invalid configuration and non-zero exits so unit tests behave like subprocess-backed execution.
+
+`SubprocessExecutor` is the default production executor and is backed by the `swift-subprocess` package. Preserve SwiftyShell's public `ShellError` semantics when changing the execution layer, including partial output on timeout, output-limit, and cancellation paths.
 
 ### Code Generation Rules
 

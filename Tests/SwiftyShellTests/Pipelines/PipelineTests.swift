@@ -2,6 +2,16 @@ import Foundation
 import Testing
 @testable import SwiftyShell
 
+private func waitForFile(at path: String) async throws {
+    for _ in 0..<100 {
+        if FileManager.default.fileExists(atPath: path) {
+            return
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
+    }
+    Issue.record("Timed out waiting for marker file at \(path)")
+}
+
 private actor InvocationRecorder {
     private var invocations: [String] = []
 
@@ -87,6 +97,68 @@ struct PipelineTests {
             #expect(command.contains("/bin/sh"))
             #expect(output.stderr.contains("broken"))
             #expect(output.exitCode == 9)
+        }
+    }
+
+    @Test func pipelineTimeoutPreservesPartialOutput() async throws {
+        do {
+            _ = try await Command("/bin/sh", arguments: "-c", "printf 'start'; exec sleep 30")
+                .timeout(0.5)
+                .pipe(to: Command("cat"))
+                .run(in: ShellContext())
+            Issue.record("Expected timeout")
+        } catch let error as ShellError {
+            guard case let .timeout(_, _, partialOutput) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(partialOutput.stdout == "start")
+        }
+    }
+
+    @Test func pipelineCancellationPreservesPartialOutput() async throws {
+        let marker = "/tmp/swiftyshell-pipeline-cancel-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: marker) }
+        let task = Task {
+            try await Command("/bin/sh", arguments: "-c", "printf 'start'; exec sleep 30")
+                .pipe(
+                    to: Command(
+                        "/bin/sh",
+                        arguments: "-c",
+                        "dd bs=5 count=1 2>/dev/null; touch '\(marker)'; exec sleep 30"
+                    )
+                )
+                .run(in: ShellContext())
+        }
+
+        try await waitForFile(at: marker)
+        task.cancel()
+
+        do {
+            _ = try await task.value
+            Issue.record("Expected cancellation")
+        } catch let error as ShellError {
+            guard case let .canceled(_, partialOutput) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(partialOutput.stdout == "start")
+        }
+    }
+
+    @Test func pipelineOutputLimitExceededPreservesPartialOutput() async throws {
+        do {
+            _ = try await Command("/bin/sh", arguments: "-c", "printf 'abcdef'")
+                .pipe(to: Command("cat"))
+                .run(in: ShellContext(defaultOutputLimit: 4))
+            Issue.record("Expected outputLimitExceeded")
+        } catch let error as ShellError {
+            guard case let .outputLimitExceeded(_, limit, partialOutput) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(limit == 4)
+            #expect(partialOutput.stdout == "abcd")
         }
     }
 

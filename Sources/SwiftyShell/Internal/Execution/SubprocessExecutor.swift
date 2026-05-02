@@ -304,9 +304,7 @@ private struct SingleCommandRunner {
             processTask.cancel()
             await waitForPartialOutputFlush()
             let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
-            Task {
-                await registry.teardownAll()
-            }
+            await registry.teardownAll()
             throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
         }
     }
@@ -458,9 +456,7 @@ private struct SingleCommandRunner {
             processTask.cancel()
             await waitForPartialOutputFlush()
             let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
-            Task {
-                await registry.teardownAll()
-            }
+            await registry.teardownAll()
             throw ShellError.timeout(
                 command: resolved.displayCommand,
                 duration: resolved.timeout ?? 0,
@@ -475,18 +471,14 @@ private struct SingleCommandRunner {
                     snapshot: store.snapshot(),
                     exitCode: -1
                 )
-                Task {
-                    await registry.teardownAll()
-                }
+                await registry.teardownAll()
                 throw ShellError.outputLimitExceeded(command: command, limit: limit, partialOutput: output)
             }
         case .canceled:
             processTask.cancel()
             await waitForPartialOutputFlush()
             let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
-            Task {
-                await registry.teardownAll()
-            }
+            await registry.teardownAll()
             throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
         }
     }
@@ -700,9 +692,7 @@ private struct PipelineRunner {
             processTask.cancel()
             await waitForPartialOutputFlush()
             let snapshot = pipelineSnapshot(stores: stores)
-            Task {
-                await registry.teardownAll()
-            }
+            await registry.teardownAll()
             throw ShellError.canceled(
                 command: finalCommand.displayCommand,
                 partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
@@ -892,9 +882,7 @@ private struct PipelineRunner {
             processTask.cancel()
             await waitForPartialOutputFlush()
             let snapshot = pipelineSnapshot(stores: stores)
-            Task {
-                await registry.teardownAll()
-            }
+            await registry.teardownAll()
             throw ShellError.timeout(
                 command: finalCommand.displayCommand,
                 duration: duration,
@@ -909,18 +897,14 @@ private struct PipelineRunner {
                     snapshot: pipelineSnapshot(stores: stores),
                     exitCode: -1
                 )
-                Task {
-                    await registry.teardownAll()
-                }
+                await registry.teardownAll()
                 throw ShellError.outputLimitExceeded(command: command, limit: limit, partialOutput: output)
             }
         case .canceled:
             processTask.cancel()
             await waitForPartialOutputFlush()
             let snapshot = pipelineSnapshot(stores: stores)
-            Task {
-                await registry.teardownAll()
-            }
+            await registry.teardownAll()
             throw ShellError.canceled(
                 command: finalCommand.displayCommand,
                 partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)

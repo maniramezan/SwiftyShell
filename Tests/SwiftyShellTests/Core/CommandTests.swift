@@ -2,6 +2,16 @@ import Foundation
 import Testing
 @testable import SwiftyShell
 
+private func waitForFile(at path: String) async throws {
+    for _ in 0..<100 {
+        if FileManager.default.fileExists(atPath: path) {
+            return
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
+    }
+    Issue.record("Timed out waiting for marker file at \(path)")
+}
+
 struct CommandTests {
     @Test func shellPlatformCurrentProvidesDefaultSearchPaths() {
         #expect(ShellPlatform.current.defaultSearchPaths.isEmpty == false)
@@ -82,13 +92,13 @@ struct CommandTests {
     }
 
     @Test func timeoutPreservesPartialOutput() async throws {
-        let context = ShellContext(defaultTimeout: 1.0)
+        let context = ShellContext(defaultTimeout: 0.5)
 
         do {
             _ = try await Command(
                 "/bin/sh",
                 arguments: "-c",
-                "printf 'start'; i=0; while [ $i -lt 20 ]; do printf '.'; sleep 0.05; i=$((i + 1)); done; sleep 30"
+                "printf 'start'; i=0; while [ $i -lt 20 ]; do printf '.'; sleep 0.001; i=$((i + 1)); done; exec sleep 30"
             ).run(in: context)
             Issue.record("Expected timeout")
         } catch let error as ShellError {
@@ -166,6 +176,21 @@ struct CommandTests {
         }
     }
 
+    @Test func nonFiniteTimeoutIsRejected() async throws {
+        do {
+            _ = try await Command("echo", arguments: "hello")
+                .timeout(.infinity)
+                .run(in: ShellContext())
+            Issue.record("Expected invalidConfiguration")
+        } catch let error as ShellError {
+            guard case let .invalidConfiguration(description) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(description == "Timeout must be greater than or equal to zero seconds")
+        }
+    }
+
     @Test func negativeOutputLimitIsRejected() async throws {
         do {
             _ = try await Command("echo", arguments: "hello")
@@ -210,11 +235,20 @@ struct CommandTests {
 
     @Test func cancellationPreservesPartialOutput() async throws {
         let context = ShellContext()
+        let marker = "/tmp/swiftyshell-cancel-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: marker) }
         let task = Task {
-            try await Command("/bin/sh", arguments: "-c", "printf 'start'; sleep 2").run(in: context)
+            try await Command(
+                "/bin/sh",
+                arguments: "-c",
+                "printf 'start'; sleep 0.05; touch '\(marker)'; exec sleep 30"
+            )
+            .run(
+                in: context
+            )
         }
 
-        try await Task.sleep(nanoseconds: 200_000_000)
+        try await waitForFile(at: marker)
         task.cancel()
 
         do {
@@ -319,8 +353,9 @@ struct CommandTests {
 
     @Test func perCommandTimeoutOverridesContext() async throws {
         let context = ShellContext(defaultTimeout: 10.0)
+        let started = Date()
         do {
-            _ = try await Command("/bin/sh", arguments: "-c", "printf 'hi'; sleep 30")
+            _ = try await Command("/bin/sh", arguments: "-c", "printf 'hi'; exec sleep 30")
                 .timeout(0.2)
                 .run(in: context)
             Issue.record("Expected timeout")
@@ -329,6 +364,7 @@ struct CommandTests {
                 Issue.record("Unexpected error: \(error)")
                 return
             }
+            #expect(Date().timeIntervalSince(started) < 3.0)
         }
     }
 }

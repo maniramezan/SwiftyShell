@@ -43,11 +43,23 @@ let package = Package(
         .default(enabledTraits: []),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.4.5")
+        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.4.5"),
+        .package(url: "https://github.com/apple/swift-system", from: "1.6.4"),
+        // swift-subprocess's `SubprocessFoundation` trait is enabled by default in that
+        // package, providing Foundation extensions (e.g. Data-based input/output). SwiftyShell
+        // relies on this trait implicitly — OutputCaptureStore and pipeline stage results use
+        // Foundation's Data. If swift-subprocess ever changes its default trait set, this
+        // dependency should be updated to explicitly enable `SubprocessFoundation` via the
+        // `traits:` parameter on `.product(name:package:)`.
+        .package(url: "https://github.com/swiftlang/swift-subprocess.git", .upToNextMinor(from: "0.4.0")),
     ],
     targets: [
         .target(
-            name: "SwiftyShell"
+            name: "SwiftyShell",
+            dependencies: [
+                .product(name: "Subprocess", package: "swift-subprocess"),
+                .product(name: "SystemPackage", package: "swift-system"),
+            ]
         ),
         .testTarget(
             name: "SwiftyShellTests",

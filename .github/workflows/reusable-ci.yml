@@ -223,7 +223,7 @@ jobs:
         run: swift build -c release ${{ steps.flag.outputs.args }}
 
       - name: Test
-        run: swift test ${{ steps.flag.outputs.args }}
+        run: swift test --no-parallel ${{ steps.flag.outputs.args }}
 
   coverage:
     name: Coverage Gate

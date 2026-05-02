@@ -30,12 +30,17 @@ do {
 
 #### `invalidConfiguration`
 
-Thrown *before* launching a process when a timeout or output-limit value is negative. Fix the value at the call site that constructed it.
+Thrown *before* launching a process when a timeout is negative or non-finite, or when an output-limit value is negative. Fix the value at the call site that constructed it.
 
 ```swift
 // Throws immediately — negative timeout is invalid
 try await Command("ls")
     .timeout(-1)
+    .run(in: context)
+
+// Also invalid: .nan and .infinity
+try await Command("ls")
+    .timeout(.infinity)
     .run(in: context)
 ```
 
@@ -92,7 +97,7 @@ do {
 
 #### `timeout`
 
-The command ran longer than the configured limit. The ``ShellError/timeout(command:duration:partialOutput:)`` case carries any output captured up to the point the process was terminated.
+The command or pipeline ran longer than the configured limit. The ``ShellError/timeout(command:duration:partialOutput:)`` case carries any output captured up to the point the process was terminated.
 
 ```swift
 let context = ShellContext(defaultTimeout: 30)
@@ -119,7 +124,7 @@ try await Command("swift", arguments: "test", "--filter", "CommandTests")
 
 #### `outputLimitExceeded`
 
-The accumulated captured output exceeded the configured limit. Like `timeout`, the partial output captured so far is included. Increase the limit via ``Command/outputLimit(_:)`` or redirect output to a file with ``OutputDestination/file(path:append:)``.
+The accumulated captured output exceeded the configured limit. Like `timeout`, the partial output captured so far is included for both single commands and pipelines. Increase the limit via ``Command/outputLimit(_:)`` or redirect output to a file with ``OutputDestination/file(path:append:)``.
 
 ```swift
 // Redirect verbose output to a file instead of capturing it
@@ -139,7 +144,9 @@ The captured output could not be decoded as UTF-8. This happens with binary outp
 
 #### `canceled`
 
-The Swift `Task` enclosing the `run()` call was canceled. SwiftyShell sends SIGTERM then SIGKILL to the subprocess and rethrows as `ShellError.canceled`. The partial output captured so far is attached.
+The Swift `Task` enclosing the `run()` call was canceled. SwiftyShell rethrows the cancellation as ``ShellError/canceled(command:partialOutput:)`` and attaches partial output captured so far.
+
+On Unix platforms, SwiftyShell tears down the subprocess when it must stop execution. It sends `SIGTERM` directly to the process, waits briefly for graceful shutdown, then sends `SIGKILL`. The direct-signal approach is PID-reuse-safe: on Linux, swift-subprocess uses `pidfd_send_signal` when available, which targets the exact process rather than a recycled PID. This teardown grace is separate from the user-facing command timeout: `timeout(_:)` controls when execution is considered too slow, while teardown controls how SwiftyShell cleans up after that decision.
 
 ```swift
 let task = Task {
@@ -195,7 +202,7 @@ do {
 
 | Case | Cause | Recovery |
 |---|---|---|
-| `invalidConfiguration` | Negative timeout or output limit | Fix the configuration value |
+| `invalidConfiguration` | Negative/non-finite timeout or negative output limit | Fix the configuration value |
 | `commandNotFound` | Executable not on search path | Check `searchPaths` or use `.executable(_:)` |
 | `exitFailure` | Non-zero exit code | Inspect `output.stderr`; retry or abort |
 | `spawnError` | OS could not create process | Check executable path and permissions |

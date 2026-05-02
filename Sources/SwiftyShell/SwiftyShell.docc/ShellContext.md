@@ -22,6 +22,11 @@ let context = ShellContext()
 let output = try await Command("uname", arguments: "-a").run(in: context)
 ```
 
+`defaultTimeout` is the user-facing execution deadline. It controls when
+SwiftyShell reports ``ShellError/timeout(command:duration:partialOutput:)``;
+process cleanup after that point is handled by ``SubprocessExecutor``. Timeout
+values must be finite and non-negative.
+
 For longer-running scripts, set program-wide defaults at construction time so
 every call inherits them:
 

@@ -28,7 +28,7 @@ Typed wrappers for frequently used shell utilities: `Ls`, `Cp`, `Mkdir`, `Chmod`
 
 ### `Sources/SwiftyShell/Internal/Execution/`
 
-`SubprocessExecutor` — the real process execution engine. `public` because it is the default for `ShellContext.init`. The `Internal/` folder is organizational only.
+`SubprocessExecutor` — the real process execution engine backed by `swift-subprocess`. `public` because it is the default for `ShellContext.init`. The `Internal/` folder is organizational only.
 
 ### `Sources/SwiftyShell/SwiftyShell.docc/`
 
@@ -140,7 +140,7 @@ All failures surface as `ShellError`. Never throw raw `Error` or `NSError` from 
 
 `SubprocessExecutor` (in `Internal/Execution/`) is `public` because `ShellContext.init` defaults to it. The `Internal/` folder label is organizational — it does not imply the type is hidden from callers.
 
-Key invariant: `ProcessExitWaiter` must be created **before** calling `process.run()` to avoid the race where the process exits before `terminationHandler` is set.
+The production executor uses the `swift-subprocess` package for process lifecycle management. Keep SwiftyShell's public error semantics stable when changing it: map process failures into `ShellError`, preserve partial output on timeout/output-limit/cancellation paths, and keep `MockExecutor` behavior aligned with production where practical.
 
 ### Workflows
 

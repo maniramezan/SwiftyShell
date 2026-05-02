@@ -783,35 +783,30 @@ private struct PipelineRunner {
                     }
                 }
 
-                if let timeout = resolved.compactMap(\.timeout).min() {
-                    group.addTask {
-                        do {
-                            try await Task.sleep(for: durationFromSeconds(timeout))
-                            return .timedOut
-                        } catch {
-                            return .canceled(index: -1)
-                        }
-                    }
-                }
+                // Timeout is handled by the outer timeoutTask in runPipelineStages, which
+                // notifies via eventNotifier and cancels the processTask. Do not add an inner
+                // timeout task here: when a stage exits with a signal (e.g. SIGKILL / exit 137
+                // on Linux) due to pipe closure after the first stage is torn down, the inner
+                // timeout task would be cancelled by group.cancelAll() before it can return
+                // .timedOut, causing the pipeline to surface exitFailure instead of timeout.
 
                 var stageResults: [PipelineStageResult] = []
                 var firstFailure: PipelineStageResult?
                 var firstThrownFailure: ShellError?
                 var firstCaptureLimitIndex: Int?
-                var timedOut = false
 
                 while let result = try await group.next() {
                     switch result {
                     case let .stage(stageResult):
                         stageResults.append(stageResult)
-                        if stageResult.exitCode != 0, firstFailure == nil, !timedOut {
+                        if stageResult.exitCode != 0, firstFailure == nil {
                             firstFailure = stageResult
                             group.cancelAll()
                         }
                     case .canceled:
                         break
                     case let .failure(_, error):
-                        if firstThrownFailure == nil, !timedOut {
+                        if firstThrownFailure == nil {
                             firstThrownFailure = error
                             group.cancelAll()
                         }
@@ -820,11 +815,6 @@ private struct PipelineRunner {
                             firstCaptureLimitIndex = index
                             group.cancelAll()
                         }
-                    case .timedOut:
-                        timedOut = true
-                        firstFailure = nil
-                        firstThrownFailure = nil
-                        group.cancelAll()
                     }
                 }
 
@@ -833,14 +823,6 @@ private struct PipelineRunner {
                 if Task.isCancelled {
                     throw ShellError.canceled(
                         command: finalCommand.displayCommand,
-                        partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
-                    )
-                }
-
-                if timedOut {
-                    throw ShellError.timeout(
-                        command: finalCommand.displayCommand,
-                        duration: resolved.compactMap(\.timeout).min() ?? 0,
                         partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
                     )
                 }
@@ -973,7 +955,6 @@ private enum PipelineTaskResult: Sendable {
     case canceled(index: Int)
     case failure(index: Int, error: ShellError)
     case captureLimitExceeded(index: Int)
-    case timedOut
 }
 
 private func makePipelineFileDescriptors(stageCount: Int) throws -> [PipelinePipe] {

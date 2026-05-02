@@ -799,14 +799,22 @@ private struct PipelineRunner {
                     switch result {
                     case let .stage(stageResult):
                         stageResults.append(stageResult)
-                        if stageResult.exitCode != 0, firstFailure == nil {
+                        // Only treat a non-zero exit as a failure when this task has not
+                        // been cancelled. On Linux, when the outer timeout fires,
+                        // waitForPipeline cancels processTask and calls registry.teardownAll().
+                        // Downstream stages that are SIGKILLed (exit 137) return a
+                        // PipelineStageResult before the CancellationError propagates through
+                        // the stage task. Checking Task.isCancelled here prevents those
+                        // signal-induced exits from masking the ShellError.timeout that
+                        // waitForPipeline already threw.
+                        if stageResult.exitCode != 0, firstFailure == nil, !Task.isCancelled {
                             firstFailure = stageResult
                             group.cancelAll()
                         }
                     case .canceled:
                         break
                     case let .failure(_, error):
-                        if firstThrownFailure == nil {
+                        if firstThrownFailure == nil, !Task.isCancelled {
                             firstThrownFailure = error
                             group.cancelAll()
                         }

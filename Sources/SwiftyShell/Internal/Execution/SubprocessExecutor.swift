@@ -146,8 +146,6 @@ private struct CaptureLimitExceeded: Error, Sendable {}
 
 private let partialOutputFlushGrace: Duration = .milliseconds(75)
 
-private let processGroupTeardownGrace: Duration = .milliseconds(200)
-
 private enum EarlyTerminationReason: Sendable {
     case outputLimitExceeded(command: String, limit: Int)
 }
@@ -510,17 +508,20 @@ private func runWithProcessGroupTeardownOnCancellation<Value: Sendable>(
 }
 
 private extension Execution {
-    /// Performs a short graceful teardown before force-killing the subprocess.
+    /// Kills the subprocess immediately by sending SIGKILL.
     ///
-    /// Sends SIGTERM directly to the process (giving it a brief window to flush output),
-    /// then follows up with SIGKILL after 200ms. On Linux, the direct-kill path uses
-    /// `pidfd_send_signal` when available, which is PID-reuse-safe and avoids accidentally
-    /// signalling an unrelated process that recycled the same PID or PGID. We intentionally
-    /// do not signal the process group here: each spawned child is its own process group
-    /// leader (``subprocessPlatformOptions`` sets `processGroupID = 0`), so the direct-kill
-    /// and process-group-kill are equivalent, but process-group kills carry a TOCTOU risk
-    /// on Linux where PGIDs can be recycled between the moment a child exits and the
-    /// teardown signal is dispatched.
+    /// Sends the signal directly to the process (not the process group) to avoid the TOCTOU
+    /// race on Linux where a recycled PGID could let the signal reach an unrelated process.
+    /// Each spawned subprocess is its own process group leader
+    /// (``subprocessPlatformOptions`` sets `processGroupID = 0`), so targeting the process
+    /// directly is equivalent to targeting its group.
+    ///
+    /// No SIGTERM grace period is used. Partial output is captured in ``OutputCaptureStore``
+    /// before teardown is triggered, so there is nothing to flush. A delayed SIGKILL from a
+    /// grace period causes cross-test signal bleed on Linux: under `--no-parallel` the next
+    /// test can spawn a subprocess that recycles the same PID within the grace window and
+    /// then receives the stale SIGKILL.
+    ///
     /// On Windows, delegates to ``teardown(using:)`` since signals are not available.
     func swiftyShellTeardown() async {
         #if os(Windows)
@@ -528,8 +529,6 @@ private extension Execution {
             .gracefulShutDown(allowedDurationToNextStep: .milliseconds(200))
         ])
         #else
-        try? send(signal: .terminate, toProcessGroup: false)
-        try? await Task.sleep(for: processGroupTeardownGrace)
         try? send(signal: .kill, toProcessGroup: false)
         #endif
     }

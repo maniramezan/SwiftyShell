@@ -67,6 +67,23 @@ Two umbrella traits cover common cases:
 
 See the [Selecting Command Families](https://maniramezan.github.io/SwiftyShell/documentation/swiftyshell/selectingcommandfamilies) guide for the full trait list and recipes.
 
+## Testing
+
+For the standard local validation pass, run:
+
+```bash
+make check
+```
+
+Useful shortcuts:
+
+```bash
+make test
+make linux-test
+make linux-ci
+make help
+```
+
 ## Built-in Command Families
 
 SwiftyShell ships typed wrappers for common tools. Each family is gated behind a trait of the same name — opt in via the `traits:` parameter on `.package(...)` (see [Installation](#installation)). For full API reference, examples, and guides, see the [documentation](https://maniramezan.github.io/SwiftyShell/documentation/swiftyshell/).
@@ -116,6 +133,48 @@ The skill is automatically active when you open this repo in Claude Code. See th
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, style guidelines, and pull request requirements. In short: every change must pass `swift test` **and** `swift-format lint --strict` before it is considered done.
+
+## Local Linux Validation
+
+Most contributors will likely develop on macOS, while Linux remains an important validation target for process and shell behavior. SwiftyShell ships small Docker-based helpers that mirror the repository's Linux CI job without requiring a separate Linux machine.
+
+Prerequisite: Docker Desktop on macOS, or Docker Engine on Linux.
+
+```bash
+# Same commands via Make
+make check
+make linux-shell
+make linux-build
+make linux-test
+make linux-ci
+
+# Open a Linux shell in the pinned Swift image
+Scripts/linux-shell.sh
+
+# Build in Linux
+Scripts/linux-build.sh
+
+# Run the Linux test command used by CI
+Scripts/linux-test.sh
+
+# Run the full local Linux build + test flow
+Scripts/linux-ci.sh
+```
+
+The helpers use the official `swift:6.1.3-noble` image, bind-mount the repository, keep SwiftPM cache data under `.build/docker-home`, and write Linux build artifacts to `.build/linux-docker` so they do not contend with the host macOS build database.
+
+If you prefer shorter commands, the repository also ships a `Makefile` wrapper. Run `make help` to see the available targets.
+
+For the common contributor path, `make check` runs the host `swift test`, the trait validator, the DocC coverage validator, and the Linux Docker build-and-test flow.
+
+On Apple Silicon Macs, the default behavior uses a native Linux ARM container for speed. If you want to mirror GitHub Actions' `ubuntu-24.04` `amd64` container more closely, set `SWIFTYSHELL_LINUX_PLATFORM=linux/amd64` when invoking a helper:
+
+```bash
+SWIFTYSHELL_LINUX_PLATFORM=linux/amd64 Scripts/linux-ci.sh --traits All
+make linux-ci-amd64
+```
+
+For macOS validation from Linux, rely on GitHub Actions' macOS runners; Docker-based local macOS execution is not a practical option on Linux hosts.
 
 ## Changelog
 

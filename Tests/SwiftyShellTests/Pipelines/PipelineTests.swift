@@ -101,11 +101,26 @@ struct PipelineTests {
     }
 
     @Test func pipelineTimeoutPreservesPartialOutput() async throws {
-        do {
-            _ = try await Command("/bin/sh", arguments: "-c", "printf 'start'; exec sleep 30")
-                .timeout(0.5)
-                .pipe(to: Command("cat"))
+        let marker = "/tmp/swiftyshell-pipeline-timeout-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: marker) }
+
+        let task = Task {
+            try await Command("/bin/sh", arguments: "-c", "printf 'start'; exec sleep 30")
+                .timeout(1)
+                .pipe(
+                    to: Command(
+                        "/bin/sh",
+                        arguments: "-c",
+                        "chunk=$(dd bs=5 count=1 2>/dev/null); printf '%s' \"$chunk\"; touch '\(marker)'; exec sleep 30"
+                    )
+                )
                 .run(in: ShellContext())
+        }
+
+        try await waitForFile(at: marker)
+
+        do {
+            _ = try await task.value
             Issue.record("Expected timeout")
         } catch let error as ShellError {
             guard case let .timeout(_, _, partialOutput) = error else {

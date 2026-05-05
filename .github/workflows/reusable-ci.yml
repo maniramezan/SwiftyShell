@@ -189,7 +189,7 @@ jobs:
     if: ${{ inputs.trait_matrix != '[]' }}
     runs-on: ubuntu-24.04
     container:
-      image: swift:6.1
+      image: swift:6.1.3-noble
     strategy:
       fail-fast: false
       matrix:

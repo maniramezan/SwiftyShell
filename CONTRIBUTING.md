@@ -7,7 +7,8 @@ Thank you for your interest in contributing. This document covers setup, convent
 ### Prerequisites
 
 - macOS 15.0+
-- Linux is supported in CI with Swift 6.1 (`swift:6.1` on Ubuntu); use either macOS or Linux locally
+- Docker Desktop on macOS, or Docker Engine on Linux, if you want to run the Linux validation helpers locally
+- Linux is supported in CI with Swift 6.1.3 on Ubuntu (`swift:6.1.3-noble`); use either macOS or Linux locally
 - Swift 6.1+ (`swift --version`)
 
 ### Clone and Build
@@ -27,6 +28,42 @@ swift test
 Tests use the Swift Testing framework (`@Test` macro). All tests must pass before a PR is reviewed.
 
 The GitHub Actions matrix runs both macOS and Linux jobs. If you are changing execution or process-handling code, wait for both jobs before calling the change ready.
+
+### Run Linux Locally With Docker
+
+The repository includes Docker-based helpers that mirror the Linux CI build and test commands:
+
+```bash
+make check
+make help
+make linux-build
+make linux-test
+make linux-ci
+
+Scripts/linux-build.sh
+Scripts/linux-test.sh
+Scripts/linux-ci.sh
+```
+
+Use `Scripts/linux-shell.sh` to open an interactive shell in the pinned Swift Linux image.
+
+The `Makefile` is a thin wrapper around those scripts, so `make linux-test` and `Scripts/linux-test.sh` are equivalent. Linux Docker builds use `.build/linux-docker` as their SwiftPM scratch path so they do not collide with the host platform's `.build` state.
+
+For the standard local pre-PR pass, run `make check`. It bundles:
+
+- `swift test`
+- `swift Scripts/validate-traits.swift`
+- `swift Scripts/validate-docc-coverage.swift`
+- `Scripts/linux-ci.sh`
+
+On Apple Silicon Macs, the helpers run a native Linux ARM container by default for speed. To match GitHub Actions' `amd64` container more closely, set `SWIFTYSHELL_LINUX_PLATFORM=linux/amd64`:
+
+```bash
+SWIFTYSHELL_LINUX_PLATFORM=linux/amd64 Scripts/linux-ci.sh --traits All
+make linux-ci-amd64
+```
+
+For macOS validation when working from Linux, rely on GitHub Actions' macOS runners.
 
 ### Definition of Done
 

@@ -532,15 +532,8 @@ private extension Execution {
     /// test can spawn a subprocess that recycles the same PID within the grace window and
     /// then receives the stale SIGKILL.
     ///
-    /// On Windows, delegates to ``teardown(using:)`` since signals are not available.
     func swiftyShellTeardown() async {
-        #if os(Windows)
-        await teardown(using: [
-            .gracefulShutDown(allowedDurationToNextStep: .milliseconds(200))
-        ])
-        #else
         try? send(signal: .kill, toProcessGroup: false)
-        #endif
     }
 }
 
@@ -1414,9 +1407,7 @@ private func durationFromSeconds(_ seconds: TimeInterval) -> Duration {
 
 private func subprocessPlatformOptions() -> PlatformOptions {
     var options = PlatformOptions()
-    #if !os(Windows)
     options.processGroupID = 0
-    #endif
     options.teardownSequence = []
     return options
 }
@@ -1509,10 +1500,8 @@ extension TerminationStatus {
         switch self {
         case let .exited(code):
             Int32(code)
-        #if !os(Windows)
         case let .signaled(signal):
             128 + Int32(signal)
-        #endif
         }
     }
 }

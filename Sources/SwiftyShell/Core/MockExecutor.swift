@@ -98,14 +98,24 @@ public struct MockExecutor: CommandExecutor {
     }
 
     /// Spawns a mock process by invoking the mock handler and returning a ``MockSpawnedProcess``.
+    ///
+    /// The returned ``MockSpawnedProcess`` stores the configured ``TeardownStrategy`` so tests
+    /// can verify the strategy via ``MockSpawnedProcess/configuredTeardown``.
+    ///
+    /// - Parameters:
+    ///   - command: The command to spawn.
+    ///   - context: The shell context that supplies defaults.
+    ///   - teardown: The strategy stored on the returned ``MockSpawnedProcess``.
+    /// - Returns: A ``MockSpawnedProcess`` wrapping the handler's output.
+    /// - Throws: ``ShellError/invalidConfiguration(description:)`` for invalid timeout or
+    ///   output-limit values, or whatever the handler throws.
     public func spawn(
         _ command: Command,
         in context: ShellContext,
         teardown: TeardownStrategy
     ) async throws -> any SpawnedProcess {
-        _ = teardown
         try validateConfiguration(for: command, in: context)
-        return MockSpawnedProcess(output: try await handler(command, context))
+        return MockSpawnedProcess(teardown: teardown, output: try await handler(command, context))
     }
 
     private func validateConfiguration(for command: Command, in context: ShellContext) throws {

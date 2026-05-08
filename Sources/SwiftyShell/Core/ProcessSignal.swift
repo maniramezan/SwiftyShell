@@ -1,5 +1,3 @@
-import Foundation
-
 /// A Unix process signal that can be sent to a spawned process.
 ///
 /// `ProcessSignal` is used with ``SpawnedProcess/send(_:)`` and

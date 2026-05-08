@@ -67,6 +67,7 @@ let output = try await Command("echo", arguments: "hello").run(in: context)
 - ``Pipeline``
 - ``SpawnedProcess``
 - ``TeardownStrategy``
+- ``ProcessTeardownStep``
 - ``ProcessSignal``
 - ``ShellContext``
 - ``ShellPlatform``

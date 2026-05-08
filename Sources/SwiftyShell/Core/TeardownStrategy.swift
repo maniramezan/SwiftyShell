@@ -1,6 +1,12 @@
-import Foundation
-
 /// One graceful teardown step for a spawned process.
+///
+/// Each step sends a ``ProcessSignal`` and waits a grace period before the next
+/// step runs. Use ``TeardownStrategy/init(steps:)`` to compose custom sequences.
+///
+/// ```swift
+/// let step = ProcessTeardownStep(signal: .interrupt, gracePeriod: .seconds(3))
+/// let strategy = TeardownStrategy(steps: [step])
+/// ```
 public struct ProcessTeardownStep: Sendable, Hashable {
     /// The signal sent at this step.
     public let signal: ProcessSignal
@@ -42,7 +48,7 @@ public struct TeardownStrategy: Sendable, Hashable {
     /// files on interrupt rather than terminate.
     public static let interruptThenTerminate = TeardownStrategy(steps: [
         ProcessTeardownStep(signal: .interrupt, gracePeriod: .seconds(5)),
-        ProcessTeardownStep(signal: .terminate, gracePeriod: .seconds(2))
+        ProcessTeardownStep(signal: .terminate, gracePeriod: .seconds(2)),
     ])
 
     /// Kills the process immediately.

@@ -40,6 +40,7 @@ struct SpawnTests {
 
         #expect(await mock.signalHistory == [.interrupt, .terminate])
         #expect(await mock.didTeardown)
+        #expect(mock.configuredTeardown == .interruptThenTerminate)
     }
 
     @Test func mockSpawnRejectsInvalidOutputLimit() async throws {

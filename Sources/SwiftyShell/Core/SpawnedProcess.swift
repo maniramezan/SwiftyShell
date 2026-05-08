@@ -1,10 +1,13 @@
-import Foundation
-
 /// A handle to a process spawned without waiting for completion.
 ///
 /// Use ``Command/spawn(in:teardown:)`` for long-running commands such as
 /// servers, watchers, and recorders. Short-lived commands should continue to use
 /// ``Command/run(in:)``.
+///
+/// > Important: Callers must call ``teardownAndWait()`` or ``waitForExit()``
+/// > before releasing the handle. Dropping a spawned-process handle without
+/// > waiting leaves the underlying process running until the operating system
+/// > reclaims it.
 public protocol SpawnedProcess: Sendable {
     /// The operating-system process identifier.
     var processIdentifier: Int32 { get }

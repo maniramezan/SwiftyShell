@@ -73,6 +73,16 @@ public struct SubprocessExecutor: CommandExecutor {
         let resolved = try pipeline.stages.map { try ResolvedCommand(command: $0, context: context) }
         return try await PipelineRunner(resolved: resolved).run()
     }
+
+    /// Spawns a single ``Command`` and returns a handle without waiting for exit.
+    public func spawn(
+        _ command: Command,
+        in context: ShellContext,
+        teardown: TeardownStrategy
+    ) async throws -> any SpawnedProcess {
+        let resolved = try ResolvedCommand(command: command, context: context)
+        return try await SpawnedCommandRunner(resolved: resolved, teardown: teardown).spawn()
+    }
 }
 
 private struct ResolvedCommand: Sendable {
@@ -537,6 +547,241 @@ private extension Execution {
 private enum SingleCommandTaskResult: Sendable {
     case streamComplete
     case timedOut
+}
+
+private enum SpawnedCommandTaskResult: Sendable {
+    case streamComplete
+}
+
+private struct SpawnedCommandRunner: Sendable {
+    let resolved: ResolvedCommand
+    let teardown: TeardownStrategy
+
+    func spawn() async throws -> any SpawnedProcess {
+        let stdoutStream = AsyncStream.makeStream(of: String.self)
+        let stderrStream = AsyncStream.makeStream(of: String.self)
+        let state = SubprocessSpawnedProcessState(teardown: teardown)
+        let task = Task<ShellOutput, Never> {
+            await runSpawnedProcess(
+                state: state,
+                stdoutContinuation: stdoutStream.continuation,
+                stderrContinuation: stderrStream.continuation
+            )
+        }
+        await state.attachTask(task)
+        let execution = try await state.waitForExecution()
+        return SubprocessSpawnedProcess(
+            processIdentifier: Int32(execution.processIdentifier.value),
+            standardOutput: stdoutStream.stream,
+            standardError: stderrStream.stream,
+            state: state
+        )
+    }
+
+    private func runSpawnedProcess(
+        state: SubprocessSpawnedProcessState,
+        stdoutContinuation: AsyncStream<String>.Continuation,
+        stderrContinuation: AsyncStream<String>.Continuation
+    ) async -> ShellOutput {
+        let store = OutputCaptureStore(limit: resolved.outputLimit)
+        do {
+            let stdoutHandle = try openFileHandleIfNeeded(for: resolved.stdoutDestination)
+            let stderrHandle = try openFileHandleIfNeeded(for: resolved.stderrDestination)
+            defer {
+                try? stdoutHandle?.close()
+                try? stderrHandle?.close()
+                stdoutContinuation.finish()
+                stderrContinuation.finish()
+            }
+
+            let outcome = try await Subprocess.run(
+                resolved.configuration,
+                preferredBufferSize: nil
+            ) { execution, inputWriter, outputSequence, errorSequence in
+                await state.setExecution(execution)
+                try await inputWriter.finish()
+                try await withThrowingTaskGroup(of: SpawnedCommandTaskResult.self) { group in
+                    group.addTask {
+                        try await routeSpawnStream(
+                            outputSequence,
+                            stream: .stdout,
+                            destination: resolved.stdoutDestination,
+                            fileHandle: stdoutHandle,
+                            store: store,
+                            continuation: stdoutContinuation
+                        )
+                        return .streamComplete
+                    }
+                    group.addTask {
+                        try await routeSpawnStream(
+                            errorSequence,
+                            stream: .stderr,
+                            destination: resolved.stderrDestination,
+                            fileHandle: stderrHandle,
+                            store: store,
+                            continuation: stderrContinuation
+                        )
+                        return .streamComplete
+                    }
+                    var completedStreams = 0
+                    do {
+                        while let result = try await group.next() {
+                            switch result {
+                            case .streamComplete:
+                                completedStreams += 1
+                                if completedStreams == 2 {
+                                    group.cancelAll()
+                                    return
+                                }
+                            }
+                        }
+                    } catch is CaptureLimitExceeded {
+                        await execution.teardown(using: teardown.subprocessSteps)
+                        group.cancelAll()
+                        throw CaptureLimitExceeded()
+                    }
+                }
+            }
+
+            return lossyOutput(snapshot: store.snapshot(), exitCode: outcome.terminationStatus.swiftyShellExitCode)
+        } catch is CaptureLimitExceeded {
+            return lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+        } catch {
+            await state.failStartupIfNeeded(error)
+            let snapshot = store.snapshot()
+            return ShellOutput(
+                stdout: String(decoding: snapshot.stdout, as: UTF8.self),
+                stderr: String(decoding: snapshot.stderr, as: UTF8.self),
+                exitCode: -1
+            )
+        }
+    }
+}
+
+private final class SubprocessSpawnedProcess: SpawnedProcess, @unchecked Sendable {
+    let processIdentifier: Int32
+    let standardOutput: AsyncStream<String>
+    let standardError: AsyncStream<String>
+
+    private let state: SubprocessSpawnedProcessState
+
+    init(
+        processIdentifier: Int32,
+        standardOutput: AsyncStream<String>,
+        standardError: AsyncStream<String>,
+        state: SubprocessSpawnedProcessState
+    ) {
+        self.processIdentifier = processIdentifier
+        self.standardOutput = standardOutput
+        self.standardError = standardError
+        self.state = state
+    }
+
+    deinit {
+        let state = state
+        Task {
+            _ = await state.teardownAndWait()
+        }
+    }
+
+    func send(_ signal: ProcessSignal) async throws {
+        try await state.send(signal)
+    }
+
+    func teardownAndWait() async -> ShellOutput {
+        await state.teardownAndWait()
+    }
+
+    func waitForExit() async -> ShellOutput {
+        await state.waitForExit()
+    }
+}
+
+private actor SubprocessSpawnedProcessState {
+    private let teardown: TeardownStrategy
+    private var task: Task<ShellOutput, Never>?
+    private var cachedOutput: ShellOutput?
+    private var executionResult: Result<Execution, any Error>?
+    private var executionContinuation: CheckedContinuation<Result<Execution, any Error>, Never>?
+    private var didTeardown = false
+
+    init(teardown: TeardownStrategy) {
+        self.teardown = teardown
+    }
+
+    func attachTask(_ task: Task<ShellOutput, Never>) {
+        self.task = task
+    }
+
+    func setExecution(_ execution: Execution) {
+        guard executionResult == nil else { return }
+        executionResult = .success(execution)
+        executionContinuation?.resume(returning: .success(execution))
+        executionContinuation = nil
+    }
+
+    func failStartupIfNeeded(_ error: any Error) {
+        guard executionResult == nil else { return }
+        executionResult = .failure(error)
+        executionContinuation?.resume(returning: .failure(error))
+        executionContinuation = nil
+    }
+
+    func waitForExecution() async throws -> Execution {
+        let result: Result<Execution, any Error>
+        if let executionResult {
+            result = executionResult
+        } else {
+            result = await withCheckedContinuation { continuation in
+                executionContinuation = continuation
+            }
+        }
+        return try result.get()
+    }
+
+    func send(_ signal: ProcessSignal) async throws {
+        let execution = try await waitForExecution()
+        try execution.sendSwiftyShell(signal)
+    }
+
+    func teardownAndWait() async -> ShellOutput {
+        if !didTeardown {
+            didTeardown = true
+            if let execution = try? await waitForExecution() {
+                await execution.teardown(using: teardown.subprocessSteps)
+            }
+        }
+        return await output()
+    }
+
+    func waitForExit() async -> ShellOutput {
+        return await output()
+    }
+
+    private func output() async -> ShellOutput {
+        if let cachedOutput { return cachedOutput }
+        guard let task else { return ShellOutput(exitCode: -1) }
+        let output = await task.value
+        cachedOutput = output
+        return output
+    }
+}
+
+private func routeSpawnStream(
+    _ sequence: AsyncBufferSequence,
+    stream: StreamKind,
+    destination: OutputDestination,
+    fileHandle: FileHandle?,
+    store: OutputCaptureStore,
+    continuation: AsyncStream<String>.Continuation
+) async throws {
+    for try await buffer in sequence {
+        let data = buffer.withUnsafeBytes { Data($0) }
+        if !data.isEmpty {
+            continuation.yield(String(decoding: data, as: UTF8.self))
+        }
+        try routeData(data, stream: stream, destination: destination, fileHandle: fileHandle, store: store)
+    }
 }
 
 /// Routes each buffer from an ``AsyncBufferSequence`` to the appropriate destination:
@@ -1173,6 +1418,37 @@ private func subprocessPlatformOptions() -> PlatformOptions {
     #endif
     options.teardownSequence = []
     return options
+}
+
+private extension TeardownStrategy {
+    var subprocessSteps: [TeardownStep] {
+        steps.map { step in
+            TeardownStep.send(signal: step.signal.subprocessSignal, allowedDurationToNextStep: step.gracePeriod)
+        }
+    }
+}
+
+private extension ProcessSignal {
+    var subprocessSignal: Signal {
+        switch self {
+        case .interrupt:
+            .interrupt
+        case .terminate:
+            .terminate
+        case .kill:
+            .kill
+        case .hangup:
+            .terminalClosed
+        case .quit:
+            .quit
+        }
+    }
+}
+
+private extension Execution {
+    func sendSwiftyShell(_ signal: ProcessSignal) throws {
+        try send(signal: signal.subprocessSignal, toProcessGroup: false)
+    }
 }
 
 private func decodeOutput(command: String, snapshot: CaptureSnapshot, exitCode: Int32) throws -> ShellOutput {

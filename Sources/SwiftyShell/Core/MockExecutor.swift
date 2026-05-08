@@ -97,6 +97,17 @@ public struct MockExecutor: CommandExecutor {
         return lastOutput
     }
 
+    /// Spawns a mock process by invoking the mock handler and returning a ``MockSpawnedProcess``.
+    public func spawn(
+        _ command: Command,
+        in context: ShellContext,
+        teardown: TeardownStrategy
+    ) async throws -> any SpawnedProcess {
+        _ = teardown
+        try validateConfiguration(for: command, in: context)
+        return MockSpawnedProcess(output: try await handler(command, context))
+    }
+
     private func validateConfiguration(for command: Command, in context: ShellContext) throws {
         if let timeout = command.timeoutOverride ?? context.defaultTimeout, timeout < 0 {
             throw ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")

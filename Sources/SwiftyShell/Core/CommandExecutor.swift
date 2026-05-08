@@ -21,6 +21,14 @@ import Foundation
 ///         print("Running pipeline:", pipeline)
 ///         return try await inner.execute(pipeline, in: context)
 ///     }
+///     func spawn(
+///         _ command: Command,
+///         in context: ShellContext,
+///         teardown: TeardownStrategy
+///     ) async throws -> any SpawnedProcess {
+///         print("Spawning:", command)
+///         return try await inner.spawn(command, in: context, teardown: teardown)
+///     }
 /// }
 /// ```
 ///
@@ -54,4 +62,21 @@ public protocol CommandExecutor: Sendable {
     /// - Throws: ``ShellError`` if any stage fails to launch, exits non-zero, times out, or
     ///   exceeds an output limit.
     func execute(_ pipeline: Pipeline, in context: ShellContext) async throws -> ShellOutput
+
+    /// Spawns a command without waiting for it to exit.
+    ///
+    /// Use this for long-running tools such as servers, file watchers, and recorders. The returned
+    /// ``SpawnedProcess`` exposes live output streams plus signal and teardown operations.
+    ///
+    /// - Parameters:
+    ///   - command: The command to spawn.
+    ///   - context: The shell context that supplies defaults.
+    ///   - teardown: The strategy used by ``SpawnedProcess/teardownAndWait()``.
+    /// - Returns: A handle to the running process.
+    /// - Throws: ``ShellError`` describing why the process could not be spawned.
+    func spawn(
+        _ command: Command,
+        in context: ShellContext,
+        teardown: TeardownStrategy
+    ) async throws -> any SpawnedProcess
 }

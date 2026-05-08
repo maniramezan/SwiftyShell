@@ -8,7 +8,7 @@ SwiftyShell is a Swift package that provides type-safe shell command execution. 
 
 ### `Sources/SwiftyShell/Core/`
 
-The execution primitives: `Command`, `Pipeline`, `ShellContext`, `ShellPlatform`, `Workflow`, `ShellError`, `ShellOutput`, `OutputDestination`, `CommandExecutor`, `MockExecutor`, `ToolConfiguration`, and the `ToolConfigurableCommandFamily` / `OutputRedirectingCommandFamily` / `RunnableCommandFamily` protocol hierarchy.
+The execution primitives: `Command`, `Pipeline`, `SpawnedProcess`, `ProcessSignal`, `TeardownStrategy`, `ProcessTeardownStep`, `ShellContext`, `ShellPlatform`, `Workflow`, `ShellError`, `ShellOutput`, `OutputDestination`, `CommandExecutor`, `MockExecutor`, `MockSpawnedProcess`, `ToolConfiguration`, and the `ToolConfigurableCommandFamily` / `OutputRedirectingCommandFamily` / `RunnableCommandFamily` protocol hierarchy.
 
 ### `Sources/SwiftyShell/Git/`
 
@@ -105,7 +105,7 @@ The repository ships a `.swift-format` config at the repo root that encodes the 
 - All public types are value types (`struct`) conforming to `Sendable`
 - Fluent builder pattern: every mutating method returns a new `Self` copy
 - `init(context: ShellContext = .init())` is the standard entry point for typed clients
-- Every typed client exposes `executable(_:)`, `env(_:_:)`, `workingDirectory(_:)`, `timeout(_:)`, `outputLimit(_:)`, `command() -> Command`, and `run() async throws`
+- Every typed client exposes `executable(_:)`, `env(_:_:)`, `workingDirectory(_:)`, `timeout(_:)`, `outputLimit(_:)`, `command() -> Command`, and `run() async throws`; clients conforming to `RunnableCommandFamily` also inherit `spawn(teardown:) async throws`
 - `ShellContext` is infrastructure, not a command namespace — `Command("pwd")` not `context.pwd()`
 
 ### Documentation — MANDATORY
@@ -148,7 +148,7 @@ The production executor uses the `swift-subprocess` package for process lifecycl
 
 ### Testing
 
-Use `MockExecutor` for unit tests. It implements `CommandExecutor`, mirrors real `run()` failure semantics for non-zero exits, validates timeout/output-limit configuration, and returns caller-supplied responses without spawning processes. Integration tests that require real executables should be clearly annotated.
+Use `MockExecutor` for unit tests. It implements `CommandExecutor`, mirrors real `run()` failure semantics for non-zero exits, validates timeout/output-limit configuration, and returns caller-supplied responses without spawning processes. Its `spawn` support returns `MockSpawnedProcess`, which records signals, teardown, and the configured `TeardownStrategy` so spawned-process code can be tested without launching a subprocess. Integration tests that require real executables should be clearly annotated.
 
 ### Agent Skill
 

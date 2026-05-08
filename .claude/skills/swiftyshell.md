@@ -92,6 +92,10 @@ public struct Command: Sendable {
     public func pipe(to next: Command) -> Pipeline
 
     public func run(in context: ShellContext = .init()) async throws -> ShellOutput
+    public func spawn(
+        in context: ShellContext = .init(),
+        teardown: TeardownStrategy = .graceful
+    ) async throws -> any SpawnedProcess
 }
 ```
 
@@ -103,6 +107,70 @@ public struct Pipeline: Sendable {
 
     public func pipe(to next: Command) -> Self
     public func run(in context: ShellContext = .init()) async throws -> ShellOutput
+}
+```
+
+#### Spawned Processes
+
+```swift
+public protocol SpawnedProcess: Sendable {
+    var processIdentifier: Int32 { get }
+    var standardOutput: AsyncStream<String> { get }
+    var standardError: AsyncStream<String> { get }
+
+    func send(_ signal: ProcessSignal) async throws
+    func interrupt() async throws
+    func terminate() async throws
+    func teardownAndWait() async -> ShellOutput
+    func waitForExit() async -> ShellOutput
+}
+
+public enum ProcessSignal: Int32, Sendable, Hashable {
+    case interrupt = 2
+    case terminate = 15
+    case kill = 9
+    case hangup = 1
+    case quit = 3
+}
+
+public struct ProcessTeardownStep: Sendable, Hashable {
+    public let signal: ProcessSignal
+    public let gracePeriod: Duration
+
+    public init(signal: ProcessSignal, gracePeriod: Duration)
+}
+
+public struct TeardownStrategy: Sendable, Hashable {
+    public let steps: [ProcessTeardownStep]
+
+    public init(steps: [ProcessTeardownStep])
+
+    public static let graceful: TeardownStrategy
+    public static let interruptThenTerminate: TeardownStrategy
+    public static let immediate: TeardownStrategy
+}
+```
+
+#### Executor and Runnable Helpers
+
+```swift
+public protocol CommandExecutor: Sendable {
+    func execute(_ command: Command, in context: ShellContext) async throws -> ShellOutput
+    func execute(_ pipeline: Pipeline, in context: ShellContext) async throws -> ShellOutput
+    func spawn(
+        _ command: Command,
+        in context: ShellContext,
+        teardown: TeardownStrategy
+    ) async throws -> any SpawnedProcess
+}
+
+public protocol RunnableCommandFamily: OutputRedirectingCommandFamily {
+    func command() -> Command
+}
+
+public extension RunnableCommandFamily {
+    func run() async throws -> ShellOutput
+    func spawn(teardown: TeardownStrategy = .graceful) async throws -> any SpawnedProcess
 }
 ```
 
@@ -701,9 +769,28 @@ public struct MockExecutor: CommandExecutor {
     public init(handler: @escaping Handler)
     public init(stdout: String = "", stderr: String = "", exitCode: Int32 = 0)
 }
+
+public struct MockSpawnedProcess: SpawnedProcess, Sendable {
+    public let processIdentifier: Int32
+    public let standardOutput: AsyncStream<String>
+    public let standardError: AsyncStream<String>
+    public let configuredTeardown: TeardownStrategy
+
+    public init(
+        processIdentifier: Int32 = 1,
+        teardown: TeardownStrategy = .graceful,
+        output: ShellOutput = ShellOutput(exitCode: 0)
+    )
+
+    public var signalHistory: [ProcessSignal] { get async }
+    public var didTeardown: Bool { get async }
+    public func send(_ signal: ProcessSignal) async throws
+    public func teardownAndWait() async -> ShellOutput
+    public func waitForExit() async -> ShellOutput
+}
 ```
 
-`MockExecutor` mirrors real `run()` semantics for invalid configuration and non-zero exits so unit tests behave like subprocess-backed execution.
+`MockExecutor` mirrors real `run()` semantics for invalid configuration and non-zero exits so unit tests behave like subprocess-backed execution. Its `spawn` support returns `MockSpawnedProcess`, which records signals, teardown, and the configured `TeardownStrategy`.
 
 `SubprocessExecutor` is the default production executor and is backed by the `swift-subprocess` package. Preserve SwiftyShell's public `ShellError` semantics when changing the execution layer, including partial output on timeout, output-limit, and cancellation paths.
 
@@ -717,7 +804,7 @@ public struct MockExecutor: CommandExecutor {
 6. Prefer `async let` / `TaskGroup` for concurrent runs — do not serialize what can run in parallel
 7. Always pass an explicit `ShellContext` rather than relying on the default `.init()`
 8. Workflows are single-use — rebuild from the source client to repeat
-9. Use `MockExecutor` in tests — never spawn real processes in unit tests
+9. Use `MockExecutor` in tests — for spawn flows, assert against `MockSpawnedProcess` signal history, teardown state, and configured teardown instead of spawning real processes in unit tests
 10. **Every `public` declaration you write must have a `///` doc comment** — see Part 2 for documentation rules
 
 ### Worked Examples
@@ -735,6 +822,12 @@ let output = try await Command("\1", arguments: "-la")
 try await Command("\1", arguments: "release")
     .stdout(.file(path: logPath, append: false))
     .run(in: context)
+
+// Spawn a long-running process, then tear it down gracefully
+let server = try await Command("python3", arguments: "-m", "http.server", "8080")
+    .spawn(in: context, teardown: .graceful)
+
+let serverOutput = await server.teardownAndWait()
 
 // Git status check then pull (key-path require)
 try await Git(context: context)
@@ -765,6 +858,13 @@ try await withThrowingTaskGroup(of: GitFetchResult.self) { group in
 try await Command("\1", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .run(in: context)
+
+// RunnableCommandFamily helpers also support spawn(teardown:)
+let grepProcess = try await Grep("ERROR", context: context)
+    .file(logPath)
+    .spawn(teardown: .immediate)
+
+let grepOutput = await grepProcess.waitForExit()
 
 // File system operations
 try await Mkdir(context: context)

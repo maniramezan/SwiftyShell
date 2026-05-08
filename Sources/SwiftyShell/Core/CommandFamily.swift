@@ -207,4 +207,15 @@ public extension RunnableCommandFamily {
     func run() async throws -> ShellOutput {
         try await command().run(in: context)
     }
+
+    /// Spawns the command represented by the current fluent configuration.
+    ///
+    /// Equivalent to `try await command().spawn(in: context, teardown: teardown)`.
+    ///
+    /// - Parameter teardown: The strategy used by ``SpawnedProcess/teardownAndWait()``.
+    /// - Returns: A handle to the running process.
+    /// - Throws: ``ShellError`` describing invalid configuration or spawn failure.
+    func spawn(teardown: TeardownStrategy = .graceful) async throws -> any SpawnedProcess {
+        try await command().spawn(in: context, teardown: teardown)
+    }
 }

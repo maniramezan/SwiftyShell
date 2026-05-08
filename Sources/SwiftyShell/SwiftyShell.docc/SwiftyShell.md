@@ -53,6 +53,7 @@ let output = try await Command("echo", arguments: "hello").run(in: context)
 - <doc:GettingStarted>
 - <doc:SelectingCommandFamilies>
 - <doc:CoreConcepts>
+- <doc:SpawningProcesses>
 - <doc:ErrorHandling>
 
 ### Building Command Families
@@ -64,6 +65,10 @@ let output = try await Command("echo", arguments: "hello").run(in: context)
 
 - ``Command``
 - ``Pipeline``
+- ``SpawnedProcess``
+- ``TeardownStrategy``
+- ``ProcessTeardownStep``
+- ``ProcessSignal``
 - ``ShellContext``
 - ``ShellPlatform``
 - ``ShellOutput``
@@ -146,4 +151,5 @@ let output = try await Command("echo", arguments: "hello").run(in: context)
 ### Testing
 
 - ``MockExecutor``
+- ``MockSpawnedProcess``
 - ``CommandExecutor``

@@ -386,6 +386,34 @@ public struct Command: Sendable {
         try await context.executor.execute(self, in: context)
     }
 
+    /// Spawns the command without waiting for it to exit.
+    ///
+    /// Use `spawn` for long-running processes that need to be controlled later, such as servers,
+    /// file watchers, or recorders. The returned ``SpawnedProcess`` provides real-time output
+    /// streams and methods for signaling or gracefully tearing down the process.
+    ///
+    /// ```swift
+    /// let server = try await Command("python3", arguments: "-m", "http.server", "8080")
+    ///     .spawn(in: context)
+    ///
+    /// // ... use the server ...
+    /// let output = await server.teardownAndWait()
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - context: The shell context that provides defaults and the executor. Defaults to a
+    ///     freshly constructed ``ShellContext``.
+    ///   - teardown: The strategy used by ``SpawnedProcess/teardownAndWait()``. Defaults to
+    ///     ``TeardownStrategy/graceful``.
+    /// - Returns: A handle to the running process.
+    /// - Throws: ``ShellError`` describing invalid configuration or spawn failure.
+    public func spawn(
+        in context: ShellContext = .init(),
+        teardown: TeardownStrategy = .graceful
+    ) async throws -> any SpawnedProcess {
+        try await context.executor.spawn(self, in: context, teardown: teardown)
+    }
+
     /// Returns a shell-quoted string representation of the command suitable for display or logging.
     ///
     /// Components containing whitespace are wrapped in double quotes with embedded quotes

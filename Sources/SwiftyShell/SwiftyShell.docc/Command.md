@@ -8,7 +8,8 @@ A value describing a single shell command and its execution overrides.
 yet. It uses the same builder shape as every typed command family — chain
 modifiers to add arguments, environment variables, a working directory, a
 timeout, an output limit, and stdout/stderr destinations, then call
-``run(in:)`` to execute it inside a ``ShellContext``.
+``run(in:)`` to execute it inside a ``ShellContext`` or
+``spawn(in:teardown:)`` to start a long-running process that you control later.
 
 Each modifier returns a new copy; ``Command`` itself is an immutable, `Sendable`
 value, so it is safe to store, share across tasks, and pass into structured
@@ -79,6 +80,7 @@ To compose with other commands, use ``pipe(to:)`` to build a ``Pipeline``.
 ### Running
 
 - ``run(in:)``
+- ``spawn(in:teardown:)``
 
 ### Piping
 

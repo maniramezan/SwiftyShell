@@ -648,12 +648,7 @@ private struct SpawnedCommandRunner: Sendable {
             return lossyOutput(snapshot: store.snapshot(), exitCode: -1)
         } catch {
             await state.failStartupIfNeeded(error)
-            let snapshot = store.snapshot()
-            return ShellOutput(
-                stdout: String(decoding: snapshot.stdout, as: UTF8.self),
-                stderr: String(decoding: snapshot.stderr, as: UTF8.self),
-                exitCode: -1
-            )
+            return lossyOutput(snapshot: store.snapshot(), exitCode: -1)
         }
     }
 }
@@ -702,7 +697,7 @@ private actor SubprocessSpawnedProcessState {
     private var task: Task<ShellOutput, Never>?
     private var cachedOutput: ShellOutput?
     private var executionResult: Result<Execution, any Error>?
-    private var executionContinuation: CheckedContinuation<Result<Execution, any Error>, Never>?
+    private var executionContinuations: [CheckedContinuation<Result<Execution, any Error>, Never>] = []
     private var didTeardown = false
 
     init(teardown: TeardownStrategy) {
@@ -716,15 +711,13 @@ private actor SubprocessSpawnedProcessState {
     func setExecution(_ execution: Execution) {
         guard executionResult == nil else { return }
         executionResult = .success(execution)
-        executionContinuation?.resume(returning: .success(execution))
-        executionContinuation = nil
+        resumeExecutionContinuations(with: .success(execution))
     }
 
     func failStartupIfNeeded(_ error: any Error) {
         guard executionResult == nil else { return }
         executionResult = .failure(error)
-        executionContinuation?.resume(returning: .failure(error))
-        executionContinuation = nil
+        resumeExecutionContinuations(with: .failure(error))
     }
 
     func waitForExecution() async throws -> Execution {
@@ -733,10 +726,18 @@ private actor SubprocessSpawnedProcessState {
             result = executionResult
         } else {
             result = await withCheckedContinuation { continuation in
-                executionContinuation = continuation
+                executionContinuations.append(continuation)
             }
         }
         return try result.get()
+    }
+
+    private func resumeExecutionContinuations(with result: Result<Execution, any Error>) {
+        let continuations = executionContinuations
+        executionContinuations.removeAll(keepingCapacity: false)
+        for continuation in continuations {
+            continuation.resume(returning: result)
+        }
     }
 
     func send(_ signal: ProcessSignal) async throws {

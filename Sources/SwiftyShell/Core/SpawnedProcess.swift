@@ -4,10 +4,11 @@
 /// servers, watchers, and recorders. Short-lived commands should continue to use
 /// ``Command/run(in:)``.
 ///
-/// > Important: Callers must call ``teardownAndWait()`` or ``waitForExit()``
-/// > before releasing the handle. Dropping a spawned-process handle without
-/// > waiting leaves the underlying process running until the operating system
-/// > reclaims it.
+/// > Important: Call ``teardownAndWait()`` or ``waitForExit()`` when you need
+/// > deterministic shutdown and final output collection. Dropping the handle
+/// > triggers best-effort teardown through the configured ``TeardownStrategy``,
+/// > but that asynchronous cleanup is not a substitute for awaiting process
+/// > completion in normal control flow.
 public protocol SpawnedProcess: Sendable {
     /// The operating-system process identifier.
     var processIdentifier: Int32 { get }

@@ -2,6 +2,32 @@ import Foundation
 import Testing
 @testable import SwiftyShell
 
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+
+private struct ProcessExitTimeout: Error {}
+
+private func waitForProcessExit(
+    processIdentifier: Int32,
+    timeoutNanoseconds: UInt64 = 12_000_000_000
+) async throws {
+    let pollInterval: UInt64 = 10_000_000
+    let attempts = Int(timeoutNanoseconds / pollInterval)
+
+    for _ in 0..<attempts {
+        if kill(processIdentifier, 0) == -1, errno == ESRCH {
+            return
+        }
+        try await Task.sleep(nanoseconds: pollInterval)
+    }
+
+    Issue.record("Timed out waiting for process exit for pid \(processIdentifier)")
+    throw ProcessExitTimeout()
+}
+
 struct SpawnTests {
     @Test func mockSpawnReturnsPresetOutputAndStreams() async throws {
         let context = ShellContext(executor: MockExecutor(stdout: "ready\n", stderr: "warn\n"))
@@ -85,5 +111,55 @@ struct SpawnTests {
         try await process.terminate()
         let output = await process.waitForExit()
         #expect(output.exitCode == 143)
+    }
+
+    @Test func spawnFailsWithCommandNotFound() async throws {
+        do {
+            _ = try await Command("swiftyshell-spawn-command-that-does-not-exist").spawn()
+            Issue.record("Expected commandNotFound")
+        } catch let error as ShellError {
+            guard case let .commandNotFound(command) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(command == "swiftyshell-spawn-command-that-does-not-exist")
+        }
+    }
+
+    @Test func waitForExitIsIdempotent() async throws {
+        let process = try await Command("/bin/sh", arguments: "-c", "printf spawned")
+            .spawn()
+
+        let firstOutput = await process.waitForExit()
+        let secondOutput = await process.waitForExit()
+
+        #expect(firstOutput == ShellOutput(stdout: "spawned", stderr: "", exitCode: 0))
+        #expect(secondOutput == firstOutput)
+    }
+
+    @Test func teardownAndWaitStopsLongRunningProcess() async throws {
+        let process = try await Command("/bin/sh", arguments: "-c", "while true; do sleep 1; done")
+            .spawn(teardown: .graceful)
+
+        let output = await process.teardownAndWait()
+        #expect(output.exitCode == 143)
+    }
+
+    @Test func droppingSpawnedProcessHandleTriggersBestEffortTeardown() async throws {
+        let processIdentifier: Int32
+
+        do {
+            var process: (any SpawnedProcess)? = try await Command(
+                "/bin/sh",
+                arguments: "-c",
+                "while true; do sleep 1; done"
+            )
+            .spawn(teardown: .graceful)
+            processIdentifier = try #require(process?.processIdentifier)
+            process = nil
+            await Task.yield()
+        }
+
+        try await waitForProcessExit(processIdentifier: processIdentifier)
     }
 }

@@ -22,6 +22,12 @@ let output = await server.teardownAndWait()
 
 Short-lived commands should use ``Command/run(in:)`` instead.
 
+When you need deterministic shutdown and final output collection, explicitly call
+``waitForExit()`` or ``teardownAndWait()``. Releasing the last handle triggers a
+best-effort asynchronous teardown using the configured ``TeardownStrategy``, but
+that safety path should be treated as fallback cleanup rather than the primary
+way to stop a process.
+
 ## Topics
 
 ### Inspecting

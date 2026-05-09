@@ -182,6 +182,8 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 6. Run `swift -warnings-as-errors Scripts/validate-traits.swift` to confirm the wiring is correct.
 7. Verify with `swift build --traits <Family> -Xswiftc -warnings-as-errors` and `swift test --traits <Family> -Xswiftc -warnings-as-errors` in addition to the default and `--enable-all-traits` runs.
 
+If the new command family has real execution tests that depend on an external CLI binary not guaranteed by the GitHub Actions runner image, update `.github/workflows/reusable-ci.yml` in the same change to install that tool for every affected matrix entry (the family trait itself, `All`, and coverage runs that use `--enable-all-traits`). Keep the Linux package install and macOS Homebrew install paths in sync.
+
 The pull-request template (`.github/PULL_REQUEST_TEMPLATE.md`) has a checklist that mirrors these steps. CI runs `validate-traits` first and then a build/test matrix across `""`, each per-family trait, `CommonUtilities`, and `All` on macOS 15 and Linux. A new family that bypasses the wiring will fail validation before any build runs.
 
 ## Architecture Reference

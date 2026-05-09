@@ -25,7 +25,7 @@ on:
           Defaults to the full matrix when omitted.
         required: false
         type: string
-        default: '["", "Git", "Brew", "Grep", "Fzf", "Zip", "Unzip", "CommonUtilities", "All"]'
+        default: '["", "Git", "Brew", "Grep", "Fzf", "Rg", "Zip", "Unzip", "CommonUtilities", "All"]'
 
 jobs:
   validate-traits:
@@ -168,9 +168,17 @@ jobs:
             ${{ runner.os }}-build-${{ matrix.traits }}-
             ${{ runner.os }}-build-
 
-      - name: Install fzf
-        if: ${{ matrix.traits == 'Fzf' || matrix.traits == 'All' }}
-        run: brew install fzf
+      - name: Install CLI tools for trait-gated tests
+        if: ${{ matrix.traits == 'Fzf' || matrix.traits == 'Rg' || matrix.traits == 'All' }}
+        run: |
+          formulas=()
+          if [ "${{ matrix.traits }}" = "Fzf" ] || [ "${{ matrix.traits }}" = "All" ]; then
+            formulas+=(fzf)
+          fi
+          if [ "${{ matrix.traits }}" = "Rg" ] || [ "${{ matrix.traits }}" = "All" ]; then
+            formulas+=(ripgrep)
+          fi
+          brew install "${formulas[@]}"
 
       - name: Resolve trait flag
         id: flag
@@ -201,10 +209,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install zip, unzip, and fzf
+      - name: Install zip, unzip, fzf, and ripgrep
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends zip unzip fzf
+          apt-get install -y --no-install-recommends zip unzip fzf ripgrep
 
       - name: Cache SPM dependencies
         uses: actions/cache@v5
@@ -255,8 +263,8 @@ jobs:
             ${{ runner.os }}-coverage-
             ${{ runner.os }}-build-All-
 
-      - name: Install fzf
-        run: brew install fzf
+      - name: Install CLI tools for coverage run
+        run: brew install fzf ripgrep
 
       - name: Resolve coverage report path
         id: coverage

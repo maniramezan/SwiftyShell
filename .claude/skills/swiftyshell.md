@@ -1256,6 +1256,8 @@ swift build -c release -Xswiftc -warnings-as-errors --enable-all-traits      # f
 swift test -Xswiftc -warnings-as-errors --enable-all-traits
 ```
 
+7. If the new family has real execution tests that require an external CLI binary, update `.github/workflows/reusable-ci.yml` in the same change so CI installs that tool for the family trait, the `All` umbrella build/test jobs, and coverage runs that use `--enable-all-traits`. Keep macOS Homebrew installs and Linux package installs aligned.
+
 ### Common Mistakes
 
 - **Forgetting the `#if` wrap on test files** — the test target won't compile under selective trait sets. The validator will catch this.

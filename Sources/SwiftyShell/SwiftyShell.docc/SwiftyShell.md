@@ -5,8 +5,8 @@ Type-safe shell support for Swift.
 ## Overview
 
 SwiftyShell's primary API is a family of typed wrappers — ``Git``, ``Grep``,
-``Brew``, ``Ls``, ``Cp``, ``Mkdir``, ``Chmod``, ``Rm``, ``Mv``, ``Pwd``, ``Jq`` — that
-model shell tools as Swift values. The compiler enforces which flags exist,
+``Brew``, ``Ls``, ``Cp``, ``Mkdir``, ``Chmod``, ``Rm``, ``Mv``, ``Pwd``, ``Jq``,
+``Zip``, ``Unzip`` — that model shell tools as Swift values. The compiler enforces which flags exist,
 which arguments are required, and what the result looks like. ``Command`` is
 the fluent escape hatch for tools that don't have a typed wrapper yet; it
 shares the same builder style so code does not change shape when you fall back
@@ -142,6 +142,13 @@ let output = try await Command("echo", arguments: "hello").run(in: context)
 - ``Rm``
 - ``Mv``
 - ``Pwd``
+
+### Archives
+
+- ``Zip``
+- ``ZipCompressionLevel``
+- ``Unzip``
+- ``UnzipEntry``
 
 ### Data Processing
 

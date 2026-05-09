@@ -197,6 +197,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Install zip and unzip
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends zip unzip
+
       - name: Cache SPM dependencies
         uses: actions/cache@v5
         with:

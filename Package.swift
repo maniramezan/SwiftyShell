@@ -27,11 +27,13 @@ let package = Package(
         .trait(name: "Mv", description: "Typed wrapper for mv."),
         .trait(name: "Pwd", description: "Typed wrapper for pwd."),
         .trait(name: "Jq", description: "Typed wrapper for jq."),
+        .trait(name: "Zip", description: "Typed wrapper for zip (Info-ZIP)."),
+        .trait(name: "Unzip", description: "Typed wrapper for unzip (Info-ZIP)."),
         // Convenience umbrella that enables every Common/* utility family.
         .trait(
             name: "CommonUtilities",
             description: "Enables all common file/directory utility families.",
-            enabledTraits: ["Ls", "Cp", "Mkdir", "Chmod", "Rm", "Mv", "Pwd", "Jq"]
+            enabledTraits: ["Ls", "Cp", "Mkdir", "Chmod", "Rm", "Mv", "Pwd", "Jq", "Zip", "Unzip"]
         ),
         // Convenience umbrella that enables every command family.
         .trait(

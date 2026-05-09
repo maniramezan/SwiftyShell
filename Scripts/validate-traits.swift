@@ -128,7 +128,13 @@ func isWrapped(filePath: String, trait: String) -> Bool {
     guard let first = firstSignificant?.trimmingCharacters(in: .whitespaces) else {
         return false
     }
-    guard first == "#if \(trait)" else { return false }
+    // Accept both `#if Trait` and combined guards like `#if Trait && OtherTrait`.
+    guard first.hasPrefix("#if ") else { return false }
+    let condition = String(first.dropFirst("#if ".count))
+    var nonIdentifier = CharacterSet.alphanumerics
+    nonIdentifier.insert("_")
+    let identifiers = condition.components(separatedBy: nonIdentifier.inverted)
+    guard identifiers.contains(trait) else { return false }
 
     // Find last significant line.
     let lastSignificant = lines.reversed().first {

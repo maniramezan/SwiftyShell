@@ -6,7 +6,7 @@ Pick exactly the typed shell wrappers your project needs.
 
 SwiftyShell is split into a small, always-available `Core` (commands,
 pipelines, contexts, errors, executors) and a set of **opt-in** typed
-command families: ``Git``, ``Brew``, ``Grep``, and a collection of common
+command families: ``Git``, ``Brew``, ``Grep``, ``Fzf``, and a collection of common
 file/directory utilities (``Ls``, ``Cp``, ``Mv``, ``Mkdir``, ``Chmod``, ``Rm``, ``Pwd``,
 ``Jq``, ``Zip``, ``Unzip``).
 
@@ -46,6 +46,7 @@ let status = try await Git()
 | `Git`              | ``Git`` including status, branch, log, diff, config, and submodule wrappers |
 | `Brew`             | ``Brew`` Homebrew wrapper                                  |
 | `Grep`             | ``Grep`` typed grep wrapper                                |
+| `Fzf`              | ``Fzf`` typed fuzzy-finder wrapper                         |
 | `Ls`               | ``Ls``                                                     |
 | `Cp`               | ``Cp``                                                     |
 | `Mv`               | ``Mv``                                                     |
@@ -61,13 +62,13 @@ let status = try await Git()
 
 ## Common recipes
 
-### A mostly-Git project that also needs grep
+### A project that needs Git, grep, and fzf
 
 ```swift
 .package(
     url: "https://github.com/maniramezan/SwiftyShell.git",
     from: "0.1.0",
-    traits: ["Git", "Grep"]
+    traits: ["Git", "Grep", "Fzf"]
 )
 ```
 
@@ -107,12 +108,12 @@ change that introduces hidden coupling between families.
 
 Most IDEs (Xcode, VS Code with sourcekit-lsp) inherit traits from the
 consuming package's `Package.swift`. When invoking SwiftPM directly you can
-pass `--traits Git,Grep` (or `--enable-all-traits` for everything) to mirror
+pass `--traits Git,Grep,Fzf` (or `--enable-all-traits` for everything) to mirror
 the consumer build:
 
 ```sh
 swift build -c release -Xswiftc -warnings-as-errors --traits Git
-swift test  -Xswiftc -warnings-as-errors --traits Git,Grep
+swift test  -Xswiftc -warnings-as-errors --traits Git,Grep,Fzf
 swift test  -Xswiftc -warnings-as-errors --enable-all-traits
 ```
 

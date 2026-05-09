@@ -19,6 +19,7 @@ let package = Package(
         .trait(name: "Git", description: "Typed wrapper for the git CLI."),
         .trait(name: "Brew", description: "Typed wrapper for the Homebrew CLI."),
         .trait(name: "Grep", description: "Typed wrapper for grep."),
+        .trait(name: "Fzf", description: "Typed wrapper for the fzf fuzzy finder."),
         .trait(name: "Ls", description: "Typed wrapper for ls."),
         .trait(name: "Cp", description: "Typed wrapper for cp."),
         .trait(name: "Mkdir", description: "Typed wrapper for mkdir."),
@@ -39,7 +40,7 @@ let package = Package(
         .trait(
             name: "All",
             description: "Enables every command family shipped by SwiftyShell.",
-            enabledTraits: ["Git", "Brew", "Grep", "CommonUtilities"]
+            enabledTraits: ["Git", "Brew", "Grep", "Fzf", "CommonUtilities"]
         ),
         // Default is intentionally empty: consumers opt in to the families they want.
         .default(enabledTraits: []),

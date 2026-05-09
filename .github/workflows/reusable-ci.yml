@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Validate trait wiring
-        run: swift Scripts/validate-traits.swift
+        run: swift -warnings-as-errors Scripts/validate-traits.swift
 
   validate-docc-coverage:
     name: Validate DocC Coverage
@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Validate authored DocC coverage
-        run: swift Scripts/validate-docc-coverage.swift
+        run: swift -warnings-as-errors Scripts/validate-docc-coverage.swift
 
   lint:
     name: swift-format lint
@@ -90,7 +90,7 @@ jobs:
 
       - name: Build documentation
         run: |
-          swift package --allow-writing-to-directory docs \
+          swift package -Xswiftc -warnings-as-errors --allow-writing-to-directory docs \
             generate-documentation \
             --target SwiftyShell \
             --output-path docs \
@@ -178,10 +178,10 @@ jobs:
           fi
 
       - name: Build
-        run: swift build -c release ${{ steps.flag.outputs.args }}
+        run: swift build -c release -Xswiftc -warnings-as-errors ${{ steps.flag.outputs.args }}
 
       - name: Test
-        run: swift test ${{ steps.flag.outputs.args }}
+        run: swift test -Xswiftc -warnings-as-errors ${{ steps.flag.outputs.args }}
 
   build-linux:
     name: Linux (traits=${{ matrix.traits }})
@@ -220,10 +220,10 @@ jobs:
           fi
 
       - name: Build
-        run: swift build -c release ${{ steps.flag.outputs.args }}
+        run: swift build -c release -Xswiftc -warnings-as-errors ${{ steps.flag.outputs.args }}
 
       - name: Test
-        run: swift test --no-parallel ${{ steps.flag.outputs.args }}
+        run: swift test --no-parallel -Xswiftc -warnings-as-errors ${{ steps.flag.outputs.args }}
 
   coverage:
     name: Coverage Gate
@@ -248,13 +248,13 @@ jobs:
 
       - name: Resolve coverage report path
         id: coverage
-        run: echo "path=$(swift test --enable-all-traits --enable-code-coverage --show-codecov-path)" >> "$GITHUB_OUTPUT"
+        run: echo "path=$(swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors --show-codecov-path)" >> "$GITHUB_OUTPUT"
 
       - name: Run tests with coverage
-        run: swift test --enable-all-traits --enable-code-coverage
+        run: swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors
       - name: Enforce package coverage threshold
         run: |
-          swift Scripts/validate-code-coverage.swift \
+          swift -warnings-as-errors Scripts/validate-code-coverage.swift \
             --input "${{ steps.coverage.outputs.path }}" \
             --minimum-line-coverage "${{ inputs.minimum_line_coverage }}"
 

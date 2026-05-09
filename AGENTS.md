@@ -44,9 +44,9 @@ Test suite. Sub-folders mirror the source layout: `Brew/`, `Common/`, `Core/`, `
 
 ### `Scripts/`
 
-`validate-traits.swift` — single-file Swift script that enforces the trait wiring contract: every gated source/test file is wrapped in the matching `#if <Trait>`, every family directory has a corresponding trait declaration in `Package.swift`, and the `All` umbrella transitively enables every per-family trait. CI runs this before any build job; run it locally with `swift Scripts/validate-traits.swift`.
+`validate-traits.swift` — single-file Swift script that enforces the trait wiring contract: every gated source/test file is wrapped in the matching `#if <Trait>`, every family directory has a corresponding trait declaration in `Package.swift`, and the `All` umbrella transitively enables every per-family trait. CI runs this before any build job; run it locally with `swift -warnings-as-errors Scripts/validate-traits.swift`.
 
-`validate-docc-coverage.swift` — single-file Swift script that enforces authored DocC coverage: every public top-level symbol must be linked from the DocC catalog, and every public command family must have user-facing DocC with Swift examples and a topics section. CI runs this before build/test jobs; run it locally with `swift Scripts/validate-docc-coverage.swift`.
+`validate-docc-coverage.swift` — single-file Swift script that enforces authored DocC coverage: every public top-level symbol must be linked from the DocC catalog, and every public command family must have user-facing DocC with Swift examples and a topics section. CI runs this before build/test jobs; run it locally with `swift -warnings-as-errors Scripts/validate-docc-coverage.swift`.
 
 ### `Example/`
 
@@ -64,17 +64,17 @@ A standalone SwiftPM executable package that demonstrates real SwiftyShell usage
 
 ```bash
 # Build
-swift build
+swift build -c release -Xswiftc -warnings-as-errors
 
 # Run all tests
-swift test
+swift test -Xswiftc -warnings-as-errors
 
 # Validate trait wiring and authored DocC coverage
-swift Scripts/validate-traits.swift
-swift Scripts/validate-docc-coverage.swift
+swift -warnings-as-errors Scripts/validate-traits.swift
+swift -warnings-as-errors Scripts/validate-docc-coverage.swift
 
 # Build for release
-swift build -c release
+swift build -c release -Xswiftc -warnings-as-errors
 
 # Run a single test file by class name
 swift test --filter CommandTests
@@ -88,11 +88,12 @@ swift-format lint --strict --recursive <path(s)>
 
 Do not mark a task complete, declare work finished, or hand back to the user until both of the following pass on every file you added or modified:
 
-1. `swift test` — all tests green.
+1. `swift test -Xswiftc -warnings-as-errors` — all tests green.
 2. `swift-format lint --strict` — no errors on Swift files you touched. If you just wrote new Swift, run `swift-format format -i <file>` first so auto-fixable issues are corrected, then re-lint to confirm. Do not run `swift-format` on DocC Markdown; validate `.docc/*.md` changes with DocC coverage and generation instead.
-3. `swift Scripts/validate-traits.swift` — package trait wiring remains valid.
-4. `swift Scripts/validate-docc-coverage.swift` — authored DocC coverage remains valid.
-5. `swift package --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
+3. `swift -warnings-as-errors Scripts/validate-traits.swift` — package trait wiring remains valid.
+4. `swift -warnings-as-errors Scripts/validate-docc-coverage.swift` — authored DocC coverage remains valid.
+5. `swift package -Xswiftc -warnings-as-errors --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
+6. `swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors` and `swift -warnings-as-errors Scripts/validate-code-coverage.swift --input <codecov-path> --minimum-line-coverage 84` — the coverage gate remains valid.
 
 This applies to any code change (new command families, bug fixes, doc snippets that live in Swift, tests). Do not skip either gate. If a lint rule feels wrong for a specific construct, propose a `.swift-format` change in the same PR rather than bypassing the check.
 
@@ -178,8 +179,8 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 3. Add the matching `.trait(name: "<Family>", description: "...")` in `Package.swift`.
 4. Add `<Family>` to the `All` umbrella's `enabledTraits` (and `CommonUtilities` if it's a `Common/*` family).
 5. Add tests under `Tests/SwiftyShellTests/<Family>/` (or `Tests/SwiftyShellTests/Common/<Family>Tests.swift`) and wrap them in `#if <Family>`.
-6. Run `swift Scripts/validate-traits.swift` to confirm the wiring is correct.
-7. Verify with `swift build --traits <Family>` and `swift test --traits <Family>` in addition to the default and `--enable-all-traits` runs.
+6. Run `swift -warnings-as-errors Scripts/validate-traits.swift` to confirm the wiring is correct.
+7. Verify with `swift build --traits <Family> -Xswiftc -warnings-as-errors` and `swift test --traits <Family> -Xswiftc -warnings-as-errors` in addition to the default and `--enable-all-traits` runs.
 
 The pull-request template (`.github/PULL_REQUEST_TEMPLATE.md`) has a checklist that mirrors these steps. CI runs `validate-traits` first and then a build/test matrix across `""`, each per-family trait, `CommonUtilities`, and `All` on macOS 15 and Linux. A new family that bypasses the wiring will fail validation before any build runs.
 

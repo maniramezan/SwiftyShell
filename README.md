@@ -132,7 +132,7 @@ The skill is automatically active when you open this repo in Claude Code. See th
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, style guidelines, and pull request requirements. In short: every change must pass `swift test` **and** `swift-format lint --strict` before it is considered done.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, style guidelines, and pull request requirements. In short: every change must pass the local validation gates in `make check`, including tests with warnings treated as errors and strict formatting.
 
 ## Local Linux Validation
 
@@ -161,11 +161,11 @@ Scripts/linux-test.sh
 Scripts/linux-ci.sh
 ```
 
-The helpers use the official `swift:6.1.3-noble` image, bind-mount the repository, keep SwiftPM cache data under `.build/docker-home`, and write Linux build artifacts to `.build/linux-docker` so they do not contend with the host macOS build database.
+The helpers use the official `swift:6.1.3-noble` image, bind-mount the repository, keep SwiftPM cache data under `.build/docker-home`, and write Linux build artifacts to `.build/linux-docker` so they do not contend with the host macOS build database. The Linux build and test helpers pass `-Xswiftc -warnings-as-errors`, matching the release build/test CI jobs.
 
 If you prefer shorter commands, the repository also ships a `Makefile` wrapper. Run `make help` to see the available targets.
 
-For the common contributor path, `make check` runs the host `swift test`, the trait validator, the DocC coverage validator, and the Linux Docker build-and-test flow.
+For the common contributor path, `make check` runs the local `swift-format` lint, host tests with warnings treated as errors, the trait validator, the DocC coverage validator, a full DocC build, the package coverage gate, and the Linux Docker build-and-test flow.
 
 On Apple Silicon Macs, the default behavior uses a native Linux ARM container for speed. If you want to mirror GitHub Actions' `ubuntu-24.04` `amd64` container more closely, set `SWIFTYSHELL_LINUX_PLATFORM=linux/amd64` when invoking a helper:
 

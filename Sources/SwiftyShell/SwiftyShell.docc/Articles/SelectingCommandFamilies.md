@@ -109,9 +109,9 @@ pass `--traits Git,Grep` (or `--enable-all-traits` for everything) to mirror
 the consumer build:
 
 ```sh
-swift build --traits Git
-swift test  --traits Git,Grep
-swift test  --enable-all-traits
+swift build -c release -Xswiftc -warnings-as-errors --traits Git
+swift test  -Xswiftc -warnings-as-errors --traits Git,Grep
+swift test  -Xswiftc -warnings-as-errors --enable-all-traits
 ```
 
 ## See also

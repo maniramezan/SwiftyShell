@@ -937,7 +937,7 @@ Doc comments are necessary but not sufficient. When adding or changing public co
 
 ### Verification Step
 
-After writing or modifying any Swift file, scan every line that starts with `public ` and confirm it is immediately preceded (allowing for `@` attributes and blank lines) by a `///` doc comment. Then run `swift Scripts/validate-docc-coverage.swift` to confirm public symbols and command families are covered by authored DocC. If anything is missing, add it before finishing.
+After writing or modifying any Swift file, scan every line that starts with `public ` and confirm it is immediately preceded (allowing for `@` attributes and blank lines) by a `///` doc comment. Then run `swift -warnings-as-errors Scripts/validate-docc-coverage.swift` to confirm public symbols and command families are covered by authored DocC. If anything is missing, add it before finishing.
 
 ### Example of Correct Documentation
 
@@ -1132,15 +1132,15 @@ In addition to the implementation steps in Part 3:
 2. Add `.trait(name: "<Family>", description: "...")` to the `traits:` array in `Package.swift`.
 3. Add `<Family>` to the `All` umbrella's `enabledTraits`. If it lives under `Common/`, also add it to `CommonUtilities`.
 4. Wrap every test file for the new family in `#if <Family>`. For cross-family tests, use combined guards.
-5. Run `swift Scripts/validate-traits.swift` — it must exit clean.
+5. Run `swift -warnings-as-errors Scripts/validate-traits.swift` — it must exit clean.
 6. Verify builds and tests under the relevant trait selections:
 
 ```bash
-swift build                          # default (no trait selected)
-swift build --traits <Family>        # the new trait alone
-swift test --traits <Family>
-swift build --enable-all-traits      # full matrix
-swift test --enable-all-traits
+swift build -c release -Xswiftc -warnings-as-errors                          # default (no trait selected)
+swift build -c release -Xswiftc -warnings-as-errors --traits <Family>        # the new trait alone
+swift test -Xswiftc -warnings-as-errors --traits <Family>
+swift build -c release -Xswiftc -warnings-as-errors --enable-all-traits      # full matrix
+swift test -Xswiftc -warnings-as-errors --enable-all-traits
 ```
 
 ### Common Mistakes
@@ -1177,18 +1177,18 @@ Before submitting any change to this codebase, verify:
 - [ ] Methods that throw list the `ShellError` cases they can throw with `- Throws:`
 - [ ] Cross-references use ``SymbolName`` double-backtick syntax
 - [ ] Authored DocC links every new public symbol and includes practical examples for every new command family or command method
-- [ ] `swift Scripts/validate-docc-coverage.swift` exits clean
+- [ ] `swift -warnings-as-errors Scripts/validate-docc-coverage.swift` exits clean
 - [ ] `AGENTS.md` is updated if shared agent guidance changed
 - [ ] The skill file (`.claude/skills/swiftyshell.md`) is updated if public API or shared agent guidance changed
-- [ ] If a new command family was added: source + tests are wrapped in `#if <Family>`, the trait is declared in `Package.swift`, `All` (and `CommonUtilities` if applicable) include it, and `swift Scripts/validate-traits.swift` exits clean
+- [ ] If a new command family was added: source + tests are wrapped in `#if <Family>`, the trait is declared in `Package.swift`, `All` (and `CommonUtilities` if applicable) include it, and `swift -warnings-as-errors Scripts/validate-traits.swift` exits clean
 
 ## Hard Gate: Tests + swift-format + DocC
 
 A change is not done — do not declare completion, open a PR, or hand back to the user — until these gates pass on every file you touched:
 
-1. `swift test` — all tests green.
+1. `swift test -Xswiftc -warnings-as-errors` — all tests green.
 2. `swift-format lint --strict` — no errors on changed Swift files. For new Swift, run `swift-format format -i <file>` first to auto-fix, then re-lint. Do not run `swift-format` on DocC Markdown; validate `.docc/*.md` changes with DocC coverage and generation instead.
-3. `swift Scripts/validate-docc-coverage.swift` — authored DocC links and command-family examples are present.
-4. `swift package --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
+3. `swift -warnings-as-errors Scripts/validate-docc-coverage.swift` — authored DocC links and command-family examples are present.
+4. `swift package -Xswiftc -warnings-as-errors --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
 
 The repo ships a `.swift-format` config at the root; use it for Swift source. The tree is currently fully compliant (`swift-format lint --strict --recursive Sources Tests Scripts` exits clean) — keep it that way. `swift-format` parses inputs as Swift, so Markdown-only documentation changes should use the DocC validation gates rather than direct Markdown linting with `swift-format`. If a lint rule is genuinely wrong for a specific Swift construct, update `.swift-format` in the same change rather than skipping the gate.

@@ -52,9 +52,9 @@ Before writing the family itself, set up its trait so the build can isolate it.
 above. Run it locally before opening a PR:
 
 ```sh
-swift Scripts/validate-traits.swift
-swift build --traits Curl
-swift test  --traits Curl
+swift -warnings-as-errors Scripts/validate-traits.swift
+swift build -c release -Xswiftc -warnings-as-errors --traits Curl
+swift test  -Xswiftc -warnings-as-errors --traits Curl
 ```
 
 ## Recommended Structure
@@ -275,9 +275,9 @@ Before opening a PR for a new command family:
 - [ ] Trait declared in `Package.swift` and added to the `All` umbrella
 - [ ] Source files placed in the correct location and `#if <Trait>`-wrapped
 - [ ] Tests added under the matching test directory and `#if <Trait>`-wrapped
-- [ ] `swift build --traits <Trait>` succeeds in isolation
-- [ ] `swift test --enable-all-traits` green
+- [ ] `swift build -c release -Xswiftc -warnings-as-errors --traits <Trait>` succeeds in isolation
+- [ ] `swift test -Xswiftc -warnings-as-errors --enable-all-traits` green
 - [ ] Public API documented per the rules in `AGENTS.md`
 - [ ] DocC trait table in <doc:SelectingCommandFamilies> updated
-- [ ] `swift Scripts/validate-traits.swift` clean
+- [ ] `swift -warnings-as-errors Scripts/validate-traits.swift` clean
 - [ ] `swift-format lint --strict` clean on every touched file

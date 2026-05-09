@@ -16,13 +16,13 @@ Thank you for your interest in contributing. This document covers setup, convent
 ```bash
 git clone https://github.com/maniramezan/SwiftyShell
 cd SwiftyShell
-swift build
+swift build -c release -Xswiftc -warnings-as-errors
 ```
 
 ### Run Tests
 
 ```bash
-swift test
+swift test -Xswiftc -warnings-as-errors
 ```
 
 Tests use the Swift Testing framework (`@Test` macro). All tests must pass before a PR is reviewed.
@@ -51,9 +51,13 @@ The `Makefile` is a thin wrapper around those scripts, so `make linux-test` and 
 
 For the standard local pre-PR pass, run `make check`. It bundles:
 
-- `swift test`
-- `swift Scripts/validate-traits.swift`
-- `swift Scripts/validate-docc-coverage.swift`
+- `swift-format lint --strict --recursive Sources Tests Scripts`
+- `swift test -Xswiftc -warnings-as-errors`
+- `swift -warnings-as-errors Scripts/validate-traits.swift`
+- `swift -warnings-as-errors Scripts/validate-docc-coverage.swift`
+- `swift package -Xswiftc -warnings-as-errors --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell`
+- `swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors`
+- `swift -warnings-as-errors Scripts/validate-code-coverage.swift --input <codecov-path> --minimum-line-coverage 84`
 - `Scripts/linux-ci.sh`
 
 On Apple Silicon Macs, the helpers run a native Linux ARM container by default for speed. To match GitHub Actions' `amd64` container more closely, set `SWIFTYSHELL_LINUX_PLATFORM=linux/amd64`:
@@ -69,9 +73,9 @@ For macOS validation when working from Linux, rely on GitHub Actions' macOS runn
 
 Every change — human- or agent-authored, including docs-only edits that touch Swift snippets — must satisfy these gates before it is considered done:
 
-1. **Tests pass** — `swift test` is green.
+1. **Tests pass** — `swift test -Xswiftc -warnings-as-errors` is green.
 2. **Format is clean** — `swift-format lint --strict --recursive <paths-you-touched>` reports no errors, and any newly written Swift passes `swift-format format -i <file>` without a subsequent lint complaint.
-3. **DocC builds when needed** — if you changed public API or DocC content, run `swift package --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell`.
+3. **DocC builds when needed** — if you changed public API or DocC content, run `swift package -Xswiftc -warnings-as-errors --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell`.
 
 Do not open a PR, mark work complete, or ask for review until the relevant commands succeed on the files you changed. If the format rules feel wrong for a specific construct, change `.swift-format` in the same PR and explain why — don't bypass the gate.
 
@@ -118,14 +122,14 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 3. Add `.trait(name: "<Family>", description: "...")` to the `traits:` array in `Package.swift`.
 4. Add `<Family>` to the `All` umbrella's `enabledTraits`. If the family lives under `Common/`, also add it to `CommonUtilities`.
 5. Add tests under `Tests/SwiftyShellTests/<Family>/` (or `Tests/SwiftyShellTests/Common/<Family>Tests.swift`) and wrap them in `#if <Family>`. Cross-family tests use combined guards like `#if Git && Grep`.
-6. Run `swift Scripts/validate-traits.swift` — it must exit clean.
+6. Run `swift -warnings-as-errors Scripts/validate-traits.swift` — it must exit clean.
 7. Verify the trait builds and tests in isolation:
 
    ```bash
-   swift build --traits <Family>
-   swift test  --traits <Family>
-   swift build --enable-all-traits
-   swift test  --enable-all-traits
+   swift build --traits <Family> -Xswiftc -warnings-as-errors
+   swift test  --traits <Family> -Xswiftc -warnings-as-errors
+   swift build --enable-all-traits -Xswiftc -warnings-as-errors
+   swift test  --enable-all-traits -Xswiftc -warnings-as-errors
    ```
 
 `Core/` and `Internal/` files are **never** gated. CI runs `validate-traits` first and then a build/test matrix across `""`, each per-family trait, `CommonUtilities`, and `All` on macOS 15 and Linux. A new family that bypasses the wiring will fail validation before any build job runs. The pull-request template (`.github/PULL_REQUEST_TEMPLATE.md`) has a checklist that mirrors these steps.
@@ -164,10 +168,10 @@ Before opening a PR, open a GitHub issue to describe the change and get agreemen
 2. Keep PRs focused — one logical change per PR
 3. Include tests for all new behavior
 4. Update doc comments for changed public API
-5. Run `swift test` and confirm all tests pass
+5. Run `swift test -Xswiftc -warnings-as-errors` and confirm all tests pass
 6. Run `swift-format lint --strict` on the files you touched (and `swift-format format -i` to auto-fix) — no lint errors in changed files
 7. If you changed public API or DocC content, run the DocC generation command from the Definition of Done and update DocC where needed
-8. If you added or modified a command family, run `swift Scripts/validate-traits.swift` and confirm it exits clean
+8. If you added or modified a command family, run `swift -warnings-as-errors Scripts/validate-traits.swift` and confirm it exits clean
 9. Describe _why_ in the PR body, not just _what_
 
 ## Maintainer Automation Notes

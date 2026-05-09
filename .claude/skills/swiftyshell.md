@@ -21,18 +21,20 @@ Before writing any code, follow this decision tree:
    → Use `Command("\1", arguments: ...)`
 3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`)?
    → Use the typed wrapper
-4. Is this a `grep` or `jq` operation?
+4. Is this an archive operation (`zip` to create, `unzip` to extract or list)?
+   → Use `Zip` or `Unzip`
+5. Is this a `grep` or `jq` operation?
    → Use `Grep` or `Jq`
-5. Is this a Homebrew operation (`brew install`, `brew upgrade`, `brew list`, ...)?
+6. Is this a Homebrew operation (`brew install`, `brew upgrade`, `brew list`, ...)?
    → Use `Brew`
-6. Does the operation need typed output, structured results, or conditional follow-up?
+7. Does the operation need typed output, structured results, or conditional follow-up?
    → Use the appropriate typed client
-7. Are two or more commands chained by pipe?
+8. Are two or more commands chained by pipe?
    → Use `.pipe(to:)` to build a `Pipeline`
-8. Does the command write output to a file?
+9. Does the command write output to a file?
    → Use `.stdout(.file(path:append:))` on the command
-9. Is this any other command?
-   → Use `Command`
+10. Is this any other command?
+    → Use `Command`
 
 ### API Reference
 
@@ -634,6 +636,100 @@ public struct Pwd: RunnableCommandFamily {
 }
 ```
 
+#### Archives (Zip / Unzip)
+
+```swift
+public enum ZipCompressionLevel: Sendable, Equatable, Hashable {
+    case store      // -0
+    case fastest    // -1
+    case `default`  // -6
+    case best       // -9
+    case custom(Int) // clamped to 0...9 at command-build time
+}
+
+public struct Zip: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+
+    // Archive + inputs
+    public func archive(_ path: String) -> Self
+    public func path(_ value: String) -> Self
+    public func paths(_ values: [String]) -> Self
+
+    // Mode
+    public func update(_ enabled: Bool = true) -> Self        // -u
+    public func freshen(_ enabled: Bool = true) -> Self       // -f
+    public func delete(_ enabled: Bool = true) -> Self        // -d
+    public func move(_ enabled: Bool = true) -> Self          // -m
+
+    // Behavior
+    public func recursive(_ enabled: Bool = true) -> Self     // -r
+    public func quiet(_ enabled: Bool = true) -> Self         // -q
+    public func verbose(_ enabled: Bool = true) -> Self       // -v
+    public func junkPaths(_ enabled: Bool = true) -> Self     // -j
+    public func storeSymlinks(_ enabled: Bool = true) -> Self // -y
+    public func preservePermissions(_ enabled: Bool = true) -> Self // -X
+
+    // Compression and split
+    public func compressionLevel(_ level: ZipCompressionLevel) -> Self
+    public func splitSize(_ value: String) -> Self            // -s <size>
+
+    // Security
+    public func encryptInteractive(_ enabled: Bool = true) -> Self // -e
+    public func password(_ value: String) -> Self             // -P <pwd>  (argv-visible)
+
+    // Filtering (positional, after archive+paths)
+    public func include(_ pattern: String) -> Self            // -i <pattern>
+    public func includes(_ patterns: [String]) -> Self
+    public func exclude(_ pattern: String) -> Self            // -x <pattern>
+    public func excludes(_ patterns: [String]) -> Self
+
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct UnzipEntry: Sendable, Equatable, Hashable {
+    public let path: String
+    public let size: Int
+    public let modified: Date?
+    public init(path: String, size: Int, modified: Date?)
+}
+
+public struct Unzip: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+
+    // Archive + selection
+    public func archive(_ path: String) -> Self
+    public func member(_ pattern: String) -> Self
+    public func members(_ patterns: [String]) -> Self
+    public func exclude(_ pattern: String) -> Self
+    public func excludes(_ patterns: [String]) -> Self
+
+    // Mode
+    public func list(_ enabled: Bool = true) -> Self          // -l
+    public func test(_ enabled: Bool = true) -> Self          // -t
+    public func printToStdout(_ enabled: Bool = true) -> Self // -p
+    public func freshen(_ enabled: Bool = true) -> Self       // -f
+    public func updateOnly(_ enabled: Bool = true) -> Self    // -u
+
+    // Behavior
+    public func destination(_ path: String) -> Self           // -d <dir>
+    public func overwrite(_ enabled: Bool = true) -> Self     // -o
+    public func neverOverwrite(_ enabled: Bool = true) -> Self // -n
+    public func quiet(_ enabled: Bool = true) -> Self         // -q
+    public func junkPaths(_ enabled: Bool = true) -> Self     // -j
+    public func preserveCase(_ enabled: Bool = true) -> Self  // -K
+    public func password(_ value: String) -> Self             // -P <pwd>  (argv-visible)
+
+    // Typed listing
+    public func entries() -> Workflow<[UnzipEntry]>           // runs `unzip -l` and parses
+
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+```
+
+`Zip` and `Unzip` wrap Info-ZIP binaries and behave identically on macOS (preinstalled) and Linux (`apt install zip unzip`). `Unzip.entries()` returns a single-use ``Workflow`` that parses the standard `unzip -l` table — paths with embedded spaces are preserved, missing timestamps surface as `nil`. SwiftyShell does not feed stdin to spawned processes, so unattended extracts should pass `overwrite()` or `neverOverwrite()` to avoid `unzip`'s overwrite prompt hanging the call.
+
 #### Brew
 
 ```swift
@@ -889,6 +985,23 @@ try await Brew(context: context).install("ripgrep").run()
 // Homebrew — check outdated casks
 let outdated = try await Brew(context: context).outdated().greedy().run()
 
+// Zip — create a recursive archive at maximum compression
+try await Zip(context: context)
+    .recursive()
+    .compressionLevel(.best)
+    .archive("/tmp/release.zip")
+    .path("build/")
+    .run()
+
+// Unzip — list archive entries with typed parsing
+let entries = try await Unzip(context: context)
+    .archive("/tmp/release.zip")
+    .entries()
+    .run()
+for entry in entries where entry.path.hasSuffix(".swift") {
+    print(entry.path, entry.size)
+}
+
 // MockExecutor in tests
 let context = ShellContext(executor: MockExecutor(stdout: "main\n"))
 let status = try await Git(context: context).status().run()
@@ -1105,7 +1218,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:

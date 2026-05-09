@@ -22,7 +22,7 @@ struct ZipUnzipRoundTripTests {
         )
 
         let archiveName = "round-trip.zip"
-        try await Zip()
+        _ = try await Zip()
             .workingDirectory(directory.path)
             .quiet()
             .archive(archiveName)

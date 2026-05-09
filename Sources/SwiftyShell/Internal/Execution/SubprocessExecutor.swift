@@ -800,12 +800,14 @@ private func routeFileDescriptor(
     fileHandle: FileHandle?,
     store: OutputCaptureStore
 ) async throws {
+    let closure = FileDescriptorClosure(fileDescriptor: fileDescriptor)
+
     try await withTaskCancellationHandler {
         try await withCheckedThrowingContinuation { continuation in
             let fileDescriptor = fileDescriptor
             DispatchQueue.global(qos: .utility).async {
                 do {
-                    defer { try? fileDescriptor.close() }
+                    defer { closure.closeIfNeeded() }
                     var buffer = [UInt8](repeating: 0, count: 65_536)
 
                     while true {
@@ -831,8 +833,26 @@ private func routeFileDescriptor(
         }
     } onCancel: {
         DispatchQueue.global(qos: .utility).async {
-            try? fileDescriptor.close()
+            closure.closeIfNeeded()
         }
+    }
+}
+
+private final class FileDescriptorClosure: @unchecked Sendable {
+    private let lock = NSLock()
+    private var fileDescriptor: FileDescriptor?
+
+    init(fileDescriptor: FileDescriptor) {
+        self.fileDescriptor = fileDescriptor
+    }
+
+    func closeIfNeeded() {
+        lock.lock()
+        let fileDescriptor = self.fileDescriptor
+        self.fileDescriptor = nil
+        lock.unlock()
+
+        try? fileDescriptor?.close()
     }
 }
 

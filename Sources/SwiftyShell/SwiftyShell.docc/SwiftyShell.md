@@ -4,7 +4,7 @@ Type-safe shell support for Swift.
 
 ## Overview
 
-SwiftyShell's primary API is a family of typed wrappers — ``Git``, ``Grep``,
+SwiftyShell's primary API is a family of typed wrappers — ``Git``, ``Grep``, ``Rg``,
 ``Brew``, ``Fzf``, ``Ls``, ``Cp``, ``Mkdir``, ``Chmod``, ``Rm``, ``Mv``, ``Pwd``, ``Jq``,
 ``Zip``, ``Unzip`` — that model shell tools as Swift values. The compiler enforces which flags exist,
 which arguments are required, and what the result looks like. ``Command`` is
@@ -127,6 +127,10 @@ let output = try await Command("echo", arguments: "hello").run(in: context)
 
 - ``Grep``
 - ``GrepPattern``
+- ``Rg``
+- ``RgEngine``
+- ``RgSortKey``
+- ``RgColorWhen``
 
 ### Fuzzy Finder
 

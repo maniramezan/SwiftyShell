@@ -168,6 +168,10 @@ jobs:
             ${{ runner.os }}-build-${{ matrix.traits }}-
             ${{ runner.os }}-build-
 
+      - name: Install fzf
+        if: ${{ matrix.traits == 'Fzf' || matrix.traits == 'All' }}
+        run: brew install fzf
+
       - name: Resolve trait flag
         id: flag
         run: |
@@ -197,10 +201,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install zip and unzip
+      - name: Install zip, unzip, and fzf
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends zip unzip
+          apt-get install -y --no-install-recommends zip unzip fzf
 
       - name: Cache SPM dependencies
         uses: actions/cache@v5
@@ -250,6 +254,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-coverage-
             ${{ runner.os }}-build-All-
+
+      - name: Install fzf
+        run: brew install fzf
 
       - name: Resolve coverage report path
         id: coverage

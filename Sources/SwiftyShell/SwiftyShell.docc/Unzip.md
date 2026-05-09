@@ -29,6 +29,9 @@ for entry in entries where entry.path.hasSuffix(".swift") {
 }
 ```
 
+`entries()` always runs a captured listing command internally, so conflicting state such as
+``printToStdout(_:)`` or custom stdout redirection does not break parsing.
+
 Validate archive integrity with ``test(_:)`` and pipe a single entry to stdout with
 ``printToStdout(_:)``:
 

@@ -24,8 +24,9 @@ public struct UnzipEntry: Sendable, Equatable, Hashable {
     /// The uncompressed size of the entry in bytes.
     public let size: Int
 
-    /// The entry's last-modified timestamp, parsed from the listing in UTC. `nil` when the
-    /// timestamp column did not match the expected `yyyy-MM-dd HH:mm` format.
+    /// The entry's last-modified timestamp, parsed from the listing in the current system time
+    /// zone. `nil` when the timestamp column did not match the expected `yyyy-MM-dd HH:mm`
+    /// format.
     public let modified: Date?
 
     /// Creates a parsed unzip listing entry.
@@ -349,9 +350,9 @@ public struct Unzip: RunnableCommandFamily {
 
     /// Returns a single-use workflow that runs `unzip -l` and parses the listing.
     ///
-    /// The workflow forces ``list(_:)`` on so the archive listing format is produced regardless
-    /// of any other mode flag the caller may have set. Members and excludes are forwarded so
-    /// `entries()` can scope to a subset of the archive.
+    /// The workflow forces a captured `unzip -l` listing regardless of any conflicting
+    /// extraction or stdout-redirection state the caller may have configured. Members and
+    /// excludes are forwarded so `entries()` can scope to a subset of the archive.
     ///
     /// ```swift
     /// let entries = try await Unzip(context: context)
@@ -363,7 +364,13 @@ public struct Unzip: RunnableCommandFamily {
     /// - Returns: A single-use ``Workflow`` producing parsed ``UnzipEntry`` values.
     public func entries() -> Workflow<[UnzipEntry]> {
         let context = state.config.context
-        let cmd = self.list().command()
+        let cmd = copy(
+            stdoutDestination: .capture,
+            destinationPath: .some(nil),
+            modeList: true,
+            modeTest: false,
+            modePrint: false
+        ).command()
         return Workflow {
             let output = try await cmd.run(in: context)
             return UnzipEntryParser.parse(output.stdout)
@@ -545,7 +552,7 @@ enum UnzipEntryParser {
         for format in ["yyyy-MM-dd HH:mm", "MM-dd-yyyy HH:mm"] {
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.timeZone = .current
             formatter.dateFormat = format
             if let date = formatter.date(from: value) {
                 return date

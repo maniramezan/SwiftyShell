@@ -3,6 +3,18 @@ import Foundation
 import Testing
 @testable import SwiftyShell
 
+actor CommandRecorder {
+    private(set) var commands: [Command] = []
+
+    func record(_ command: Command) {
+        commands.append(command)
+    }
+
+    func first() -> Command? {
+        commands.first
+    }
+}
+
 struct UnzipCommandTests {
     let subject = Unzip()
 
@@ -89,7 +101,7 @@ struct UnzipEntryParserTests {
 
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.timeZone = .current
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
         let expected = formatter.date(from: "2026-05-09 10:30")
         #expect(entries[0].modified == expected)
@@ -171,6 +183,38 @@ struct UnzipEntriesWorkflowTests {
         #expect(entries.count == 1)
         #expect(entries[0].path == "foo.txt")
         #expect(entries[0].size == 11)
+    }
+
+    @Test func entriesWorkflowForcesListModeAndCapturedStdout() async throws {
+        let stdout = """
+            Archive:  /tmp/test.zip
+              Length      Date    Time    Name
+            ---------  ---------- -----   ----
+                    11  2026-05-09 10:30   foo.txt
+            ---------                     -------
+                    11                     1 file
+            """
+
+        let recorder = CommandRecorder()
+        let executor = MockExecutor { command, _ in
+            await recorder.record(command)
+            return ShellOutput(stdout: stdout, stderr: "", exitCode: 0)
+        }
+        let context = ShellContext(executor: executor)
+
+        let entries = try await Unzip(context: context)
+            .archive("/tmp/test.zip")
+            .printToStdout()
+            .stdout(.discard)
+            .destination("/tmp/out")
+            .entries()
+            .run()
+
+        #expect(entries.map(\.path) == ["foo.txt"])
+
+        let command = try #require(await recorder.first())
+        #expect(command.arguments == ["-l", "/tmp/test.zip"])
+        #expect(command.stdoutDestination == .capture)
     }
 }
 

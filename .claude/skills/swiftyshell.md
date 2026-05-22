@@ -19,7 +19,7 @@ Before writing any code, follow this decision tree:
    → Use `Git`
 2. Is this a git operation NOT covered by the typed `Git` API?
    → Use `Command("\1", arguments: ...)`
-3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`)?
+3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Rsync`)?
    → Use the typed wrapper
 4. Is this an archive operation (`tar`, `zip`, or `unzip`)?
    → Use `Tar`, `Zip`, or `Unzip`
@@ -634,6 +634,60 @@ public struct Pwd: RunnableCommandFamily {
     public func command() -> Command
     public func run() async throws -> ShellOutput
 }
+
+public struct Rsync: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func archive(_ enabled: Bool = true) -> Self       // -a
+    public func recursive(_ enabled: Bool = true) -> Self     // -r
+    public func compress(_ enabled: Bool = true) -> Self      // -z
+    public func verbose(_ enabled: Bool = true) -> Self       // -v
+    public func quiet(_ enabled: Bool = true) -> Self         // -q
+    public func dryRun(_ enabled: Bool = true) -> Self        // -n
+    public func checksum(_ enabled: Bool = true) -> Self      // -c
+    public func update(_ enabled: Bool = true) -> Self        // -u
+    public func delete(_ enabled: Bool = true) -> Self        // --delete
+    public func deleteExcluded(_ enabled: Bool = true) -> Self
+    public func links(_ enabled: Bool = true) -> Self         // -l
+    public func copyLinks(_ enabled: Bool = true) -> Self     // -L
+    public func permissions(_ enabled: Bool = true) -> Self   // -p
+    public func times(_ enabled: Bool = true) -> Self         // -t
+    public func owner(_ enabled: Bool = true) -> Self         // -o
+    public func group(_ enabled: Bool = true) -> Self         // -g
+    public func hardLinks(_ enabled: Bool = true) -> Self     // -H
+    public func sparse(_ enabled: Bool = true) -> Self        // -S
+    public func oneFileSystem(_ enabled: Bool = true) -> Self // -x
+    public func itemizeChanges(_ enabled: Bool = true) -> Self // -i
+    public func humanReadable(_ enabled: Bool = true) -> Self // -h
+    public func progress(_ enabled: Bool = true) -> Self
+    public func partial(_ enabled: Bool = true) -> Self
+    public func existing(_ enabled: Bool = true) -> Self
+    public func ignoreExisting(_ enabled: Bool = true) -> Self
+    public func removeSourceFiles(_ enabled: Bool = true) -> Self
+    public func source(_ value: String) -> Self
+    public func sources(_ values: [String]) -> Self
+    public func destination(_ value: String) -> Self
+    public func exclude(_ pattern: String) -> Self
+    public func excludes(_ patterns: [String]) -> Self
+    public func include(_ pattern: String) -> Self
+    public func includes(_ patterns: [String]) -> Self
+    public func filter(_ rule: String) -> Self
+    public func filters(_ rules: [String]) -> Self
+    public func excludeFrom(_ path: String) -> Self
+    public func includeFrom(_ path: String) -> Self
+    public func filesFrom(_ path: String) -> Self
+    public func from0(_ enabled: Bool = true) -> Self
+    public func remoteShell(_ command: String) -> Self
+    public func remoteRsyncPath(_ path: String) -> Self
+    public func port(_ value: Int) -> Self
+    public func bandwidthLimit(_ rate: String) -> Self
+    public func maxSize(_ value: String) -> Self
+    public func minSize(_ value: String) -> Self
+    public func ioTimeout(_ seconds: Int) -> Self
+    public func option(_ value: String) -> Self
+    public func options(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
 ```
 
 #### Archives (Tar / Zip / Unzip)
@@ -1044,6 +1098,16 @@ try await Brew(context: context).install("ripgrep").run()
 // Homebrew — check outdated casks
 let outdated = try await Brew(context: context).outdated().greedy().run()
 
+// Rsync — mirror a project directory to a remote host
+try await Rsync(context: context)
+    .archive()
+    .compress()
+    .delete()
+    .exclude(".build")
+    .source("/path/to/project/")
+    .destination("deploy@example.com:/srv/project/")
+    .run()
+
 // Tar — create a gzip-compressed archive from a project directory
 try await Tar(context: context)
     .create()
@@ -1288,7 +1352,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:

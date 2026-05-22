@@ -21,8 +21,8 @@ Before writing any code, follow this decision tree:
    → Use `Command("\1", arguments: ...)`
 3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`)?
    → Use the typed wrapper
-4. Is this an archive operation (`zip` to create, `unzip` to extract or list)?
-   → Use `Zip` or `Unzip`
+4. Is this an archive operation (`tar`, `zip`, or `unzip`)?
+   → Use `Tar`, `Zip`, or `Unzip`
 5. Is this a `grep` or `jq` operation?
    → Use `Grep` or `Jq`
 6. Is this a Homebrew operation (`brew install`, `brew upgrade`, `brew list`, ...)?
@@ -636,9 +636,68 @@ public struct Pwd: RunnableCommandFamily {
 }
 ```
 
-#### Archives (Zip / Unzip)
+#### Archives (Tar / Zip / Unzip)
 
 ```swift
+public enum TarCompression: Sendable, Equatable, Hashable {
+    case gzip
+    case bzip2
+    case xz
+    case auto
+    case custom(String)
+}
+
+public enum TarOperation: String, Sendable, Equatable, Hashable {
+    case create
+    case extract
+    case list
+    case append
+    case update
+}
+
+public struct Tar: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func create() -> Self
+    public func extract() -> Self
+    public func list() -> Self
+    public func append() -> Self
+    public func update() -> Self
+    public func operation(_ value: TarOperation) -> Self
+    public func file(_ path: String) -> Self
+    public func path(_ value: String) -> Self
+    public func paths(_ values: [String]) -> Self
+    public func directory(_ path: String) -> Self
+    public func gzip() -> Self
+    public func bzip2() -> Self
+    public func xz() -> Self
+    public func autoCompress() -> Self
+    public func compression(_ value: TarCompression) -> Self
+    public func exclude(_ pattern: String) -> Self
+    public func excludes(_ patterns: [String]) -> Self
+    public func excludeFrom(_ path: String) -> Self
+    public func filesFrom(_ path: String) -> Self
+    public func nullTerminatedFiles(_ enabled: Bool = true) -> Self
+    public func stripComponents(_ count: Int) -> Self
+    public func toStdout(_ enabled: Bool = true) -> Self
+    public func verbose(_ enabled: Bool = true) -> Self
+    public func verify(_ enabled: Bool = true) -> Self
+    public func removeFilesAfterAdding(_ enabled: Bool = true) -> Self
+    public func dereferenceSymlinks(_ enabled: Bool = true) -> Self
+    public func absoluteNames(_ enabled: Bool = true) -> Self
+    public func preservePermissions(_ enabled: Bool = true) -> Self
+    public func sameOwner(_ enabled: Bool = true) -> Self
+    public func noSameOwner(_ enabled: Bool = true) -> Self
+    public func keepOldFiles(_ enabled: Bool = true) -> Self
+    public func skipOldFiles(_ enabled: Bool = true) -> Self
+    public func overwrite(_ enabled: Bool = true) -> Self
+    public func noRecursion(_ enabled: Bool = true) -> Self
+    public func oneFileSystem(_ enabled: Bool = true) -> Self
+    public func option(_ value: String) -> Self
+    public func options(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
 public enum ZipCompressionLevel: Sendable, Equatable, Hashable {
     case store      // -0
     case fastest    // -1
@@ -728,7 +787,7 @@ public struct Unzip: RunnableCommandFamily {
 }
 ```
 
-`Zip` and `Unzip` wrap Info-ZIP binaries and behave identically on macOS (preinstalled) and Linux (`apt install zip unzip`). `Unzip.entries()` returns a single-use ``Workflow`` that parses the standard `unzip -l` table — paths with embedded spaces are preserved, missing timestamps surface as `nil`. SwiftyShell does not feed stdin to spawned processes, so unattended extracts should pass `overwrite()` or `neverOverwrite()` to avoid `unzip`'s overwrite prompt hanging the call.
+`Tar` wraps the platform tar implementation for portable create, extract, and list workflows. `Zip` and `Unzip` wrap Info-ZIP binaries and behave identically on macOS (preinstalled) and Linux (`apt install zip unzip`). `Unzip.entries()` returns a single-use ``Workflow`` that parses the standard `unzip -l` table — paths with embedded spaces are preserved, missing timestamps surface as `nil`. SwiftyShell does not feed stdin to spawned processes, so unattended extracts should pass `overwrite()` or `neverOverwrite()` to avoid `unzip`'s overwrite prompt hanging the call.
 
 #### Brew
 
@@ -985,6 +1044,17 @@ try await Brew(context: context).install("ripgrep").run()
 // Homebrew — check outdated casks
 let outdated = try await Brew(context: context).outdated().greedy().run()
 
+// Tar — create a gzip-compressed archive from a project directory
+try await Tar(context: context)
+    .create()
+    .gzip()
+    .file("/tmp/source.tar.gz")
+    .directory("/path/to/project")
+    .exclude(".build")
+    .path("Sources")
+    .path("Package.swift")
+    .run()
+
 // Zip — create a recursive archive at maximum compression
 try await Zip(context: context)
     .recursive()
@@ -1218,7 +1288,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:

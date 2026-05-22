@@ -8,7 +8,7 @@ SwiftyShell is split into a small, always-available `Core` (commands,
 pipelines, contexts, errors, executors) and a set of **opt-in** typed
 command families: ``Git``, ``Brew``, ``Grep``, ``Fzf``, and a collection of common
 file/directory utilities (``Ls``, ``Cp``, ``Mv``, ``Mkdir``, ``Chmod``, ``Rm``, ``Pwd``,
-``Jq``, ``Zip``, ``Unzip``).
+``Jq``, ``Tar``, ``Zip``, ``Unzip``).
 
 Each family is gated behind a SwiftPM **package trait**. By default no
 families are enabled, so a fresh `import SwiftyShell` exposes only `Core`.
@@ -55,9 +55,10 @@ let status = try await Git()
 | `Rm`               | ``Rm``                                                     |
 | `Pwd`              | ``Pwd``                                                    |
 | `Jq`               | ``Jq``                                                     |
+| `Tar`              | ``Tar`` portable archive creation, extraction, and listing |
 | `Zip`              | ``Zip`` Info-ZIP archive creation wrapper                  |
 | `Unzip`            | ``Unzip`` Info-ZIP archive extraction and listing wrapper  |
-| `CommonUtilities`  | All of `Ls`, `Cp`, `Mv`, `Mkdir`, `Chmod`, `Rm`, `Pwd`, `Jq`, `Zip`, `Unzip` |
+| `CommonUtilities`  | All of `Ls`, `Cp`, `Mv`, `Mkdir`, `Chmod`, `Rm`, `Pwd`, `Jq`, `Tar`, `Zip`, `Unzip` |
 | `All`              | Every per-family trait above (the kitchen-sink umbrella)   |
 
 ## Common recipes

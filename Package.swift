@@ -23,6 +23,7 @@ let package = Package(
         .trait(name: "Rg", description: "Typed wrapper for ripgrep (rg)."),
         .trait(name: "Swift", description: "Typed wrapper for the Swift toolchain CLI."),
         .trait(name: "Gh", description: "Typed wrapper for the GitHub CLI."),
+        .trait(name: "Docker", description: "Typed wrapper for the Docker CLI."),
         .trait(name: "Ls", description: "Typed wrapper for ls."),
         .trait(name: "Cp", description: "Typed wrapper for cp."),
         .trait(name: "Mkdir", description: "Typed wrapper for mkdir."),
@@ -45,7 +46,7 @@ let package = Package(
         .trait(
             name: "All",
             description: "Enables every command family shipped by SwiftyShell.",
-            enabledTraits: ["Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "CommonUtilities"]
+            enabledTraits: ["Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "CommonUtilities"]
         ),
         // Default is intentionally empty: consumers opt in to the families they want.
         .default(enabledTraits: []),

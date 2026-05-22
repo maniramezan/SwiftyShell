@@ -31,13 +31,15 @@ Before writing any code, follow this decision tree:
    → Use `Swift`
 8. Is this a GitHub CLI operation (`gh pr`, `gh repo`, `gh workflow`, `gh api`, `gh copilot`, `gh skill`, ...)?
    → Use `Gh`
-9. Does the operation need typed output, structured results, or conditional follow-up?
+9. Is this a Docker CLI operation (`docker buildx`, `docker compose`, `docker debug`, `docker mcp`, `docker scout`, ...)?
+   → Use `Docker`
+10. Does the operation need typed output, structured results, or conditional follow-up?
    → Use the appropriate typed client
-10. Are two or more commands chained by pipe?
+11. Are two or more commands chained by pipe?
    → Use `.pipe(to:)` to build a `Pipeline`
-11. Does the command write output to a file?
+12. Does the command write output to a file?
    → Use `.stdout(.file(path:append:))` on the command
-12. Is this any other command?
+13. Is this any other command?
       → Use `Command`
 
 ### API Reference
@@ -851,6 +853,105 @@ public struct Gh: RunnableCommandFamily {
 }
 ```
 
+#### Docker CLI
+
+```swift
+public enum DockerSubcommand: String, Sendable, Equatable, Hashable {
+    case builder
+    case buildx
+    case checkpoint
+    case compose
+    case config
+    case container
+    case context
+    case debug
+    case desktop
+    case dhi
+    case image
+    case initialize
+    case inspect
+    case login
+    case logout
+    case manifest
+    case mcp
+    case model
+    case network
+    case node
+    case offload
+    case pass
+    case plugin
+    case sandbox
+    case scout
+    case search
+    case secret
+    case service
+    case stack
+    case swarm
+    case system
+    case trust
+    case version
+    case volume
+}
+
+public enum DockerBuildProgress: String, Sendable, Equatable, Hashable {
+    case auto
+    case plain
+    case tty
+    case rawjson
+}
+
+public struct Docker: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func subcommand(_ value: DockerSubcommand) -> Self
+    public func subcommand(_ value: String) -> Self
+    public func subcommand(_ value: DockerSubcommand, _ nested: String) -> Self
+    public func subcommand(_ value: String, _ nested: String) -> Self
+    public func buildx(_ nested: String? = nil) -> Self
+    public func compose(_ nested: String? = nil) -> Self
+    public func container(_ nested: String? = nil) -> Self
+    public func image(_ nested: String? = nil) -> Self
+    public func initialize() -> Self
+    public func debug(_ target: String? = nil) -> Self
+    public func mcp(_ nested: String? = nil) -> Self
+    public func scout(_ nested: String? = nil) -> Self
+    public func system(_ nested: String? = nil) -> Self
+    public func version() -> Self
+    public func configPath(_ path: String) -> Self
+    public func context(_ name: String) -> Self
+    public func host(_ value: String) -> Self
+    public func logLevel(_ value: String) -> Self
+    public func debugMode(_ enabled: Bool = true) -> Self
+    public func tls(_ enabled: Bool = true) -> Self
+    public func tlsVerify(_ enabled: Bool = true) -> Self
+    public func platform(_ value: String) -> Self
+    public func file(_ path: String) -> Self
+    public func tag(_ name: String) -> Self
+    public func tags(_ names: [String]) -> Self
+    public func buildArg(_ value: String) -> Self
+    public func buildArgs(_ values: [String]) -> Self
+    public func progress(_ value: DockerBuildProgress) -> Self
+    public func push(_ enabled: Bool = true) -> Self
+    public func load(_ enabled: Bool = true) -> Self
+    public func pull(_ enabled: Bool = true) -> Self
+    public func name(_ value: String) -> Self
+    public func removeWhenDone(_ enabled: Bool = true) -> Self
+    public func detach(_ enabled: Bool = true) -> Self
+    public func interactive(_ enabled: Bool = true) -> Self
+    public func tty(_ enabled: Bool = true) -> Self
+    public func commandString(_ value: String) -> Self
+    public func shell(_ value: String) -> Self
+    public func format(_ value: String) -> Self
+    public func option(_ name: String) -> Self
+    public func option(_ name: String, _ value: String) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func positionalArgument(_ value: String) -> Self
+    public func positionalArguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+```
+
 #### Archives (Tar / Zip / Unzip)
 
 ```swift
@@ -1520,7 +1621,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:
@@ -1533,7 +1634,7 @@ Consumers select families with `traits:` on `.package(...)`:
 
 The contract is enforced by `Scripts/validate-traits.swift` and CI:
 
-1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
+1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, `Docker/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
 2. Every test file targeting a gated family is wrapped the same way. Cross-family tests use combined guards (`#if Git && Grep`).
 3. Every family directory (or `Common/*.swift` file) has a matching `.trait(name:)` entry in `Package.swift`.
 4. The `All` umbrella's `enabledTraits` transitively enables every per-family trait. The `CommonUtilities` umbrella enables every `Common/*` trait.

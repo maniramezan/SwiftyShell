@@ -97,6 +97,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Fzf` | `fzf` | `Fzf` | Fuzzy finder options for interactive and filter-mode pipelines |
 | `Swift` | `swift` | `Swift` | SwiftPM build, test, run, package commands, traits, compiler flags |
 | `Gh` | `gh` | `Gh` | GitHub CLI automation for PRs, repos, workflows, Copilot, skills, API calls |
+| `Docker` | `docker` | `Docker` | Docker automation for Buildx, Compose, Debug, MCP, Scout, images, containers |
 | `Ls` | `ls` | `Ls` | All flags, recursive, human-readable sizes |
 | `Cp` | `cp` | `Cp` | Recursive, force |
 | `Mkdir` | `mkdir` | `Mkdir` | Parent directories, permissions |

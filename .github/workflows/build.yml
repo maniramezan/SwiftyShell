@@ -27,7 +27,7 @@ jobs:
       - name: Compute affected traits
         id: compute
         run: |
-          FULL='["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Rsync", "Tar", "Zip", "Unzip", "CommonUtilities", "All"]'
+          FULL='["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "Rsync", "Tar", "Zip", "Unzip", "CommonUtilities", "All"]'
 
           CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
           echo "Changed files:"
@@ -55,6 +55,7 @@ jobs:
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Rg/|Tests/SwiftyShellTests/Rg/)' && family_traits+=("Rg")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Swift/|Tests/SwiftyShellTests/Swift/)' && family_traits+=("Swift")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Gh/|Tests/SwiftyShellTests/Gh/)' && family_traits+=("Gh")
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Docker/|Tests/SwiftyShellTests/Docker/)' && family_traits+=("Docker")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/|Tests/SwiftyShellTests/Common/)' && family_traits+=("CommonUtilities")
           traits+=("${family_traits[@]}")
 

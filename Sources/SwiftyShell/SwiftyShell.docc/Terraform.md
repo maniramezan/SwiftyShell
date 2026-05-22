@@ -53,7 +53,8 @@ try await Terraform(context: context)
 - ``json(_:)``
 - ``autoApprove(_:)``
 - ``refresh(_:)``
-- ``var(_:)``
+- ``var(_:)-(String)``
+- ``var(_:_:)``
 - ``varFile(_:)``
 - ``out(_:)``
 - ``target(_:)``

@@ -171,8 +171,4 @@ private struct State: Sendable {
         self.targets = targets
     }
 }
-
-private func appendOption(_ name: String, _ value: String?, to arguments: inout [String]) {
-    if let value { arguments += [name, value] }
-}
 #endif

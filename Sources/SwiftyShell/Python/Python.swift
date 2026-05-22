@@ -14,47 +14,67 @@ import Foundation
 /// ```
 public struct Python: RunnableCommandFamily {
     private let state: State
+
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
+
     /// Creates a Python command family bound to a shell context.
-    public init(context: ShellContext = .init()) { self.state = State(config: ToolConfiguration(context: context)) }
+    public init(context: ShellContext = .init()) {
+        self.state = State(config: ToolConfiguration(context: context))
+    }
+
     private init(state: State) { self.state = state }
+
     /// Returns a copy with updated shared tool configuration.
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
         copy(config: update(state.config))
     }
+
     /// Returns a copy that routes stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
         copy(stdoutDestination: destination)
     }
+
     /// Returns a copy that routes stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
         copy(stderrDestination: destination)
     }
+
     /// Returns a copy that prints Python version information with `--version`.
-    public func version() -> Self { copy(mode: .version, arguments: []) }
+    public func version() -> Self { copy(mode: .version, programArguments: []) }
+
     /// Returns a copy that runs a module with `-m <name>`.
-    public func module(_ name: String) -> Self { copy(mode: .module(name), arguments: []) }
+    public func module(_ name: String) -> Self { copy(mode: .module(name), programArguments: []) }
+
     /// Returns a copy that runs code with `-c <code>`.
-    public func commandString(_ code: String) -> Self { copy(mode: .command(code), arguments: []) }
+    public func commandString(_ code: String) -> Self { copy(mode: .command(code), programArguments: []) }
+
     /// Returns a copy that runs a Python script path.
-    public func script(_ path: String) -> Self { copy(mode: .script(path), arguments: []) }
+    public func script(_ path: String) -> Self { copy(mode: .script(path), programArguments: []) }
+
     /// Returns a copy that passes `-I` for isolated mode.
     public func isolated(_ enabled: Bool = true) -> Self { copy(isolatedEnabled: enabled) }
+
     /// Returns a copy that passes `-u` for unbuffered binary stdout and stderr.
     public func unbuffered(_ enabled: Bool = true) -> Self { copy(unbufferedEnabled: enabled) }
+
     /// Returns a copy that passes `-B` to avoid writing `.pyc` files.
     public func dontWriteBytecode(_ enabled: Bool = true) -> Self { copy(dontWriteBytecodeEnabled: enabled) }
+
     /// Returns a copy that appends `-O` optimization flags.
     public func optimize(_ level: Int = 1) -> Self { copy(optimizationLevel: level) }
+
     /// Returns a copy that appends a raw interpreter option before the mode.
     public func option(_ value: String) -> Self { copy(extraOptions: state.extraOptions + [value]) }
+
     /// Returns a copy that appends raw interpreter options before the mode.
     public func options(_ values: [String]) -> Self { copy(extraOptions: state.extraOptions + values) }
+
     /// Returns a copy that appends an argument for the selected module, command, or script.
-    public func argument(_ value: String) -> Self { copy(arguments: state.arguments + [value]) }
+    public func argument(_ value: String) -> Self { copy(programArguments: state.arguments + [value]) }
+
     /// Returns a copy that appends arguments for the selected module, command, or script.
-    public func arguments(_ values: [String]) -> Self { copy(arguments: state.arguments + values) }
+    public func arguments(_ values: [String]) -> Self { copy(programArguments: state.arguments + values) }
 
     /// Builds the raw `python3` command represented by the current builder state.
     public func command() -> Command {
@@ -85,7 +105,7 @@ public struct Python: RunnableCommandFamily {
         dontWriteBytecodeEnabled: Bool? = nil,
         optimizationLevel: Int? = nil,
         extraOptions: [String]? = nil,
-        arguments: [String]? = nil
+        programArguments: [String]? = nil
     ) -> Self {
         Self(
             state: State(
@@ -98,19 +118,31 @@ public struct Python: RunnableCommandFamily {
                 dontWriteBytecodeEnabled: dontWriteBytecodeEnabled ?? state.dontWriteBytecodeEnabled,
                 optimizationLevel: optimizationLevel ?? state.optimizationLevel,
                 extraOptions: extraOptions ?? state.extraOptions,
-                arguments: arguments ?? state.arguments
+                arguments: programArguments ?? state.arguments
             )
         )
     }
 }
 
-private enum Mode: Sendable { case version, module(String), command(String), script(String) }
+private enum Mode: Sendable {
+    case version
+    case module(String)
+    case command(String)
+    case script(String)
+}
 
 private struct State: Sendable {
-    let config: ToolConfiguration; let stdoutDestination: OutputDestination; let stderrDestination: OutputDestination;
+    let config: ToolConfiguration
+    let stdoutDestination: OutputDestination
+    let stderrDestination: OutputDestination
     let mode: Mode
-    let isolatedEnabled: Bool; let unbufferedEnabled: Bool; let dontWriteBytecodeEnabled: Bool;
-    let optimizationLevel: Int; let extraOptions: [String]; let arguments: [String]
+    let isolatedEnabled: Bool
+    let unbufferedEnabled: Bool
+    let dontWriteBytecodeEnabled: Bool
+    let optimizationLevel: Int
+    let extraOptions: [String]
+    let arguments: [String]
+
     init(
         config: ToolConfiguration,
         stdoutDestination: OutputDestination = .capture,
@@ -123,10 +155,16 @@ private struct State: Sendable {
         extraOptions: [String] = [],
         arguments: [String] = []
     ) {
-        self.config = config; self.stdoutDestination = stdoutDestination; self.stderrDestination = stderrDestination;
-        self.mode = mode; self.isolatedEnabled = isolatedEnabled; self.unbufferedEnabled = unbufferedEnabled;
-        self.dontWriteBytecodeEnabled = dontWriteBytecodeEnabled; self.optimizationLevel = optimizationLevel;
-        self.extraOptions = extraOptions; self.arguments = arguments
+        self.config = config
+        self.stdoutDestination = stdoutDestination
+        self.stderrDestination = stderrDestination
+        self.mode = mode
+        self.isolatedEnabled = isolatedEnabled
+        self.unbufferedEnabled = unbufferedEnabled
+        self.dontWriteBytecodeEnabled = dontWriteBytecodeEnabled
+        self.optimizationLevel = optimizationLevel
+        self.extraOptions = extraOptions
+        self.arguments = arguments
     }
 }
 #endif

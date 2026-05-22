@@ -37,6 +37,14 @@ struct PythonCommandTests {
         )
     }
 
+    @Test func repeatsOptimizationFlagForOptimizationLevel() {
+        #expect(Python().script("tool.py").optimize(2).command().arguments == ["-O", "-O", "tool.py"])
+    }
+
+    @Test func negativeOptimizationLevelEmitsNoOptimizationFlags() {
+        #expect(Python().script("tool.py").optimize(-1).command().arguments == ["tool.py"])
+    }
+
     @Test func preservesToolConfigurationOverrides() async throws {
         actor Recorder { var command: Command?; func record(_ command: Command) { self.command = command } }
         let recorder = Recorder()

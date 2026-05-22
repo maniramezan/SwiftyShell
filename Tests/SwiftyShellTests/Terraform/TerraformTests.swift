@@ -40,6 +40,28 @@ struct TerraformCommandTests {
         )
     }
 
+    @Test func buildsPlanCommandWithVariablesPlanOutputTargetsAndPositionals() {
+        let command = Terraform()
+            .plan()
+            .var("region", "us-central1")
+            .varFile("prod.tfvars")
+            .out("plan.out")
+            .target("module.api")
+            .positionalArgument("infra")
+            .command()
+
+        #expect(
+            command.arguments == [
+                "plan",
+                "-var", "region=us-central1",
+                "-var-file", "prod.tfvars",
+                "-out", "plan.out",
+                "-target", "module.api",
+                "infra",
+            ]
+        )
+    }
+
     @Test func buildsModeledSubcommands() {
         #expect(Terraform().initCommand().command().arguments == ["init"])
         #expect(
@@ -47,6 +69,7 @@ struct TerraformCommandTests {
                 "apply", "-auto-approve", "tfplan",
             ]
         )
+        #expect(Terraform().apply().autoApprove().json().command().arguments == ["apply", "-json", "-auto-approve"])
         #expect(Terraform().destroy().autoApprove().command().arguments == ["destroy", "-auto-approve"])
         #expect(Terraform().validate().command().arguments == ["validate"])
         #expect(Terraform().format().command().arguments == ["fmt"])

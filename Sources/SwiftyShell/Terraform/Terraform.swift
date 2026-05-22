@@ -52,64 +52,93 @@ public struct Terraform: RunnableCommandFamily {
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
         copy(config: update(state.config))
     }
+
     /// Returns a copy that routes stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
         copy(stdoutDestination: destination)
     }
+
     /// Returns a copy that routes stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
         copy(stderrDestination: destination)
     }
+
     /// Returns a copy that selects a Terraform subcommand.
     public func subcommand(_ value: TerraformSubcommand) -> Self { copy(subcommand: value.rawValue, positionals: []) }
+
     /// Returns a copy that selects a raw Terraform subcommand.
     public func subcommand(_ value: String) -> Self { copy(subcommand: value, positionals: []) }
+
     /// Returns a copy configured for `terraform init`.
     public func initCommand() -> Self { subcommand(.initialize) }
+
     /// Returns a copy configured for `terraform plan`.
     public func plan() -> Self { subcommand(.plan) }
+
     /// Returns a copy configured for `terraform apply`.
     public func apply() -> Self { subcommand(.apply) }
+
     /// Returns a copy configured for `terraform destroy`.
     public func destroy() -> Self { subcommand(.destroy) }
+
     /// Returns a copy configured for `terraform validate`.
     public func validate() -> Self { subcommand(.validate) }
+
     /// Returns a copy configured for `terraform fmt`.
     public func format() -> Self { subcommand(.format) }
+
     /// Returns a copy configured for `terraform output`.
     public func output() -> Self { subcommand(.output) }
+
     /// Returns a copy configured for `terraform workspace <nested>`.
     public func workspace(_ nested: String? = nil) -> Self {
         var result = subcommand(.workspace)
         if let nested { result = result.positionalArgument(nested) }
         return result
     }
+
     /// Returns a copy that passes `-chdir=<path>` before the subcommand.
     public func chdir(_ path: String) -> Self { copy(chdirPath: path) }
+
     /// Returns a copy that passes `-input=<value>`.
     public func input(_ enabled: Bool) -> Self { copy(inputEnabled: enabled) }
+
     /// Returns a copy that passes `-no-color`.
     public func noColor(_ enabled: Bool = true) -> Self { copy(noColorEnabled: enabled) }
+
     /// Returns a copy that passes `-json` for commands that support machine-readable output.
     public func json(_ enabled: Bool = true) -> Self { copy(jsonEnabled: enabled) }
+
     /// Returns a copy that passes `-auto-approve`.
     public func autoApprove(_ enabled: Bool = true) -> Self { copy(autoApproves: enabled) }
+
     /// Returns a copy that passes `-refresh=<value>`.
     public func refresh(_ enabled: Bool) -> Self { copy(refreshEnabled: enabled) }
+
     /// Returns a copy that passes `-var <assignment>`.
     public func `var`(_ assignment: String) -> Self { copy(vars: state.vars + [assignment]) }
+
+    /// Returns a copy that passes `-var <key=value>`.
+    public func `var`(_ key: String, _ value: String) -> Self { self.var("\(key)=\(value)") }
+
     /// Returns a copy that passes `-var-file <path>`.
     public func varFile(_ path: String) -> Self { copy(varFiles: state.varFiles + [path]) }
+
     /// Returns a copy that passes `-out <path>`.
     public func out(_ path: String) -> Self { copy(outPath: path) }
+
     /// Returns a copy that passes `-target <address>`.
     public func target(_ address: String) -> Self { copy(targets: state.targets + [address]) }
+
     /// Returns a copy that appends a raw Terraform option before positional arguments.
     public func argument(_ value: String) -> Self { copy(extraArguments: state.extraArguments + [value]) }
+
     /// Returns a copy that appends raw Terraform options before positional arguments.
     public func arguments(_ values: [String]) -> Self { copy(extraArguments: state.extraArguments + values) }
+
     /// Returns a copy that appends a positional argument.
     public func positionalArgument(_ value: String) -> Self { copy(positionals: state.positionals + [value]) }
+
     /// Returns a copy that appends positional arguments.
     public func positionalArguments(_ values: [String]) -> Self { copy(positionals: state.positionals + values) }
 
@@ -174,11 +203,23 @@ public struct Terraform: RunnableCommandFamily {
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration; let stdoutDestination: OutputDestination; let stderrDestination: OutputDestination
-    let subcommand: String; let chdirPath: String?; let inputEnabled: Bool?; let noColorEnabled: Bool;
-    let jsonEnabled: Bool; let autoApproves: Bool; let refreshEnabled: Bool?
-    let vars: [String]; let varFiles: [String]; let outPath: String?; let targets: [String];
-    let extraArguments: [String]; let positionals: [String]
+    let config: ToolConfiguration
+    let stdoutDestination: OutputDestination
+    let stderrDestination: OutputDestination
+    let subcommand: String
+    let chdirPath: String?
+    let inputEnabled: Bool?
+    let noColorEnabled: Bool
+    let jsonEnabled: Bool
+    let autoApproves: Bool
+    let refreshEnabled: Bool?
+    let vars: [String]
+    let varFiles: [String]
+    let outPath: String?
+    let targets: [String]
+    let extraArguments: [String]
+    let positionals: [String]
+
     init(
         config: ToolConfiguration,
         stdoutDestination: OutputDestination = .capture,
@@ -197,11 +238,22 @@ private struct State: Sendable {
         extraArguments: [String] = [],
         positionals: [String] = []
     ) {
-        self.config = config; self.stdoutDestination = stdoutDestination; self.stderrDestination = stderrDestination;
-        self.subcommand = subcommand; self.chdirPath = chdirPath; self.inputEnabled = inputEnabled;
-        self.noColorEnabled = noColorEnabled; self.jsonEnabled = jsonEnabled; self.autoApproves = autoApproves;
-        self.refreshEnabled = refreshEnabled; self.vars = vars; self.varFiles = varFiles; self.outPath = outPath;
-        self.targets = targets; self.extraArguments = extraArguments; self.positionals = positionals
+        self.config = config
+        self.stdoutDestination = stdoutDestination
+        self.stderrDestination = stderrDestination
+        self.subcommand = subcommand
+        self.chdirPath = chdirPath
+        self.inputEnabled = inputEnabled
+        self.noColorEnabled = noColorEnabled
+        self.jsonEnabled = jsonEnabled
+        self.autoApproves = autoApproves
+        self.refreshEnabled = refreshEnabled
+        self.vars = vars
+        self.varFiles = varFiles
+        self.outPath = outPath
+        self.targets = targets
+        self.extraArguments = extraArguments
+        self.positionals = positionals
     }
 }
 #endif

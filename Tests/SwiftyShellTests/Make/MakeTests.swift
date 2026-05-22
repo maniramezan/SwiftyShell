@@ -39,6 +39,10 @@ struct MakeCommandTests {
         )
     }
 
+    @Test func serializesJobCountAsSeparateArgument() {
+        #expect(Make().jobs(8).command().arguments == ["--jobs", "8"])
+    }
+
     @Test func preservesToolConfigurationOverrides() async throws {
         actor Recorder {
             var command: Command?

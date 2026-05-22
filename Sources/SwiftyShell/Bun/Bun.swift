@@ -93,7 +93,7 @@ public struct Bun: RunnableCommandFamily {
 
     /// Returns a copy configured for `bun build <entrypoints>`.
     public func build(_ entrypoints: [String]) -> Self {
-        copy(subcommand: "build", scriptName: nil, positionals: entrypoints)
+        copy(subcommand: "build", scriptName: nil, buildEntrypoints: entrypoints, positionals: [])
     }
 
     /// Returns a copy configured for `bun x <binary>`.
@@ -135,6 +135,9 @@ public struct Bun: RunnableCommandFamily {
     public func command() -> Command {
         var arguments = [state.subcommand]
         appendOption("--cwd", state.cwdPath, to: &arguments)
+        if state.subcommand == BunSubcommand.build.rawValue {
+            arguments += state.buildEntrypoints
+        }
         if state.watches { arguments.append("--watch") }
         if state.usesHotReload { arguments.append("--hot") }
         if state.isProduction { arguments.append("--production") }
@@ -159,6 +162,7 @@ public struct Bun: RunnableCommandFamily {
         isProduction: Bool? = nil,
         usesFrozenLockfile: Bool? = nil,
         extraArguments: [String]? = nil,
+        buildEntrypoints: [String]? = nil,
         positionals: [String]? = nil
     ) -> Self {
         Self(
@@ -174,6 +178,7 @@ public struct Bun: RunnableCommandFamily {
                 isProduction: isProduction ?? state.isProduction,
                 usesFrozenLockfile: usesFrozenLockfile ?? state.usesFrozenLockfile,
                 extraArguments: extraArguments ?? state.extraArguments,
+                buildEntrypoints: buildEntrypoints ?? state.buildEntrypoints,
                 positionals: positionals ?? state.positionals
             )
         )
@@ -192,6 +197,7 @@ private struct State: Sendable {
     let isProduction: Bool
     let usesFrozenLockfile: Bool
     let extraArguments: [String]
+    let buildEntrypoints: [String]
     let positionals: [String]
 
     init(
@@ -206,6 +212,7 @@ private struct State: Sendable {
         isProduction: Bool = false,
         usesFrozenLockfile: Bool = false,
         extraArguments: [String] = [],
+        buildEntrypoints: [String] = [],
         positionals: [String] = []
     ) {
         self.config = config
@@ -219,11 +226,8 @@ private struct State: Sendable {
         self.isProduction = isProduction
         self.usesFrozenLockfile = usesFrozenLockfile
         self.extraArguments = extraArguments
+        self.buildEntrypoints = buildEntrypoints
         self.positionals = positionals
     }
-}
-
-private func appendOption(_ name: String, _ value: String?, to arguments: inout [String]) {
-    if let value { arguments += [name, value] }
 }
 #endif

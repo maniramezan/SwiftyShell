@@ -25,14 +25,37 @@ struct PnpmCommandTests {
             command.arguments == [
                 "run",
                 "--dir", "Example",
-                "--filter", "./packages/app",
                 "--recursive",
+                "--filter", "./packages/app",
                 "--if-present",
                 "--stream",
                 "build",
                 "--mode", "production",
             ]
         )
+    }
+
+    @Test func buildsRecursiveFilteredWorkspaceRun() {
+        let command = Pnpm()
+            .runScript("test")
+            .recursive()
+            .filter("./packages/app")
+            .filter("./packages/shared")
+            .command()
+
+        #expect(
+            command.arguments == [
+                "run",
+                "--recursive",
+                "--filter", "./packages/app",
+                "--filter", "./packages/shared",
+                "test",
+            ]
+        )
+    }
+
+    @Test func buildsRecursiveRunWithoutFilters() {
+        #expect(Pnpm().runScript("test").recursive().command().arguments == ["run", "--recursive", "test"])
     }
 
     @Test func buildsModeledSubcommandsAndFlags() {

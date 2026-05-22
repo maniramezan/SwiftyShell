@@ -40,6 +40,8 @@ public struct Node: RunnableCommandFamily {
     }
 
     /// Returns a copy that prints Node.js version information with `--version`.
+    ///
+    /// Selecting version mode clears any script arguments from a previously selected entry point.
     public func version() -> Self { copy(mode: .version, scriptArguments: []) }
 
     /// Returns a copy that evaluates JavaScript with `--eval <code>`.

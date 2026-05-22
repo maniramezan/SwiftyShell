@@ -41,6 +41,14 @@ struct NodeCommandTests {
         )
     }
 
+    @Test func placesRequiredModulesBeforeScriptPath() {
+        #expect(
+            Node().script("server.js").require("dotenv/config").command().arguments == [
+                "--require", "dotenv/config", "server.js",
+            ]
+        )
+    }
+
     @Test func preservesToolConfigurationOverrides() async throws {
         actor Recorder { var command: Command?; func record(_ command: Command) { self.command = command } }
         let recorder = Recorder()

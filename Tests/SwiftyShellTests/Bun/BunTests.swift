@@ -44,7 +44,7 @@ struct BunCommandTests {
         #expect(Bun().test().command().arguments == ["test"])
         #expect(
             Bun().build(["src/index.ts"]).argument("--outdir").positionalArgument("dist").command().arguments == [
-                "build", "--outdir", "src/index.ts", "dist",
+                "build", "src/index.ts", "--outdir", "dist",
             ]
         )
         #expect(Bun().x("vite").command().arguments == ["x", "vite"])

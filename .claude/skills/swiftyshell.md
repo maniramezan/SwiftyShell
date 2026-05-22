@@ -1191,6 +1191,7 @@ public struct Terraform: RunnableCommandFamily {
     public func autoApprove(_ enabled: Bool = true) -> Self
     public func refresh(_ enabled: Bool) -> Self
     public func `var`(_ assignment: String) -> Self
+    public func `var`(_ key: String, _ value: String) -> Self
     public func varFile(_ path: String) -> Self
     public func out(_ path: String) -> Self
     public func target(_ address: String) -> Self

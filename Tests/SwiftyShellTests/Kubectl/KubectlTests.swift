@@ -37,6 +37,11 @@ struct KubectlCommandTests {
 
     @Test func buildsApplyDeleteLogsAndExecCommands() {
         #expect(Kubectl().apply().filename("deploy.yml").command().arguments == ["apply", "--filename", "deploy.yml"])
+        #expect(
+            Kubectl().apply().filename("a.yml").filename("b.yml").command().arguments == [
+                "apply", "--filename", "a.yml", "--filename", "b.yml",
+            ]
+        )
         #expect(Kubectl().delete("pod/api").command().arguments == ["delete", "pod/api"])
         #expect(
             Kubectl().logs("pod/api").container("api").command().arguments == ["logs", "--container", "api", "pod/api"]

@@ -139,8 +139,8 @@ public struct Pnpm: RunnableCommandFamily {
     public func command() -> Command {
         var arguments = [state.subcommand]
         appendOption("--dir", state.directoryPath, to: &arguments)
-        for filter in state.filters { arguments += ["--filter", filter] }
         if state.isRecursive { arguments.append("--recursive") }
+        for filter in state.filters { arguments += ["--filter", filter] }
         if state.ifPresentEnabled { arguments.append("--if-present") }
         if state.usesFrozenLockfile { arguments.append("--frozen-lockfile") }
         if state.isProduction { arguments.append("--prod") }
@@ -237,9 +237,5 @@ private struct State: Sendable {
         self.extraArguments = extraArguments
         self.positionals = positionals
     }
-}
-
-private func appendOption(_ name: String, _ value: String?, to arguments: inout [String]) {
-    if let value { arguments += [name, value] }
 }
 #endif

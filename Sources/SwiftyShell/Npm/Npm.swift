@@ -41,7 +41,9 @@ public struct Npm: RunnableCommandFamily {
     public var context: ShellContext { state.config.context }
 
     /// Creates an npm command family bound to a shell context.
-    public init(context: ShellContext = .init()) { self.state = State(config: ToolConfiguration(context: context)) }
+    public init(context: ShellContext = .init()) {
+        self.state = State(config: ToolConfiguration(context: context))
+    }
 
     private init(state: State) { self.state = state }
 
@@ -49,48 +51,70 @@ public struct Npm: RunnableCommandFamily {
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
         copy(config: update(state.config))
     }
+
     /// Returns a copy that routes stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
         copy(stdoutDestination: destination)
     }
+
     /// Returns a copy that routes stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
         copy(stderrDestination: destination)
     }
+
     /// Returns a copy that selects an npm subcommand.
     public func subcommand(_ value: NpmSubcommand) -> Self { copy(subcommand: value.rawValue, scriptName: nil) }
+
     /// Returns a copy that selects a raw npm subcommand.
     public func subcommand(_ value: String) -> Self { copy(subcommand: value, scriptName: nil) }
+
     /// Returns a copy configured for `npm install`.
     public func install() -> Self { subcommand(.install) }
+
     /// Returns a copy configured for `npm ci`.
     public func ci() -> Self { subcommand(.ci) }
+
     /// Returns a copy configured for `npm test`.
     public func test() -> Self { subcommand(.test) }
+
     /// Returns a copy configured for `npm exec <binary>`.
     public func exec(_ binary: String? = nil) -> Self {
         copy(subcommand: "exec", scriptName: nil, positionals: binary.map { [$0] } ?? [])
     }
+
     /// Returns a copy configured for `npm run <name>`.
     public func runScript(_ name: String) -> Self { copy(subcommand: "run", scriptName: name, positionals: []) }
+
     /// Returns a copy that passes `--prefix <path>`.
     public func prefix(_ path: String) -> Self { copy(prefixPath: path) }
+
     /// Returns a copy that passes `--global`.
+    ///
+    /// Combining this with ``prefix(_:)`` mirrors npm's permissive CLI behavior,
+    /// but npm treats global installs as outside the project prefix workflow.
     public func global(_ enabled: Bool = true) -> Self { copy(isGlobal: enabled) }
+
     /// Returns a copy that passes `--production`.
     public func production(_ enabled: Bool = true) -> Self { copy(isProduction: enabled) }
+
     /// Returns a copy that passes `--if-present`.
     public func ifPresent(_ enabled: Bool = true) -> Self { copy(ifPresentEnabled: enabled) }
+
     /// Returns a copy that passes `--silent`.
     public func silent(_ enabled: Bool = true) -> Self { copy(isSilent: enabled) }
+
     /// Returns a copy that passes `--json`.
     public func json(_ enabled: Bool = true) -> Self { copy(outputsJSON: enabled) }
+
     /// Returns a copy that appends a raw option before positional arguments.
     public func argument(_ value: String) -> Self { copy(extraArguments: state.extraArguments + [value]) }
+
     /// Returns a copy that appends raw options before positional arguments.
     public func arguments(_ values: [String]) -> Self { copy(extraArguments: state.extraArguments + values) }
+
     /// Returns a copy that appends a positional package, binary, or script argument.
     public func positionalArgument(_ value: String) -> Self { copy(positionals: state.positionals + [value]) }
+
     /// Returns a copy that appends positional package, binary, or script arguments.
     public func positionalArguments(_ values: [String]) -> Self { copy(positionals: state.positionals + values) }
 
@@ -146,10 +170,20 @@ public struct Npm: RunnableCommandFamily {
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration; let stdoutDestination: OutputDestination; let stderrDestination: OutputDestination
-    let subcommand: String; let scriptName: String?; let prefixPath: String?
-    let isGlobal: Bool; let isProduction: Bool; let ifPresentEnabled: Bool; let isSilent: Bool; let outputsJSON: Bool
-    let extraArguments: [String]; let positionals: [String]
+    let config: ToolConfiguration
+    let stdoutDestination: OutputDestination
+    let stderrDestination: OutputDestination
+    let subcommand: String
+    let scriptName: String?
+    let prefixPath: String?
+    let isGlobal: Bool
+    let isProduction: Bool
+    let ifPresentEnabled: Bool
+    let isSilent: Bool
+    let outputsJSON: Bool
+    let extraArguments: [String]
+    let positionals: [String]
+
     init(
         config: ToolConfiguration,
         stdoutDestination: OutputDestination = .capture,
@@ -165,15 +199,19 @@ private struct State: Sendable {
         extraArguments: [String] = [],
         positionals: [String] = []
     ) {
-        self.config = config; self.stdoutDestination = stdoutDestination; self.stderrDestination = stderrDestination;
-        self.subcommand = subcommand; self.scriptName = scriptName; self.prefixPath = prefixPath;
-        self.isGlobal = isGlobal; self.isProduction = isProduction; self.ifPresentEnabled = ifPresentEnabled;
-        self.isSilent = isSilent; self.outputsJSON = outputsJSON; self.extraArguments = extraArguments;
+        self.config = config
+        self.stdoutDestination = stdoutDestination
+        self.stderrDestination = stderrDestination
+        self.subcommand = subcommand
+        self.scriptName = scriptName
+        self.prefixPath = prefixPath
+        self.isGlobal = isGlobal
+        self.isProduction = isProduction
+        self.ifPresentEnabled = ifPresentEnabled
+        self.isSilent = isSilent
+        self.outputsJSON = outputsJSON
+        self.extraArguments = extraArguments
         self.positionals = positionals
     }
-}
-
-private func appendOption(_ name: String, _ value: String?, to arguments: inout [String]) {
-    if let value { arguments += [name, value] }
 }
 #endif

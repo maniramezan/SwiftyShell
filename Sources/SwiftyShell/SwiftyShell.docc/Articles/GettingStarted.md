@@ -5,7 +5,7 @@ Add SwiftyShell to your package, pick a typed command family, and run your first
 ## Overview
 
 SwiftyShell provides typed wrappers for common shell tools — ``Git``, ``Brew``, ``Grep``,
-and more. The compiler enforces which flags exist, what arguments are required, and what
+``Make``, ``Npm``, ``Terraform``, ``Kubectl``, ``Python``, and more. The compiler enforces which flags exist, what arguments are required, and what
 the result looks like. For the full API reference and per-family guides, see the
 <doc:SelectingCommandFamilies> article and the [documentation](https://maniramezan.github.io/SwiftyShell/documentation/swiftyshell/).
 

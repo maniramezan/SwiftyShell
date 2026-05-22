@@ -30,6 +30,10 @@ Typed wrapper for the Swift toolchain: `Swift`, `SwiftSubcommand`, and `SwiftBui
 
 Typed wrapper for the GitHub CLI: `Gh` and `GhSubcommand`.
 
+### `Sources/SwiftyShell/Docker/`
+
+Typed wrapper for the Docker CLI: `Docker`, `DockerSubcommand`, and `DockerBuildProgress`.
+
 ### `Sources/SwiftyShell/Common/`
 
 Typed wrappers for frequently used shell utilities: `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `JqArgument`, `Rsync`, `Tar`, `TarOperation`, `TarCompression`, `Zip`, `ZipCompressionLevel`, `Unzip`, and `UnzipEntry`. Each follows the same fluent builder conventions as all other command families.
@@ -48,7 +52,7 @@ DocC documentation catalog. `SwiftyShell.md` is the top-level landing page. Arti
 
 ### `Tests/SwiftyShellTests/`
 
-Test suite. Sub-folders mirror the source layout: `Brew/`, `Common/`, `Core/`, `Fzf/`, `Gh/`, `Git/`, `Grep/`, `Pipelines/`, `Rg/`, and `Swift/`. Test files for gated families are wrapped in `#if <Trait>` so the test target compiles under any trait selection. `Common/` has one test file per family (`LsTests.swift`, `CpTests.swift`, …) plus `CommonTestSupport.swift` (shared helpers, ungated).
+Test suite. Sub-folders mirror the source layout: `Brew/`, `Common/`, `Core/`, `Docker/`, `Fzf/`, `Gh/`, `Git/`, `Grep/`, `Pipelines/`, `Rg/`, and `Swift/`. Test files for gated families are wrapped in `#if <Trait>` so the test target compiles under any trait selection. `Common/` has one test file per family (`LsTests.swift`, `CpTests.swift`, …) plus `CommonTestSupport.swift` (shared helpers, ungated).
 
 ### `Scripts/`
 
@@ -169,7 +173,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 **Trait inventory (declared in `Package.swift`):**
 
-- Per-family: `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip` (one trait per family directory; for `Common/`, one trait per file).
+- Per-family: `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip` (one trait per family directory; for `Common/`, one trait per file).
 - Umbrellas: `CommonUtilities` (all `Common/*`), `All` (every family).
 
 **The wiring contract** — enforced by `Scripts/validate-traits.swift` and CI:

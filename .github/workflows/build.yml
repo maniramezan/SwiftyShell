@@ -27,7 +27,7 @@ jobs:
       - name: Compute affected traits
         id: compute
         run: |
-          FULL='["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "Make", "Node", "Npm", "Terraform", "Kubectl", "Python", "Rsync", "Tar", "Zip", "Unzip", "CommonUtilities", "All"]'
+          FULL='["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "Make", "Node", "Npm", "Yarn", "Pnpm", "Bun", "Terraform", "Kubectl", "Python", "Rsync", "Tar", "Zip", "Unzip", "CommonUtilities", "All"]'
 
           CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
           echo "Changed files:"
@@ -59,6 +59,9 @@ jobs:
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Make/|Tests/SwiftyShellTests/Make/)' && family_traits+=("Make")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Node/|Tests/SwiftyShellTests/Node/)' && family_traits+=("Node")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Npm/|Tests/SwiftyShellTests/Npm/)' && family_traits+=("Npm")
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Yarn/|Tests/SwiftyShellTests/Yarn/)' && family_traits+=("Yarn")
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Pnpm/|Tests/SwiftyShellTests/Pnpm/)' && family_traits+=("Pnpm")
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Bun/|Tests/SwiftyShellTests/Bun/)' && family_traits+=("Bun")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Terraform/|Tests/SwiftyShellTests/Terraform/)' && family_traits+=("Terraform")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Kubectl/|Tests/SwiftyShellTests/Kubectl/)' && family_traits+=("Kubectl")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Python/|Tests/SwiftyShellTests/Python/)' && family_traits+=("Python")

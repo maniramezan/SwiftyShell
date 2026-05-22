@@ -93,21 +93,28 @@ struct CommandTests {
 
     @Test func timeoutPreservesPartialOutput() async throws {
         let context = ShellContext(defaultTimeout: 0.5)
+        let marker = "/tmp/swiftyshell-timeout-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: marker) }
 
-        do {
-            _ = try await Command(
+        let task = Task {
+            try await Command(
                 "/bin/sh",
                 arguments: "-c",
-                "printf 'start'; i=0; while [ $i -lt 20 ]; do printf '.'; sleep 0.001; i=$((i + 1)); done; exec sleep 30"
+                "printf 'start'; touch '\(marker)'; exec sleep 30"
             ).run(in: context)
+        }
+
+        try await waitForFile(at: marker)
+
+        do {
+            _ = try await task.value
             Issue.record("Expected timeout")
         } catch let error as ShellError {
             guard case let .timeout(_, _, partialOutput) = error else {
                 Issue.record("Unexpected error: \(error)")
                 return
             }
-            #expect(partialOutput.stdout.hasPrefix("start"))
-            #expect(partialOutput.stdout.isEmpty == false)
+            #expect(partialOutput.stdout == "start")
         }
     }
 

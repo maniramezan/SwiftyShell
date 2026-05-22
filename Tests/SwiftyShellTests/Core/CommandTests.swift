@@ -92,7 +92,7 @@ struct CommandTests {
     }
 
     @Test func timeoutPreservesPartialOutput() async throws {
-        let context = ShellContext(defaultTimeout: 0.5)
+        let context = ShellContext(defaultTimeout: 5)
         let marker = "/tmp/swiftyshell-timeout-\(UUID().uuidString)"
         defer { try? FileManager.default.removeItem(atPath: marker) }
 

@@ -25,7 +25,7 @@ on:
           Defaults to the full matrix when omitted.
         required: false
         type: string
-        default: '["", "Git", "Brew", "Grep", "Fzf", "Rg", "Tar", "Zip", "Unzip", "CommonUtilities", "All"]'
+        default: '["", "Git", "Brew", "Grep", "Fzf", "Rg", "Rsync", "Tar", "Zip", "Unzip", "CommonUtilities", "All"]'
 
 jobs:
   validate-traits:
@@ -209,10 +209,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install zip, unzip, fzf, and ripgrep
+      - name: Install zip, unzip, fzf, ripgrep, and rsync
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends zip unzip fzf ripgrep
+          apt-get install -y --no-install-recommends zip unzip fzf ripgrep rsync
 
       - name: Cache SPM dependencies
         uses: actions/cache@v5

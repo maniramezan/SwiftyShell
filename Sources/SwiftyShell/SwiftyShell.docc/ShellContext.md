@@ -13,7 +13,7 @@ while individual calls tune themselves where needed.
 
 A fresh context inherits sensible platform defaults — the current process's
 environment, the platform `PATH`, no working-directory override, no timeout,
-and a 10 MB output cap:
+and no output cap (unlimited by default):
 
 ```swift
 import SwiftyShell
@@ -28,7 +28,7 @@ process cleanup after that point is handled by ``SubprocessExecutor``. Timeout
 values must be finite and non-negative.
 
 For longer-running scripts, set program-wide defaults at construction time so
-every call inherits them:
+every call inherits them. You can opt into an output cap if needed:
 
 ```swift
 let buildContext = ShellContext(

@@ -86,7 +86,7 @@ This does **not** mean every executable on the system gets its own Swift type, o
 ### Output Handling
 
 - Output is buffered in memory by default (stdout and stderr decoded as UTF-8).
-- Default maximum captured output size is 10 MiB; configurable via `ShellContext.defaultOutputLimit` or per-command/client `.outputLimit(_:)`.
+- Default output limit is unlimited (`0`); configurable via `ShellContext.defaultOutputLimit` or per-command/client `.outputLimit(_:)`. Pass a positive byte count to cap captured output.
 - Exceeding the limit keeps draining the child process output, then throws `ShellError.outputLimitExceeded`.
 - Invalid UTF-8 throws `ShellError.decodingError`.
 - Negative timeout or output-limit values throw `ShellError.invalidConfiguration`.

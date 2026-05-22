@@ -63,7 +63,7 @@ public struct ShellContext: Sendable {
         environment: [String: String] = ProcessInfo.processInfo.environment,
         workingDirectory: String? = nil,
         defaultTimeout: TimeInterval? = nil,
-        defaultOutputLimit: Int = 10_485_760
+        defaultOutputLimit: Int = 0
     )
 
     public let executor: any CommandExecutor

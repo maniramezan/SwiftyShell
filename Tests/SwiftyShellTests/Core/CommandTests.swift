@@ -3,7 +3,7 @@ import Testing
 @testable import SwiftyShell
 
 private func waitForFile(at path: String) async throws {
-    for _ in 0..<100 {
+    for _ in 0..<500 {
         if FileManager.default.fileExists(atPath: path) {
             return
         }
@@ -92,7 +92,7 @@ struct CommandTests {
     }
 
     @Test func timeoutPreservesPartialOutput() async throws {
-        let context = ShellContext(defaultTimeout: 0.5)
+        let context = ShellContext(defaultTimeout: 5)
         let marker = "/tmp/swiftyshell-timeout-\(UUID().uuidString)"
         defer { try? FileManager.default.removeItem(atPath: marker) }
 

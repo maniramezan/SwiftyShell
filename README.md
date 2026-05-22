@@ -98,6 +98,15 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Swift` | `swift` | `Swift` | SwiftPM build, test, run, package commands, traits, compiler flags |
 | `Gh` | `gh` | `Gh` | GitHub CLI automation for PRs, repos, workflows, Copilot, skills, API calls |
 | `Docker` | `docker` | `Docker` | Docker automation for Buildx, Compose, Debug, MCP, Scout, images, containers |
+| `Make` | `make` | `Make` | Makefile targets, parallel jobs, dry runs, keep-going builds |
+| `Node` | `node` | `Node` | Node.js runtime scripting, eval, syntax checks, script files |
+| `Npm` | `npm` | `Npm` | npm installs, scripts, package execution, audits |
+| `Yarn` | `yarn` | `Yarn` | Yarn installs, scripts, package execution, workspaces |
+| `Pnpm` | `pnpm` | `Pnpm` | pnpm installs, scripts, filters, recursive workspace runs |
+| `Bun` | `bun` | `Bun` | Bun runtime, package manager, tests, scripts, and builds |
+| `Terraform` | `terraform` | `Terraform` | Terraform init, plan, apply, workspaces, outputs |
+| `Kubectl` | `kubectl` | `Kubectl` | Kubernetes get, apply, logs, exec, namespaces, contexts |
+| `Python` | `python3` | `Python` | Python interpreter modules, command strings, scripts, options |
 | `Ls` | `ls` | `Ls` | All flags, recursive, human-readable sizes |
 | `Cp` | `cp` | `Cp` | Recursive, force |
 | `Mkdir` | `mkdir` | `Mkdir` | Parent directories, permissions |

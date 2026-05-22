@@ -24,6 +24,15 @@ let package = Package(
         .trait(name: "Swift", description: "Typed wrapper for the Swift toolchain CLI."),
         .trait(name: "Gh", description: "Typed wrapper for the GitHub CLI."),
         .trait(name: "Docker", description: "Typed wrapper for the Docker CLI."),
+        .trait(name: "Make", description: "Typed wrapper for the make build automation CLI."),
+        .trait(name: "Node", description: "Typed wrapper for the Node.js runtime CLI."),
+        .trait(name: "Npm", description: "Typed wrapper for the npm package manager CLI."),
+        .trait(name: "Yarn", description: "Typed wrapper for the Yarn package manager CLI."),
+        .trait(name: "Pnpm", description: "Typed wrapper for the pnpm package manager CLI."),
+        .trait(name: "Bun", description: "Typed wrapper for the Bun runtime and package manager CLI."),
+        .trait(name: "Terraform", description: "Typed wrapper for the Terraform CLI."),
+        .trait(name: "Kubectl", description: "Typed wrapper for the Kubernetes kubectl CLI."),
+        .trait(name: "Python", description: "Typed wrapper for the Python interpreter CLI."),
         .trait(name: "Ls", description: "Typed wrapper for ls."),
         .trait(name: "Cp", description: "Typed wrapper for cp."),
         .trait(name: "Mkdir", description: "Typed wrapper for mkdir."),
@@ -46,7 +55,10 @@ let package = Package(
         .trait(
             name: "All",
             description: "Enables every command family shipped by SwiftyShell.",
-            enabledTraits: ["Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "CommonUtilities"]
+            enabledTraits: [
+                "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "Make", "Node", "Npm", "Yarn",
+                "Pnpm", "Bun", "Terraform", "Kubectl", "Python", "CommonUtilities",
+            ]
         ),
         // Default is intentionally empty: consumers opt in to the families they want.
         .default(enabledTraits: []),

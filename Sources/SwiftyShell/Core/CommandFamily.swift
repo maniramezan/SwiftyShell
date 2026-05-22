@@ -219,3 +219,7 @@ public extension RunnableCommandFamily {
         try await command().spawn(in: context, teardown: teardown)
     }
 }
+
+func appendOption(_ name: String, _ value: String?, to arguments: inout [String]) {
+    if let value { arguments += [name, value] }
+}

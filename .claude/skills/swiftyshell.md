@@ -33,14 +33,32 @@ Before writing any code, follow this decision tree:
    → Use `Gh`
 9. Is this a Docker CLI operation (`docker buildx`, `docker compose`, `docker debug`, `docker mcp`, `docker scout`, ...)?
    → Use `Docker`
-10. Does the operation need typed output, structured results, or conditional follow-up?
-   → Use the appropriate typed client
-11. Are two or more commands chained by pipe?
-   → Use `.pipe(to:)` to build a `Pipeline`
-12. Does the command write output to a file?
-   → Use `.stdout(.file(path:append:))` on the command
-13. Is this any other command?
-      → Use `Command`
+10. Is this a Makefile operation (`make check`, `make test`, `make -j8`, ...)?
+    → Use `Make`
+11. Is this a Node.js runtime operation (`node --eval`, `node --check`, running a `.js` file, ...)?
+    → Use `Node`
+12. Is this an npm operation (`npm ci`, `npm run build`, `npm exec`, ...)?
+    → Use `Npm`
+13. Is this a Yarn operation (`yarn install`, `yarn run build`, `yarn dlx`, ...)?
+    → Use `Yarn`
+14. Is this a pnpm operation (`pnpm install`, `pnpm run build`, `pnpm exec`, ...)?
+    → Use `Pnpm`
+15. Is this a Bun operation (`bun run`, `bun test`, `bun build`, ...)?
+    → Use `Bun`
+16. Is this a Terraform operation (`terraform init`, `terraform plan`, `terraform apply`, ...)?
+    → Use `Terraform`
+17. Is this a Kubernetes CLI operation (`kubectl get`, `kubectl apply`, `kubectl logs`, ...)?
+    → Use `Kubectl`
+18. Is this a Python interpreter operation (`python3 -m`, `python3 -c`, running a `.py` file, ...)?
+    → Use `Python`
+19. Does the operation need typed output, structured results, or conditional follow-up?
+    → Use the appropriate typed client
+20. Are two or more commands chained by pipe?
+    → Use `.pipe(to:)` to build a `Pipeline`
+21. Does the command write output to a file?
+    → Use `.stdout(.file(path:append:))` on the command
+22. Is this any other command?
+       → Use `Command`
 
 ### API Reference
 
@@ -952,6 +970,296 @@ public struct Docker: RunnableCommandFamily {
 }
 ```
 
+#### Scripting CLIs
+
+```swift
+public struct Make: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func file(_ path: String) -> Self
+    public func directory(_ path: String) -> Self
+    public func jobs(_ count: Int) -> Self
+    public func keepGoing(_ enabled: Bool = true) -> Self
+    public func silent(_ enabled: Bool = true) -> Self
+    public func dryRun(_ enabled: Bool = true) -> Self
+    public func alwaysMake(_ enabled: Bool = true) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func target(_ name: String) -> Self
+    public func targets(_ names: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct Node: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func version() -> Self
+    public func eval(_ code: String) -> Self
+    public func printExpression(_ code: String) -> Self
+    public func check(_ path: String) -> Self
+    public func script(_ path: String) -> Self
+    public func require(_ module: String) -> Self
+    public func inspect(_ enabled: Bool = true) -> Self
+    public func watch(_ enabled: Bool = true) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func scriptArgument(_ value: String) -> Self
+    public func scriptArguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public enum NpmSubcommand: String, Sendable, Equatable, Hashable {
+    case install
+    case ci
+    case run
+    case test
+    case publish
+    case exec
+    case outdated
+    case audit
+    case version
+}
+
+public struct Npm: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func subcommand(_ value: NpmSubcommand) -> Self
+    public func subcommand(_ value: String) -> Self
+    public func install() -> Self
+    public func ci() -> Self
+    public func test() -> Self
+    public func exec(_ binary: String? = nil) -> Self
+    public func runScript(_ name: String) -> Self
+    public func prefix(_ path: String) -> Self
+    public func global(_ enabled: Bool = true) -> Self
+    public func production(_ enabled: Bool = true) -> Self
+    public func ifPresent(_ enabled: Bool = true) -> Self
+    public func silent(_ enabled: Bool = true) -> Self
+    public func json(_ enabled: Bool = true) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func positionalArgument(_ value: String) -> Self
+    public func positionalArguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public enum YarnSubcommand: String, Sendable, Equatable, Hashable {
+    case install
+    case add
+    case remove
+    case run
+    case test
+    case exec
+    case dlx
+    case workspaces
+    case version
+}
+
+public struct Yarn: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func subcommand(_ value: YarnSubcommand) -> Self
+    public func subcommand(_ value: String) -> Self
+    public func install() -> Self
+    public func add(_ packages: String...) -> Self
+    public func add(_ packages: [String]) -> Self
+    public func remove(_ packages: String...) -> Self
+    public func remove(_ packages: [String]) -> Self
+    public func test() -> Self
+    public func exec(_ binary: String? = nil) -> Self
+    public func dlx(_ package: String? = nil) -> Self
+    public func runScript(_ name: String) -> Self
+    public func cwd(_ path: String) -> Self
+    public func immutable(_ enabled: Bool = true) -> Self
+    public func production(_ enabled: Bool = true) -> Self
+    public func silent(_ enabled: Bool = true) -> Self
+    public func json(_ enabled: Bool = true) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func positionalArgument(_ value: String) -> Self
+    public func positionalArguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public enum PnpmSubcommand: String, Sendable, Equatable, Hashable {
+    case install
+    case add
+    case remove
+    case run
+    case test
+    case exec
+    case dlx
+    case audit
+    case version
+}
+
+public struct Pnpm: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func subcommand(_ value: PnpmSubcommand) -> Self
+    public func subcommand(_ value: String) -> Self
+    public func install() -> Self
+    public func add(_ packages: String...) -> Self
+    public func add(_ packages: [String]) -> Self
+    public func remove(_ packages: String...) -> Self
+    public func remove(_ packages: [String]) -> Self
+    public func test() -> Self
+    public func exec(_ binary: String? = nil) -> Self
+    public func dlx(_ package: String? = nil) -> Self
+    public func runScript(_ name: String) -> Self
+    public func directory(_ path: String) -> Self
+    public func filter(_ selector: String) -> Self
+    public func recursive(_ enabled: Bool = true) -> Self
+    public func ifPresent(_ enabled: Bool = true) -> Self
+    public func frozenLockfile(_ enabled: Bool = true) -> Self
+    public func production(_ enabled: Bool = true) -> Self
+    public func json(_ enabled: Bool = true) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func positionalArgument(_ value: String) -> Self
+    public func positionalArguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public enum BunSubcommand: String, Sendable, Equatable, Hashable {
+    case run
+    case test
+    case install
+    case add
+    case remove
+    case build
+    case x
+    case pm
+    case upgrade
+}
+
+public struct Bun: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func subcommand(_ value: BunSubcommand) -> Self
+    public func subcommand(_ value: String) -> Self
+    public func install() -> Self
+    public func add(_ packages: String...) -> Self
+    public func add(_ packages: [String]) -> Self
+    public func remove(_ packages: String...) -> Self
+    public func remove(_ packages: [String]) -> Self
+    public func test() -> Self
+    public func build(_ entrypoints: String...) -> Self
+    public func build(_ entrypoints: [String]) -> Self
+    public func x(_ binary: String? = nil) -> Self
+    public func runScript(_ name: String) -> Self
+    public func cwd(_ path: String) -> Self
+    public func watch(_ enabled: Bool = true) -> Self
+    public func hot(_ enabled: Bool = true) -> Self
+    public func production(_ enabled: Bool = true) -> Self
+    public func frozenLockfile(_ enabled: Bool = true) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func positionalArgument(_ value: String) -> Self
+    public func positionalArguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public enum TerraformSubcommand: String, Sendable, Equatable, Hashable {
+    case version
+    case initialize
+    case plan
+    case apply
+    case destroy
+    case validate
+    case format
+    case output
+    case workspace
+}
+
+public struct Terraform: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func subcommand(_ value: TerraformSubcommand) -> Self
+    public func subcommand(_ value: String) -> Self
+    public func initCommand() -> Self
+    public func plan() -> Self
+    public func apply() -> Self
+    public func destroy() -> Self
+    public func validate() -> Self
+    public func format() -> Self
+    public func output() -> Self
+    public func workspace(_ nested: String? = nil) -> Self
+    public func chdir(_ path: String) -> Self
+    public func input(_ enabled: Bool) -> Self
+    public func noColor(_ enabled: Bool = true) -> Self
+    public func json(_ enabled: Bool = true) -> Self
+    public func autoApprove(_ enabled: Bool = true) -> Self
+    public func refresh(_ enabled: Bool) -> Self
+    public func `var`(_ assignment: String) -> Self
+    public func `var`(_ key: String, _ value: String) -> Self
+    public func varFile(_ path: String) -> Self
+    public func out(_ path: String) -> Self
+    public func target(_ address: String) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func positionalArgument(_ value: String) -> Self
+    public func positionalArguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public enum KubectlSubcommand: String, Sendable, Equatable, Hashable {
+    case get
+    case describe
+    case apply
+    case delete
+    case logs
+    case exec
+    case rollout
+    case config
+    case version
+}
+
+public struct Kubectl: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func subcommand(_ value: KubectlSubcommand) -> Self
+    public func subcommand(_ value: String) -> Self
+    public func get(_ resource: String? = nil) -> Self
+    public func describe(_ resource: String? = nil) -> Self
+    public func apply() -> Self
+    public func delete(_ resource: String? = nil) -> Self
+    public func logs(_ resource: String? = nil) -> Self
+    public func exec(_ resource: String? = nil) -> Self
+    public func kubeconfig(_ path: String) -> Self
+    public func contextName(_ name: String) -> Self
+    public func namespace(_ name: String) -> Self
+    public func output(_ format: String) -> Self
+    public func filename(_ path: String) -> Self
+    public func selector(_ value: String) -> Self
+    public func container(_ name: String) -> Self
+    public func allNamespaces(_ enabled: Bool = true) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func positionalArgument(_ value: String) -> Self
+    public func positionalArguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public struct Python: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func version() -> Self
+    public func module(_ name: String) -> Self
+    public func commandString(_ code: String) -> Self
+    public func script(_ path: String) -> Self
+    public func isolated(_ enabled: Bool = true) -> Self
+    public func unbuffered(_ enabled: Bool = true) -> Self
+    public func dontWriteBytecode(_ enabled: Bool = true) -> Self
+    public func optimize(_ level: Int = 1) -> Self
+    public func option(_ value: String) -> Self
+    public func options(_ values: [String]) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+```
+
 #### Archives (Tar / Zip / Unzip)
 
 ```swift
@@ -1621,7 +1929,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Python`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:
@@ -1634,7 +1942,7 @@ Consumers select families with `traits:` on `.package(...)`:
 
 The contract is enforced by `Scripts/validate-traits.swift` and CI:
 
-1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, `Docker/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
+1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Python/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
 2. Every test file targeting a gated family is wrapped the same way. Cross-family tests use combined guards (`#if Git && Grep`).
 3. Every family directory (or `Common/*.swift` file) has a matching `.trait(name:)` entry in `Package.swift`.
 4. The `All` umbrella's `enabledTraits` transitively enables every per-family trait. The `CommonUtilities` umbrella enables every `Common/*` trait.

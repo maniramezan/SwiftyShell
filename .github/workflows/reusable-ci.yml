@@ -25,7 +25,7 @@ on:
           Defaults to the full matrix when omitted.
         required: false
         type: string
-        default: '["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Rsync", "Tar", "Zip", "Unzip", "CommonUtilities", "All"]'
+        default: '["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Rsync", "Tar", "Zip", "Unzip", "CommonUtilities", "All"]'
 
 jobs:
   validate-traits:

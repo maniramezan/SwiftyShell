@@ -96,6 +96,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Brew` | `brew` | `Brew` | Full top-level subcommand coverage, plus `--cask` and `--greedy` |
 | `Fzf` | `fzf` | `Fzf` | Fuzzy finder options for interactive and filter-mode pipelines |
 | `Swift` | `swift` | `Swift` | SwiftPM build, test, run, package commands, traits, compiler flags |
+| `Gh` | `gh` | `Gh` | GitHub CLI automation for PRs, repos, workflows, Copilot, skills, API calls |
 | `Ls` | `ls` | `Ls` | All flags, recursive, human-readable sizes |
 | `Cp` | `cp` | `Cp` | Recursive, force |
 | `Mkdir` | `mkdir` | `Mkdir` | Parent directories, permissions |

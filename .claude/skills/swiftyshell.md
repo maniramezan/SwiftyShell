@@ -29,14 +29,16 @@ Before writing any code, follow this decision tree:
    → Use `Brew`
 7. Is this a Swift toolchain or SwiftPM operation (`swift build`, `swift test`, `swift run`, `swift package`, ...)?
    → Use `Swift`
-8. Does the operation need typed output, structured results, or conditional follow-up?
+8. Is this a GitHub CLI operation (`gh pr`, `gh repo`, `gh workflow`, `gh api`, `gh copilot`, `gh skill`, ...)?
+   → Use `Gh`
+9. Does the operation need typed output, structured results, or conditional follow-up?
    → Use the appropriate typed client
-9. Are two or more commands chained by pipe?
+10. Are two or more commands chained by pipe?
    → Use `.pipe(to:)` to build a `Pipeline`
-10. Does the command write output to a file?
+11. Does the command write output to a file?
    → Use `.stdout(.file(path:append:))` on the command
-11. Is this any other command?
-     → Use `Command`
+12. Is this any other command?
+      → Use `Command`
 
 ### API Reference
 
@@ -749,6 +751,106 @@ public struct Swift: RunnableCommandFamily {
 }
 ```
 
+#### GitHub CLI
+
+```swift
+public enum GhSubcommand: String, Sendable, Equatable, Hashable {
+    case agentTask
+    case agent
+    case agents
+    case agentTasks
+    case alias
+    case api
+    case attestation
+    case auth
+    case browse
+    case cache
+    case completion
+    case config
+    case copilot
+    case extensionCommand
+    case gist
+    case gpgKey
+    case issue
+    case label
+    case licenses
+    case org
+    case pr
+    case project
+    case release
+    case repo
+    case ruleset
+    case run
+    case search
+    case secret
+    case skill
+    case sshKey
+    case status
+    case variable
+    case workflow
+}
+
+public struct Gh: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func version() -> Self
+    public func subcommand(_ value: GhSubcommand) -> Self
+    public func subcommand(_ value: String) -> Self
+    public func subcommand(_ value: GhSubcommand, _ nested: String) -> Self
+    public func subcommand(_ value: String, _ nested: String) -> Self
+    public func agentTask(_ nested: String? = nil) -> Self
+    public func agent(_ nested: String? = nil) -> Self
+    public func agents(_ nested: String? = nil) -> Self
+    public func agentTasks(_ nested: String? = nil) -> Self
+    public func alias(_ nested: String? = nil) -> Self
+    public func api(_ endpoint: String? = nil) -> Self
+    public func attestation(_ nested: String? = nil) -> Self
+    public func auth(_ nested: String? = nil) -> Self
+    public func browse(_ path: String? = nil) -> Self
+    public func cache(_ nested: String? = nil) -> Self
+    public func completion(_ shell: String? = nil) -> Self
+    public func config(_ nested: String? = nil) -> Self
+    public func copilot() -> Self
+    public func extensionCommand(_ nested: String? = nil) -> Self
+    public func gist(_ nested: String? = nil) -> Self
+    public func gpgKey(_ nested: String? = nil) -> Self
+    public func issue(_ nested: String? = nil) -> Self
+    public func label(_ nested: String? = nil) -> Self
+    public func licenses() -> Self
+    public func org(_ nested: String? = nil) -> Self
+    public func pr(_ nested: String? = nil) -> Self
+    public func project(_ nested: String? = nil) -> Self
+    public func release(_ nested: String? = nil) -> Self
+    public func repoCommand(_ nested: String? = nil) -> Self
+    public func ruleset(_ nested: String? = nil) -> Self
+    public func runCommand(_ nested: String? = nil) -> Self
+    public func search(_ nested: String? = nil) -> Self
+    public func secret(_ nested: String? = nil) -> Self
+    public func skill(_ nested: String? = nil) -> Self
+    public func sshKey(_ nested: String? = nil) -> Self
+    public func status() -> Self
+    public func variable(_ nested: String? = nil) -> Self
+    public func workflow(_ nested: String? = nil) -> Self
+    public func repo(_ ownerAndName: String) -> Self
+    public func hostname(_ value: String) -> Self
+    public func json(_ fields: [String]) -> Self
+    public func json(_ fields: String...) -> Self
+    public func jq(_ expression: String) -> Self
+    public func template(_ value: String) -> Self
+    public func limit(_ count: Int) -> Self
+    public func web(_ enabled: Bool = true) -> Self
+    public func confirm(_ enabled: Bool = true) -> Self
+    public func silent(_ enabled: Bool = true) -> Self
+    public func option(_ name: String) -> Self
+    public func option(_ name: String, _ value: String) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func positionalArgument(_ value: String) -> Self
+    public func positionalArguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+```
+
 #### Archives (Tar / Zip / Unzip)
 
 ```swift
@@ -1418,7 +1520,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Swift`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:
@@ -1431,7 +1533,7 @@ Consumers select families with `traits:` on `.package(...)`:
 
 The contract is enforced by `Scripts/validate-traits.swift` and CI:
 
-1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Swift/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
+1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
 2. Every test file targeting a gated family is wrapped the same way. Cross-family tests use combined guards (`#if Git && Grep`).
 3. Every family directory (or `Common/*.swift` file) has a matching `.trait(name:)` entry in `Package.swift`.
 4. The `All` umbrella's `enabledTraits` transitively enables every per-family trait. The `CommonUtilities` umbrella enables every `Common/*` trait.

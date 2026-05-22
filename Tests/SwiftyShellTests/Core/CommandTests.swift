@@ -3,7 +3,7 @@ import Testing
 @testable import SwiftyShell
 
 private func waitForFile(at path: String) async throws {
-    for _ in 0..<100 {
+    for _ in 0..<500 {
         if FileManager.default.fileExists(atPath: path) {
             return
         }

@@ -83,8 +83,9 @@ public struct Command: Sendable {
 
     /// An optional per-command output capture limit in bytes.
     ///
-    /// When non-`nil`, this value replaces ``ShellContext/defaultOutputLimit``. Exceeding the
-    /// limit raises ``ShellError/outputLimitExceeded(command:limit:partialOutput:)``. Set with
+    /// When non-`nil`, this value replaces ``ShellContext/defaultOutputLimit``. A value of `0`
+    /// means unlimited (no cap). A positive value enforces that byte limit — exceeding it
+    /// raises ``ShellError/outputLimitExceeded(command:limit:partialOutput:)``. Set with
     /// ``outputLimit(_:)``.
     public let outputLimitOverride: Int?
 
@@ -287,7 +288,7 @@ public struct Command: Sendable {
     /// The limit applies to the combined size of captured stdout and stderr. When exceeded,
     /// the executor terminates the process and throws
     /// ``ShellError/outputLimitExceeded(command:limit:partialOutput:)`` containing the captured
-    /// portion. The value must be greater than or equal to zero.
+    /// portion. Pass `0` for unlimited (no cap), or a positive value for a byte limit.
     ///
     /// Streams routed through ``OutputDestination/file(path:append:)`` or
     /// ``OutputDestination/discard`` do not contribute to the captured size.

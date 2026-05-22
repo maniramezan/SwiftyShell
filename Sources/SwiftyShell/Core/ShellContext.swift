@@ -114,8 +114,8 @@ public struct ShellContext: Sendable {
     ///
     /// Applies to the combined captured stdout and stderr per command. When exceeded, the
     /// executor raises ``ShellError/outputLimitExceeded(command:limit:partialOutput:)``.
-    /// Defaults to `10_485_760` (10 MB). Per-command overrides via ``Command/outputLimit(_:)``
-    /// take precedence.
+    /// Defaults to `0` (unlimited — no cap). Set to a positive value to enforce a byte limit.
+    /// Per-command overrides via ``Command/outputLimit(_:)`` take precedence.
     public let defaultOutputLimit: Int
 
     /// Creates a shell context with execution defaults.
@@ -136,14 +136,14 @@ public struct ShellContext: Sendable {
     ///   - defaultTimeout: The default timeout in seconds for commands that do not override it.
     ///     Must be `>= 0` when provided. Pass `nil` (the default) to leave commands unbounded.
     ///   - defaultOutputLimit: The maximum captured output size in bytes for commands that do
-    ///     not override it. Must be `>= 0`. Defaults to `10_485_760` (10 MB).
+    ///     not override it. `0` means unlimited (default). Must be `>= 0`.
     public init(
         executor: any CommandExecutor = SubprocessExecutor(),
         searchPaths: [String] = ShellContext.defaultSearchPaths,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         workingDirectory: String? = nil,
         defaultTimeout: TimeInterval? = nil,
-        defaultOutputLimit: Int = 10_485_760
+        defaultOutputLimit: Int = 0
     ) {
         self.executor = executor
         self.searchPaths = searchPaths

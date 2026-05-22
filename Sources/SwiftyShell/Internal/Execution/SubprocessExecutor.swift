@@ -107,14 +107,16 @@ private struct ResolvedCommand: Sendable {
         self.environment = context.environment.merging(command.environmentOverrides) { _, new in new }
         self.workingDirectory = command.workingDirectoryOverride ?? context.workingDirectory
         self.timeout = command.timeoutOverride ?? context.defaultTimeout
-        self.outputLimit = command.outputLimitOverride ?? context.defaultOutputLimit
+        let rawLimit = command.outputLimitOverride ?? context.defaultOutputLimit
+        guard rawLimit >= 0 else {
+            throw ShellError.invalidConfiguration(
+                description: "Output limit must be zero (unlimited) or a positive byte count"
+            )
+        }
+        // 0 means unlimited; normalize to Int.max so downstream comparisons work unchanged.
+        self.outputLimit = rawLimit == 0 ? Int.max : rawLimit
         if let timeout, timeout < 0 || timeout.isFinite == false {
             throw ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")
-        }
-        guard outputLimit >= 0 else {
-            throw ShellError.invalidConfiguration(
-                description: "Output limit must be greater than or equal to zero bytes"
-            )
         }
         self.stdoutDestination = command.stdoutDestination
         self.stderrDestination = command.stderrDestination

@@ -92,7 +92,9 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 |---|---|---|---|
 | `Git` | `git` | `Git` | Structured `GitStatus`, workflow gates, concurrent fetch |
 | `Grep` | `grep` | `Grep` | Literal and regex patterns, recursive, case-insensitive |
+| `Rg` | `rg` | `Rg` | Comprehensive ripgrep support, context, globs, JSON output |
 | `Brew` | `brew` | `Brew` | Full top-level subcommand coverage, plus `--cask` and `--greedy` |
+| `Fzf` | `fzf` | `Fzf` | Fuzzy finder options for interactive and filter-mode pipelines |
 | `Ls` | `ls` | `Ls` | All flags, recursive, human-readable sizes |
 | `Cp` | `cp` | `Cp` | Recursive, force |
 | `Mkdir` | `mkdir` | `Mkdir` | Parent directories, permissions |
@@ -101,6 +103,8 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Mv` | `mv` | `Mv` | Force |
 | `Pwd` | `pwd` | `Pwd` | Physical and logical paths |
 | `Jq` | `jq` | `Jq` | Filter expressions, `--arg` bindings, raw output |
+| `Zip` | `zip` | `Zip` | Info-ZIP archive creation, compression, recursion, exclusions |
+| `Unzip` | `unzip` | `Unzip` | Info-ZIP archive extraction and structured entry listing |
 
 When the tool you need isn't listed, `Command("tool", arguments: "arg").run(in: context)` is the fluent escape hatch. If you use the same tool repeatedly, promoting it to a typed family is straightforward — see below.
 
@@ -175,10 +179,6 @@ make linux-ci-amd64
 ```
 
 For macOS validation from Linux, rely on GitHub Actions' macOS runners; Docker-based local macOS execution is not a practical option on Linux hosts.
-
-## Changelog
-
-Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

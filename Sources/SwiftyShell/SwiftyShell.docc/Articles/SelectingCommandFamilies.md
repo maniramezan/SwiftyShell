@@ -6,7 +6,7 @@ Pick exactly the typed shell wrappers your project needs.
 
 SwiftyShell is split into a small, always-available `Core` (commands,
 pipelines, contexts, errors, executors) and a set of **opt-in** typed
-command families: ``Git``, ``Brew``, ``Grep``, ``Fzf``, and a collection of common
+command families: ``Git``, ``Brew``, ``Grep``, ``Fzf``, ``Swift``, and a collection of common
 file/directory utilities (``Ls``, ``Cp``, ``Mv``, ``Mkdir``, ``Chmod``, ``Rm``, ``Pwd``,
 ``Jq``, ``Rsync``, ``Tar``, ``Zip``, ``Unzip``).
 
@@ -47,6 +47,7 @@ let status = try await Git()
 | `Brew`             | ``Brew`` Homebrew wrapper                                  |
 | `Grep`             | ``Grep`` typed grep wrapper                                |
 | `Fzf`              | ``Fzf`` typed fuzzy-finder wrapper                         |
+| `Swift`            | ``Swift`` Swift toolchain and SwiftPM wrapper              |
 | `Ls`               | ``Ls``                                                     |
 | `Cp`               | ``Cp``                                                     |
 | `Mv`               | ``Mv``                                                     |

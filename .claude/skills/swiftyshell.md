@@ -27,14 +27,16 @@ Before writing any code, follow this decision tree:
    → Use `Grep` or `Jq`
 6. Is this a Homebrew operation (`brew install`, `brew upgrade`, `brew list`, ...)?
    → Use `Brew`
-7. Does the operation need typed output, structured results, or conditional follow-up?
+7. Is this a Swift toolchain or SwiftPM operation (`swift build`, `swift test`, `swift run`, `swift package`, ...)?
+   → Use `Swift`
+8. Does the operation need typed output, structured results, or conditional follow-up?
    → Use the appropriate typed client
-8. Are two or more commands chained by pipe?
+9. Are two or more commands chained by pipe?
    → Use `.pipe(to:)` to build a `Pipeline`
-9. Does the command write output to a file?
+10. Does the command write output to a file?
    → Use `.stdout(.file(path:append:))` on the command
-10. Is this any other command?
-    → Use `Command`
+11. Is this any other command?
+     → Use `Command`
 
 ### API Reference
 
@@ -690,6 +692,63 @@ public struct Rsync: RunnableCommandFamily {
 }
 ```
 
+#### Swift Toolchain
+
+```swift
+public enum SwiftSubcommand: Sendable, Equatable, Hashable {
+    case version
+    case build
+    case test
+    case run
+    case package
+    case repl
+    case custom(String)
+}
+
+public enum SwiftBuildConfiguration: String, Sendable, Equatable, Hashable {
+    case debug
+    case release
+}
+
+public struct Swift: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func subcommand(_ value: SwiftSubcommand) -> Self
+    public func subcommand(_ value: String) -> Self
+    public func build() -> Self
+    public func test() -> Self
+    public func runProduct(_ product: String? = nil) -> Self
+    public func package(_ subcommand: String? = nil) -> Self
+    public func repl() -> Self
+    public func version() -> Self
+    public func packagePath(_ path: String) -> Self
+    public func scratchPath(_ path: String) -> Self
+    public func configuration(_ value: SwiftBuildConfiguration) -> Self
+    public func target(_ name: String) -> Self
+    public func product(_ name: String) -> Self
+    public func traits(_ names: [String]) -> Self
+    public func traits(_ names: String...) -> Self
+    public func enableAllTraits(_ enabled: Bool = true) -> Self
+    public func disableDefaultTraits(_ enabled: Bool = true) -> Self
+    public func buildTests(_ enabled: Bool = true) -> Self
+    public func codeCoverage(_ enabled: Bool = true) -> Self
+    public func skipBuild(_ enabled: Bool = true) -> Self
+    public func listTests(_ enabled: Bool = true) -> Self
+    public func filter(_ pattern: String) -> Self
+    public func skip(_ pattern: String) -> Self
+    public func jobs(_ count: Int) -> Self
+    public func swiftCompilerFlag(_ value: String) -> Self
+    public func swiftCompilerFlags(_ values: [String]) -> Self
+    public func cCompilerFlag(_ value: String) -> Self
+    public func linkerFlag(_ value: String) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func positionalArgument(_ value: String) -> Self
+    public func positionalArguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+```
+
 #### Archives (Tar / Zip / Unzip)
 
 ```swift
@@ -1098,6 +1157,13 @@ try await Brew(context: context).install("ripgrep").run()
 // Homebrew — check outdated casks
 let outdated = try await Brew(context: context).outdated().greedy().run()
 
+// SwiftPM — release build with warnings as errors
+try await Swift(context: context)
+    .build()
+    .configuration(.release)
+    .swiftCompilerFlag("-warnings-as-errors")
+    .run()
+
 // Rsync — mirror a project directory to a remote host
 try await Rsync(context: context)
     .archive()
@@ -1352,7 +1418,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Swift`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:
@@ -1365,7 +1431,7 @@ Consumers select families with `traits:` on `.package(...)`:
 
 The contract is enforced by `Scripts/validate-traits.swift` and CI:
 
-1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
+1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Swift/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
 2. Every test file targeting a gated family is wrapped the same way. Cross-family tests use combined guards (`#if Git && Grep`).
 3. Every family directory (or `Common/*.swift` file) has a matching `.trait(name:)` entry in `Package.swift`.
 4. The `All` umbrella's `enabledTraits` transitively enables every per-family trait. The `CommonUtilities` umbrella enables every `Common/*` trait.

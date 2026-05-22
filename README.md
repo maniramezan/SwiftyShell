@@ -103,6 +103,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Mv` | `mv` | `Mv` | Force |
 | `Pwd` | `pwd` | `Pwd` | Physical and logical paths |
 | `Jq` | `jq` | `Jq` | Filter expressions, `--arg` bindings, raw output |
+| `Tar` | `tar` | `Tar` | Portable tar archive creation, extraction, listing, compression |
 | `Zip` | `zip` | `Zip` | Info-ZIP archive creation, compression, recursion, exclusions |
 | `Unzip` | `unzip` | `Unzip` | Info-ZIP archive extraction and structured entry listing |
 

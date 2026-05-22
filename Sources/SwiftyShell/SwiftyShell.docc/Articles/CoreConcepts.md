@@ -17,7 +17,7 @@ SwiftyShell has a small set of core primitives that every typed command family b
 | `environment` | Inherited from the process | Base env vars for every command |
 | `workingDirectory` | `nil` (inherits from the process) | Default directory for commands |
 | `defaultTimeout` | `nil` (unlimited) | Seconds before ``ShellError/timeout(command:duration:partialOutput:)`` is thrown |
-| `defaultOutputLimit` | `10_485_760` (10 MB) | Bytes before ``ShellError/outputLimitExceeded(command:limit:partialOutput:)`` is thrown |
+| `defaultOutputLimit` | `0` (unlimited) | Bytes before ``ShellError/outputLimitExceeded(command:limit:partialOutput:)`` is thrown; `0` means no cap |
 
 ### Creating a Context
 

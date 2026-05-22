@@ -80,7 +80,7 @@ struct SpawnTests {
                 Issue.record("Unexpected error: \(error)")
                 return
             }
-            #expect(description == "Output limit must be greater than or equal to zero bytes")
+            #expect(description == "Output limit must be zero (unlimited) or a positive byte count")
         }
     }
 

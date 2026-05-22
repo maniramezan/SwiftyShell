@@ -126,7 +126,7 @@ public struct MockExecutor: CommandExecutor {
         let outputLimit = command.outputLimitOverride ?? context.defaultOutputLimit
         if outputLimit < 0 {
             throw ShellError.invalidConfiguration(
-                description: "Output limit must be greater than or equal to zero bytes"
+                description: "Output limit must be zero (unlimited) or a positive byte count"
             )
         }
     }

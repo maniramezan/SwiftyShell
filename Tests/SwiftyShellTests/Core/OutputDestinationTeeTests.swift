@@ -23,7 +23,7 @@ private func capturingStandardStreams(
     for fileDescriptor in fileDescriptors {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("tee-\(UUID().uuidString).log")
-        FileManager.default.createFile(atPath: url.path, contents: nil)
+        _ = FileManager.default.createFile(atPath: url.path, contents: nil)
         let handle = try FileHandle(forWritingTo: url)
         entries.append((fileDescriptor, url, handle, saved: -1))
     }

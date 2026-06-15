@@ -203,10 +203,11 @@ public extension RunnableCommandFamily {
 #### OutputDestination
 
 ```swift
-public enum OutputDestination: Sendable {
+public enum OutputDestination: Sendable, Equatable {
     case capture
     case discard
     case file(path: String, append: Bool)
+    case tee  // streams live to the parent stdout/stderr AND captures into ShellOutput
 }
 ```
 

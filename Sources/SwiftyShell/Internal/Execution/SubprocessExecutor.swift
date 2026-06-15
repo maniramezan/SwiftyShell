@@ -872,6 +872,32 @@ private func routeData(
         break
     case .file:
         try fileHandle?.write(contentsOf: data)
+    case .tee:
+        // Capture for ShellOutput…
+        try store.append(data, to: stream)
+        // …and echo live to the parent process stream.
+        try TeeSink.shared.write(data, to: stream)
+    }
+}
+
+/// Serializes live `.tee` writes to the parent process's standard output and standard error.
+///
+/// Routing tasks for stdout and stderr run concurrently, so without coordination their writes to
+/// ``FileHandle/standardOutput``/``FileHandle/standardError`` could interleave mid-buffer and
+/// corrupt each other. A single shared lock guards every live write, mirroring the locking pattern
+/// used by ``FileDescriptorClosure``.
+private final class TeeSink: @unchecked Sendable {
+    static let shared = TeeSink()
+
+    private let lock = NSLock()
+
+    private init() {}
+
+    func write(_ data: Data, to stream: StreamKind) throws {
+        let handle: FileHandle = (stream == .stdout) ? .standardOutput : .standardError
+        lock.lock()
+        defer { lock.unlock() }
+        try handle.write(contentsOf: data)
     }
 }
 

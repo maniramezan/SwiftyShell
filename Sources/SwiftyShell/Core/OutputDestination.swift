@@ -35,6 +35,15 @@ import Foundation
 ///     .stderr(.file(path: "/tmp/build.log", append: true))
 ///     .run(in: context)
 /// ```
+///
+/// Stream a long build live while still capturing it for parsing:
+///
+/// ```swift
+/// let output = try await Command("./gradlew", arguments: "bundleRelease")
+///     .stdout(.tee)
+///     .run(in: context)
+/// // Console shows progress during the build; output.stdout still holds the full log.
+/// ```
 public enum OutputDestination: Sendable, Equatable {
     /// Captures the stream in memory and returns it via ``ShellOutput/stdout`` or
     /// ``ShellOutput/stderr``.
@@ -63,4 +72,13 @@ public enum OutputDestination: Sendable, Equatable {
     ///   - append: When `true`, output is appended to any existing file contents. When `false`,
     ///     the file is truncated before writing.
     case file(path: String, append: Bool)
+
+    /// Streams the stream to the parent process's stdout (for ``StreamKind/stdout``) or
+    /// stderr (for ``StreamKind/stderr``) as bytes arrive, while ALSO capturing them in
+    /// memory for ``ShellOutput``. Use for long-running commands where live progress matters
+    /// but the output is also needed for parsing.
+    ///
+    /// Captured bytes count toward the output limit exactly like ``capture``. Live bytes are
+    /// written to the inherited FD immediately and are not buffered until exit.
+    case tee
 }

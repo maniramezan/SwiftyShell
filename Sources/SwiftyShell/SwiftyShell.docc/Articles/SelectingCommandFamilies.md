@@ -6,7 +6,7 @@ Pick exactly the typed shell wrappers your project needs.
 
 SwiftyShell is split into a small, always-available `Core` (commands,
 pipelines, contexts, errors, executors) and a set of **opt-in** typed
-command families: ``Git``, ``Brew``, ``Grep``, ``Fzf``, ``Rg``, ``Swift``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
+command families: ``Git``, ``Brew``, ``Grep``, ``Fzf``, ``Rg``, ``Swift``, ``Cargo``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
 ``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Python``, and a collection of common
 file/directory utilities (``Ls``, ``Cp``, ``Mv``, ``Mkdir``, ``Chmod``, ``Rm``, ``Pwd``,
 ``Jq``, ``Rsync``, ``Tar``, ``Zip``, ``Unzip``).
@@ -50,6 +50,7 @@ let status = try await Git()
 | `Fzf`              | ``Fzf`` typed fuzzy-finder wrapper                         |
 | `Rg`               | ``Rg`` typed ripgrep wrapper                               |
 | `Swift`            | ``Swift`` Swift toolchain and SwiftPM wrapper              |
+| `Cargo`            | ``Cargo`` Rust package manager and build tool wrapper      |
 | `Gh`               | ``Gh`` GitHub CLI automation wrapper                       |
 | `Docker`           | ``Docker`` Docker CLI automation wrapper                   |
 | `Make`             | ``Make`` build automation wrapper                          |

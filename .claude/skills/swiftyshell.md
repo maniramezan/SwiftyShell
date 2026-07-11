@@ -29,35 +29,37 @@ Before writing any code, follow this decision tree:
    → Use `Brew`
 7. Is this a Swift toolchain or SwiftPM operation (`swift build`, `swift test`, `swift run`, `swift package`, ...)?
    → Use `Swift`
-8. Is this a GitHub CLI operation (`gh pr`, `gh repo`, `gh workflow`, `gh api`, `gh copilot`, `gh skill`, ...)?
+8. Is this a Cargo operation (`cargo build`, `cargo test`, `cargo run`, `cargo fmt`, `cargo clippy`, ...)?
+   → Use `Cargo`
+9. Is this a GitHub CLI operation (`gh pr`, `gh repo`, `gh workflow`, `gh api`, `gh copilot`, `gh skill`, ...)?
    → Use `Gh`
-9. Is this a Docker CLI operation (`docker buildx`, `docker compose`, `docker debug`, `docker mcp`, `docker scout`, ...)?
+10. Is this a Docker CLI operation (`docker buildx`, `docker compose`, `docker debug`, `docker mcp`, `docker scout`, ...)?
    → Use `Docker`
-10. Is this a Makefile operation (`make check`, `make test`, `make -j8`, ...)?
+11. Is this a Makefile operation (`make check`, `make test`, `make -j8`, ...)?
     → Use `Make`
-11. Is this a Node.js runtime operation (`node --eval`, `node --check`, running a `.js` file, ...)?
+12. Is this a Node.js runtime operation (`node --eval`, `node --check`, running a `.js` file, ...)?
     → Use `Node`
-12. Is this an npm operation (`npm ci`, `npm run build`, `npm exec`, ...)?
+13. Is this an npm operation (`npm ci`, `npm run build`, `npm exec`, ...)?
     → Use `Npm`
-13. Is this a Yarn operation (`yarn install`, `yarn run build`, `yarn dlx`, ...)?
+14. Is this a Yarn operation (`yarn install`, `yarn run build`, `yarn dlx`, ...)?
     → Use `Yarn`
-14. Is this a pnpm operation (`pnpm install`, `pnpm run build`, `pnpm exec`, ...)?
+15. Is this a pnpm operation (`pnpm install`, `pnpm run build`, `pnpm exec`, ...)?
     → Use `Pnpm`
-15. Is this a Bun operation (`bun run`, `bun test`, `bun build`, ...)?
+16. Is this a Bun operation (`bun run`, `bun test`, `bun build`, ...)?
     → Use `Bun`
-16. Is this a Terraform operation (`terraform init`, `terraform plan`, `terraform apply`, ...)?
+17. Is this a Terraform operation (`terraform init`, `terraform plan`, `terraform apply`, ...)?
     → Use `Terraform`
-17. Is this a Kubernetes CLI operation (`kubectl get`, `kubectl apply`, `kubectl logs`, ...)?
+18. Is this a Kubernetes CLI operation (`kubectl get`, `kubectl apply`, `kubectl logs`, ...)?
     → Use `Kubectl`
-18. Is this a Python interpreter operation (`python3 -m`, `python3 -c`, running a `.py` file, ...)?
+19. Is this a Python interpreter operation (`python3 -m`, `python3 -c`, running a `.py` file, ...)?
     → Use `Python`
-19. Does the operation need typed output, structured results, or conditional follow-up?
+20. Does the operation need typed output, structured results, or conditional follow-up?
     → Use the appropriate typed client
-20. Are two or more commands chained by pipe?
+21. Are two or more commands chained by pipe?
     → Use `.pipe(to:)` to build a `Pipeline`
-21. Does the command write output to a file?
+22. Does the command write output to a file?
     → Use `.stdout(.file(path:append:))` on the command
-22. Is this any other command?
+23. Is this any other command?
        → Use `Command`
 
 ### API Reference
@@ -771,6 +773,83 @@ public struct Swift: RunnableCommandFamily {
     public func run() async throws -> ShellOutput
 }
 ```
+
+#### Cargo
+
+```swift
+public enum CargoSubcommand: Sendable, Equatable, Hashable {
+    case version
+    case build
+    case test
+    case check
+    case run
+    case format
+    case clippy
+    case package
+    case custom(String)
+}
+
+public enum CargoTarget: Sendable, Equatable, Hashable {
+    case library
+    case binary(String)
+    case binaries
+    case example(String)
+    case examples
+    case test(String)
+    case tests
+    case benchmark(String)
+    case benchmarks
+    case all
+}
+
+public struct Cargo: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func subcommand(_ value: CargoSubcommand) -> Self
+    public func subcommand(_ value: String) -> Self
+    public func build() -> Self
+    public func test(_ filter: String? = nil) -> Self
+    public func check() -> Self
+    public func runBinary(_ binary: String? = nil) -> Self
+    public func format() -> Self
+    public func clippy() -> Self
+    public func package() -> Self
+    public func version() -> Self
+    public func manifestPath(_ path: String) -> Self
+    public func package(_ name: String) -> Self
+    public func packages(_ names: [String]) -> Self
+    public func workspace(_ enabled: Bool = true) -> Self
+    public func features(_ names: [String]) -> Self
+    public func features(_ names: String...) -> Self
+    public func allFeatures(_ enabled: Bool = true) -> Self
+    public func noDefaultFeatures(_ enabled: Bool = true) -> Self
+    public func target(_ value: CargoTarget) -> Self
+    public func library() -> Self
+    public func binary(_ name: String) -> Self
+    public func binaries() -> Self
+    public func example(_ name: String) -> Self
+    public func examples() -> Self
+    public func testTarget(_ name: String) -> Self
+    public func testTargets() -> Self
+    public func benchmark(_ name: String) -> Self
+    public func benchmarks() -> Self
+    public func allTargets() -> Self
+    public func release(_ enabled: Bool = true) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func programArgument(_ value: String) -> Self
+    public func programArguments(_ values: [String]) -> Self
+    public func testArgument(_ value: String) -> Self
+    public func testArguments(_ values: [String]) -> Self
+    public func toolArgument(_ value: String) -> Self
+    public func toolArguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+```
+
+``Cargo`` inserts `--` before program, test-harness, rustfmt, and Clippy
+arguments. Do not include the separator in values passed to the dedicated
+forwarding methods.
 
 #### GitHub CLI
 

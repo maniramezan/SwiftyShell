@@ -5,7 +5,7 @@ Type-safe shell support for Swift.
 ## Overview
 
 SwiftyShell's primary API is a family of typed wrappers — ``Git``, ``Grep``, ``Rg``,
-``Brew``, ``Fzf``, ``Swift``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
+``Brew``, ``Fzf``, ``Swift``, ``Cargo``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
 ``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Python``, ``Ls``, ``Cp``,
 ``Mkdir``, ``Chmod``, ``Rm``, ``Mv``, ``Pwd``, ``Jq``, ``Rsync``, ``Tar``, ``Zip``,
 ``Unzip`` — that model shell tools as Swift values. The compiler enforces which flags exist,
@@ -154,6 +154,12 @@ let output = try await Command("echo", arguments: "hello").run(in: context)
 - ``Swift``
 - ``SwiftSubcommand``
 - ``SwiftBuildConfiguration``
+
+### Rust Toolchain
+
+- ``Cargo``
+- ``CargoSubcommand``
+- ``CargoTarget``
 
 ### GitHub CLI
 

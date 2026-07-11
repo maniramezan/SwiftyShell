@@ -49,15 +49,17 @@ Before writing any code, follow this decision tree:
     → Use `Terraform`
 17. Is this a Kubernetes CLI operation (`kubectl get`, `kubectl apply`, `kubectl logs`, ...)?
     → Use `Kubectl`
-18. Is this a Python interpreter operation (`python3 -m`, `python3 -c`, running a `.py` file, ...)?
+18. Is this a Helm operation (`helm template`, `helm lint`, `helm upgrade`, ...)?
+    → Use `Helm` and its operation-specific builder
+19. Is this a Python interpreter operation (`python3 -m`, `python3 -c`, running a `.py` file, ...)?
     → Use `Python`
-19. Does the operation need typed output, structured results, or conditional follow-up?
+20. Does the operation need typed output, structured results, or conditional follow-up?
     → Use the appropriate typed client
-20. Are two or more commands chained by pipe?
+21. Are two or more commands chained by pipe?
     → Use `.pipe(to:)` to build a `Pipeline`
-21. Does the command write output to a file?
+22. Does the command write output to a file?
     → Use `.stdout(.file(path:append:))` on the command
-22. Is this any other command?
+23. Is this any other command?
        → Use `Command`
 
 ### API Reference
@@ -1268,6 +1270,36 @@ public struct Kubectl: RunnableCommandFamily {
     public func run() async throws -> ShellOutput
 }
 
+public enum HelmOutputFormat: String, Sendable, Equatable, Hashable {
+    case table, json, yaml
+}
+
+public enum HelmDryRunMode: String, Sendable, Equatable, Hashable {
+    case client, server
+}
+
+public enum HelmReleaseStatus: String, Sendable, Equatable, Hashable {
+    case deployed, failed, pending, uninstalled, superseded, uninstalling
+}
+
+public struct Helm: ToolConfigurableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func namespace(_ name: String) -> Self
+    public func kubeContext(_ name: String) -> Self
+    public func kubeconfig(_ path: String) -> Self
+    public func template(name: String? = nil, chart: String) -> HelmTemplate
+    public func lint(chart: String) -> HelmLint
+    public func install(release: String, chart: String) -> HelmInstall
+    public func upgrade(release: String, chart: String) -> HelmUpgrade
+    public func uninstall(_ releases: String...) -> HelmUninstall
+    public func list() -> HelmList
+    public func status(release: String) -> HelmStatus
+}
+
+// Each operation conforms to RunnableCommandFamily. Template, lint, install,
+// and upgrade expose ordered valuesFile(s), set, setString, setFile, and setJSON
+// methods. Operation-only flags remain on their corresponding builder.
+
 public struct Python: RunnableCommandFamily {
     public init(context: ShellContext = .init())
     public func version() -> Self
@@ -1956,7 +1988,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Python`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`, `Find`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`, `Find`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:
@@ -1969,7 +2001,7 @@ Consumers select families with `traits:` on `.package(...)`:
 
 The contract is enforced by `Scripts/validate-traits.swift` and CI:
 
-1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Python/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
+1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Helm/`, `Python/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
 2. Every test file targeting a gated family is wrapped the same way. Cross-family tests use combined guards (`#if Git && Grep`).
 3. Every family directory (or `Common/*.swift` file) has a matching `.trait(name:)` entry in `Package.swift`.
 4. The `All` umbrella's `enabledTraits` transitively enables every per-family trait. The `CommonUtilities` umbrella enables every `Common/*` trait.

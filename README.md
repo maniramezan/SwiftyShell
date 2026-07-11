@@ -106,6 +106,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Bun` | `bun` | `Bun` | Bun runtime, package manager, tests, scripts, and builds |
 | `Terraform` | `terraform` | `Terraform` | Terraform init, plan, apply, workspaces, outputs |
 | `Kubectl` | `kubectl` | `Kubectl` | Kubernetes get, apply, logs, exec, namespaces, contexts |
+| `Helm` | `helm` | `Helm` | Operation-specific template, lint, install, upgrade, list, status, uninstall |
 | `Python` | `python3` | `Python` | Python interpreter modules, command strings, scripts, options |
 | `Curl` | `curl` | `Curl` | CLI-compatible HTTP transfers for pipelines, CI scripts, and artifacts |
 | `Ls` | `ls` | `Ls` | All flags, recursive, human-readable sizes |

@@ -7,7 +7,7 @@ Pick exactly the typed shell wrappers your project needs.
 SwiftyShell is split into a small, always-available `Core` (commands,
 pipelines, contexts, errors, executors) and a set of **opt-in** typed
 command families: ``Git``, ``Brew``, ``Grep``, ``Fzf``, ``Rg``, ``Swift``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
-``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Python``, ``Curl``, and a collection of common
+``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Helm``, ``Python``, ``Curl``, and a collection of common
 file/directory utilities (``Ls``, ``Cp``, ``Mv``, ``Mkdir``, ``Chmod``, ``Rm``, ``Pwd``,
 ``Jq``, ``Rsync``, ``Tar``, ``Zip``, ``Unzip``).
 
@@ -60,6 +60,7 @@ let status = try await Git()
 | `Bun`              | ``Bun`` runtime, bundler, and package manager wrapper      |
 | `Terraform`        | ``Terraform`` infrastructure automation wrapper            |
 | `Kubectl`          | ``Kubectl`` Kubernetes CLI automation wrapper              |
+| `Helm`             | ``Helm`` operation-specific Kubernetes package manager wrapper |
 | `Python`           | ``Python`` interpreter and script runner wrapper           |
 | `Curl`             | ``Curl`` typed HTTP request and transfer wrapper            |
 | `Ls`               | ``Ls``                                                     |

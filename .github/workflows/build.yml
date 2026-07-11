@@ -27,7 +27,7 @@ jobs:
       - name: Compute affected traits
         id: compute
         run: |
-          FULL='["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "Make", "Node", "Npm", "Yarn", "Pnpm", "Bun", "Terraform", "Kubectl", "Python", "Rsync", "Tar", "Zip", "Unzip", "CommonUtilities", "All"]'
+          FULL='["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "Make", "Node", "Npm", "Yarn", "Pnpm", "Bun", "Terraform", "Kubectl", "Python", "Rsync", "Tar", "Zip", "Unzip", "Find", "CommonUtilities", "All"]'
 
           CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
           echo "Changed files:"

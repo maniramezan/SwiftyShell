@@ -58,7 +58,7 @@ targets: [
 
 Two umbrella traits cover common cases:
 
-- `CommonUtilities` — enables every `Common/*` family (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`).
+- `CommonUtilities` — enables every `Common/*` family, including `Find`, archives, and file utilities.
 - `All` — enables every command family SwiftyShell ships.
 
 ```swift
@@ -119,6 +119,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Tar` | `tar` | `Tar` | Portable tar archive creation, extraction, listing, compression |
 | `Zip` | `zip` | `Zip` | Info-ZIP archive creation, compression, recursion, exclusions |
 | `Unzip` | `unzip` | `Unzip` | Info-ZIP archive extraction and structured entry listing |
+| `Find` | `find` | `Find` | Portable typed predicates, boolean expressions, and safe path output |
 
 When the tool you need isn't listed, `Command("tool", arguments: "arg").run(in: context)` is the fluent escape hatch. If you use the same tool repeatedly, promoting it to a typed family is straightforward — see below.
 

@@ -124,7 +124,7 @@ try await Command("swift", arguments: "test", "--filter", "CommandTests")
 
 #### `outputLimitExceeded`
 
-The accumulated captured output exceeded the configured limit. Like `timeout`, the partial output captured so far is included for both single commands and pipelines. Increase the limit via ``Command/outputLimit(_:)`` or redirect output to a file with ``OutputDestination/file(path:append:)``.
+The accumulated captured output exceeded the configured limit. Like `timeout`, the partial output captured so far is included for both single commands and pipelines. Because a byte limit can split a UTF-8 scalar, truncated partial output uses lossy UTF-8 decoding and may end with the replacement character. Increase the limit via ``Command/outputLimit(_:)`` or redirect output to a file with ``OutputDestination/file(path:append:)``.
 
 ```swift
 // Redirect verbose output to a file instead of capturing it
@@ -146,7 +146,7 @@ The captured output could not be decoded as UTF-8. This happens with binary outp
 
 The Swift `Task` enclosing the `run()` call was canceled. SwiftyShell rethrows the cancellation as ``ShellError/canceled(command:partialOutput:)`` and attaches partial output captured so far.
 
-On Unix platforms, SwiftyShell tears down the subprocess when it must stop execution. It sends `SIGTERM` directly to the process, waits briefly for graceful shutdown, then sends `SIGKILL`. The direct-signal approach is PID-reuse-safe: on Linux, swift-subprocess uses `pidfd_send_signal` when available, which targets the exact process rather than a recycled PID. This teardown grace is separate from the user-facing command timeout: `timeout(_:)` controls when execution is considered too slow, while teardown controls how SwiftyShell cleans up after that decision.
+On Unix platforms, SwiftyShell tears down the subprocess and descendants in its dedicated process group when it must stop execution. Timeout, cancellation, and output-limit failures wait for process completion and reaping before returning. The process-group leader remains owned until signaling completes, preventing its PID and group ID from being recycled during teardown.
 
 ```swift
 let task = Task {

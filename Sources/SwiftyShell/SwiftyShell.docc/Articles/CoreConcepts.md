@@ -191,7 +191,7 @@ public protocol CommandExecutor: Sendable {
 }
 ```
 
-``SubprocessExecutor`` is the default production executor and is backed by the `swift-subprocess` package. It resolves executables from ``ShellContext/searchPaths``, runs single commands and pipelines as subprocesses, and preserves partial captured output for timeout, cancellation, and output-limit failures. On Unix platforms each spawned process runs as its own process group leader; timeout and cancellation teardown signals are sent directly to that process, which is PID-reuse-safe on Linux via `pidfd_send_signal`.
+``SubprocessExecutor`` is the default production executor and is backed by the `swift-subprocess` package. It resolves executables from ``ShellContext/searchPaths``, runs single commands and pipelines as subprocesses, and preserves partial captured output for timeout, cancellation, and output-limit failures. On Unix platforms each spawned process runs as its own process group leader; early termination kills the process group, including descendants, and waits for process completion before returning.
 
 ``MockExecutor`` is the test double. You can also implement your own — for example, to add structured logging around every command:
 

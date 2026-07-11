@@ -152,11 +152,7 @@ private struct ResolvedCommand: Sendable {
     }
 }
 
-private struct TimeoutExceeded: Error, Sendable {}
-
 private struct CaptureLimitExceeded: Error, Sendable {}
-
-private let partialOutputFlushGrace: Duration = .milliseconds(75)
 
 private enum EarlyTerminationReason: Sendable {
     case outputLimitExceeded(command: String, limit: Int)
@@ -312,9 +308,9 @@ private struct SingleCommandRunner {
             }
         } catch is CancellationError {
             processTask.cancel()
-            await waitForPartialOutputFlush()
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
             await registry.teardownAll()
+            _ = await processTask.result
+            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
         }
     }
@@ -364,17 +360,6 @@ private struct SingleCommandRunner {
                             )
                             return .streamComplete
                         }
-                        if let timeout = resolved.timeout {
-                            group.addTask {
-                                do {
-                                    try await Task.sleep(for: durationFromSeconds(timeout))
-                                    return .timedOut
-                                } catch {
-                                    return .streamComplete
-                                }
-                            }
-                        }
-
                         var completedStreams = 0
                         do {
                             while let result = try await group.next() {
@@ -385,10 +370,6 @@ private struct SingleCommandRunner {
                                         group.cancelAll()
                                         return
                                     }
-                                case .timedOut:
-                                    await execution.swiftyShellTeardown()
-                                    group.cancelAll()
-                                    throw TimeoutExceeded()
                                 }
                             }
                         } catch is CaptureLimitExceeded {
@@ -421,19 +402,8 @@ private struct SingleCommandRunner {
             }
 
             return output
-        } catch is TimeoutExceeded {
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
-            throw ShellError.timeout(
-                command: resolved.displayCommand,
-                duration: resolved.timeout ?? 0,
-                partialOutput: output
-            )
         } catch is CaptureLimitExceeded {
-            let output = try decodeOutput(
-                command: resolved.displayCommand,
-                snapshot: store.snapshot(),
-                exitCode: -1
-            )
+            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.outputLimitExceeded(
                 command: resolved.displayCommand,
                 limit: resolved.outputLimit,
@@ -464,9 +434,9 @@ private struct SingleCommandRunner {
             return try await processTask.value
         case .timedOut:
             processTask.cancel()
-            await waitForPartialOutputFlush()
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
             await registry.teardownAll()
+            _ = await processTask.result
+            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.timeout(
                 command: resolved.displayCommand,
                 duration: resolved.timeout ?? 0,
@@ -474,21 +444,18 @@ private struct SingleCommandRunner {
             )
         case let .earlyTerminated(reason):
             processTask.cancel()
+            await registry.teardownAll()
+            _ = await processTask.result
             switch reason {
             case let .outputLimitExceeded(command, limit):
-                let output = try decodeOutput(
-                    command: command,
-                    snapshot: store.snapshot(),
-                    exitCode: -1
-                )
-                await registry.teardownAll()
+                let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
                 throw ShellError.outputLimitExceeded(command: command, limit: limit, partialOutput: output)
             }
         case .canceled:
             processTask.cancel()
-            await waitForPartialOutputFlush()
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
             await registry.teardownAll()
+            _ = await processTask.result
+            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
         }
     }
@@ -520,28 +487,18 @@ private func runWithProcessGroupTeardownOnCancellation<Value: Sendable>(
 }
 
 private extension Execution {
-    /// Kills the subprocess immediately by sending SIGKILL.
+    /// Kills the subprocess and every descendant that remains in its process group.
     ///
-    /// Sends the signal directly to the process (not the process group) to avoid the TOCTOU
-    /// race on Linux where a recycled PGID could let the signal reach an unrelated process.
-    /// Each spawned subprocess is its own process group leader
-    /// (``subprocessPlatformOptions`` sets `processGroupID = 0`), so targeting the process
-    /// directly is equivalent to targeting its group.
-    ///
-    /// No SIGTERM grace period is used. Partial output is captured in ``OutputCaptureStore``
-    /// before teardown is triggered, so there is nothing to flush. A delayed SIGKILL from a
-    /// grace period causes cross-test signal bleed on Linux: under `--no-parallel` the next
-    /// test can spawn a subprocess that recycles the same PID within the grace window and
-    /// then receives the stale SIGKILL.
-    ///
+    /// Every subprocess is its own process-group leader. Callers await `Subprocess.run` after
+    /// teardown, keeping that leader owned and unreaped until the group signal has been sent;
+    /// this prevents its PID/PGID from being recycled during teardown.
     func swiftyShellTeardown() async {
-        try? send(signal: .kill, toProcessGroup: false)
+        try? send(signal: .kill, toProcessGroup: true)
     }
 }
 
 private enum SingleCommandTaskResult: Sendable {
     case streamComplete
-    case timedOut
 }
 
 private enum SpawnedCommandTaskResult: Sendable {
@@ -976,9 +933,9 @@ private struct PipelineRunner {
             }
         } catch is CancellationError {
             processTask.cancel()
-            await waitForPartialOutputFlush()
-            let snapshot = pipelineSnapshot(stores: stores)
             await registry.teardownAll()
+            _ = await processTask.result
+            let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.canceled(
                 command: finalCommand.displayCommand,
                 partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
@@ -1166,9 +1123,9 @@ private struct PipelineRunner {
             return try await processTask.value
         case let .timedOut(duration):
             processTask.cancel()
-            await waitForPartialOutputFlush()
-            let snapshot = pipelineSnapshot(stores: stores)
             await registry.teardownAll()
+            _ = await processTask.result
+            let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.timeout(
                 command: finalCommand.displayCommand,
                 duration: duration,
@@ -1176,21 +1133,18 @@ private struct PipelineRunner {
             )
         case let .earlyTerminated(reason):
             processTask.cancel()
+            await registry.teardownAll()
+            _ = await processTask.result
             switch reason {
             case let .outputLimitExceeded(command, limit):
-                let output = try decodeOutput(
-                    command: command,
-                    snapshot: pipelineSnapshot(stores: stores),
-                    exitCode: -1
-                )
-                await registry.teardownAll()
+                let output = lossyOutput(snapshot: pipelineSnapshot(stores: stores), exitCode: -1)
                 throw ShellError.outputLimitExceeded(command: command, limit: limit, partialOutput: output)
             }
         case .canceled:
             processTask.cancel()
-            await waitForPartialOutputFlush()
-            let snapshot = pipelineSnapshot(stores: stores)
             await registry.teardownAll()
+            _ = await processTask.result
+            let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.canceled(
                 command: finalCommand.displayCommand,
                 partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
@@ -1209,12 +1163,6 @@ private enum PipelineRunEvent: Sendable {
     case timedOut(duration: TimeInterval)
     case earlyTerminated(EarlyTerminationReason)
     case canceled
-}
-
-private func waitForPartialOutputFlush() async {
-    await Task.detached {
-        try? await Task.sleep(for: partialOutputFlushGrace)
-    }.value
 }
 
 private struct PipelinePipe: Sendable {
@@ -1448,6 +1396,8 @@ private func runPipelineStageWithStreamedStdout<Input: InputProtocol>(
 /// the nanosecond-based overload that requires manual overflow handling.
 private func durationFromSeconds(_ seconds: TimeInterval) -> Duration {
     if seconds <= 0 { return .zero }
+    let maximumNanosecondDuration = Double(Int64.max) / 1_000_000_000
+    if seconds >= maximumNanosecondDuration { return .nanoseconds(Int64.max) }
     let wholeSeconds = Int64(seconds)
     let fractionalNanoseconds = Int64((seconds - Double(wholeSeconds)) * 1_000_000_000)
     return .seconds(wholeSeconds) + .nanoseconds(fractionalNanoseconds)

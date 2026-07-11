@@ -2,6 +2,12 @@ import Foundation
 import Testing
 @testable import SwiftyShell
 
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+
 private func waitForFile(at path: String) async throws {
     for _ in 0..<500 {
         if FileManager.default.fileExists(atPath: path) {
@@ -10,6 +16,16 @@ private func waitForFile(at path: String) async throws {
         try await Task.sleep(nanoseconds: 10_000_000)
     }
     Issue.record("Timed out waiting for marker file at \(path)")
+}
+
+private func waitForProcessExit(processIdentifier: Int32) async throws {
+    for _ in 0..<500 {
+        if kill(processIdentifier, 0) == -1, errno == ESRCH {
+            return
+        }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    Issue.record("Timed out waiting for descendant process exit for pid \(processIdentifier)")
 }
 
 struct CommandTests {
@@ -134,6 +150,22 @@ struct CommandTests {
         }
     }
 
+    @Test func outputLimitTruncatingUTF8UsesLossyPartialDecoding() async throws {
+        do {
+            _ = try await Command("/bin/sh", arguments: "-c", "printf '\\360\\237\\230\\200'")
+                .outputLimit(2)
+                .run()
+            Issue.record("Expected outputLimitExceeded")
+        } catch let error as ShellError {
+            guard case let .outputLimitExceeded(_, limit, partialOutput) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(limit == 2)
+            #expect(partialOutput.stdout == "\u{FFFD}")
+        }
+    }
+
     @Test func outputLimitExceededDoesNotHangOnLargeOutput() async throws {
         let context = ShellContext(defaultTimeout: 1.0, defaultOutputLimit: 4)
 
@@ -196,6 +228,53 @@ struct CommandTests {
             }
             #expect(description == "Timeout must be greater than or equal to zero seconds")
         }
+    }
+
+    @Test func mockExecutorRejectsNonFiniteTimeout() async throws {
+        do {
+            _ = try await Command("fake-tool")
+                .timeout(.nan)
+                .run(in: ShellContext(executor: MockExecutor()))
+            Issue.record("Expected invalidConfiguration")
+        } catch let error as ShellError {
+            guard case let .invalidConfiguration(description) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(description == "Timeout must be greater than or equal to zero seconds")
+        }
+    }
+
+    @Test func extremeFiniteTimeoutDoesNotTrap() async throws {
+        let output = try await Command("echo", arguments: "hello")
+            .timeout(.greatestFiniteMagnitude)
+            .run()
+        #expect(output.stdout == "hello\n")
+    }
+
+    @Test func timeoutKillsDescendantsAndReapsLeaderBeforeReturning() async throws {
+        let childPIDPath = "/tmp/swiftyshell-descendant-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: childPIDPath) }
+
+        do {
+            _ = try await Command(
+                "/bin/sh",
+                arguments: "-c",
+                "sleep 30 & child=$!; printf '%s' \"$child\" > '\(childPIDPath)'; wait"
+            )
+            .timeout(5)
+            .run()
+            Issue.record("Expected timeout")
+        } catch let error as ShellError {
+            guard case .timeout = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+        }
+
+        let pidString = try String(contentsOfFile: childPIDPath, encoding: .utf8)
+        let childPID = try #require(Int32(pidString))
+        try await waitForProcessExit(processIdentifier: childPID)
     }
 
     @Test func negativeOutputLimitIsRejected() async throws {

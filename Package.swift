@@ -33,6 +33,7 @@ let package = Package(
         .trait(name: "Terraform", description: "Typed wrapper for the Terraform CLI."),
         .trait(name: "Kubectl", description: "Typed wrapper for the Kubernetes kubectl CLI."),
         .trait(name: "Python", description: "Typed wrapper for the Python interpreter CLI."),
+        .trait(name: "Curl", description: "Typed wrapper for curl HTTP transfers."),
         .trait(name: "Ls", description: "Typed wrapper for ls."),
         .trait(name: "Cp", description: "Typed wrapper for cp."),
         .trait(name: "Mkdir", description: "Typed wrapper for mkdir."),
@@ -57,7 +58,7 @@ let package = Package(
             description: "Enables every command family shipped by SwiftyShell.",
             enabledTraits: [
                 "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "Make", "Node", "Npm", "Yarn",
-                "Pnpm", "Bun", "Terraform", "Kubectl", "Python", "CommonUtilities",
+                "Pnpm", "Bun", "Terraform", "Kubectl", "Python", "Curl", "CommonUtilities",
             ]
         ),
         // Default is intentionally empty: consumers opt in to the families they want.

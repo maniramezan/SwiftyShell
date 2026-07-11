@@ -4,8 +4,8 @@ A fluent wrapper for `fzf`, the command-line fuzzy finder.
 
 ``Fzf`` models a broad, fluent subset of fzf's CLI as Swift values. Use
 ``filter(_:)`` for non-interactive batch filtering that works naturally with
-``run()``, or build a ``Command`` with ``command()`` for interactive use via
-``spawn(teardown:)`` or pipeline composition.
+``run()`` and pipeline composition. SwiftyShell does not connect a terminal or
+interactive stdin, so interactive selection is outside this execution API.
 
 Non-interactive filter mode works like a fuzzy `grep`:
 
@@ -17,17 +17,7 @@ let output = try await Command("ls")
 print(output.stdout)  // Lines matching "main"
 ```
 
-Interactive selection in a pipeline:
-
-```swift
-let process = try await Command("find", arguments: ".", "-type", "f")
-    .pipe(to: Fzf(context: context).multi().reverse().border(.rounded).command())
-    .spawn(in: context)
-
-let output = try await process.waitForOutput()
-```
-
-Compose a history search:
+Build a configured command for inspection or for a caller-supplied execution environment:
 
 ```swift
 let command = Fzf(context: context)

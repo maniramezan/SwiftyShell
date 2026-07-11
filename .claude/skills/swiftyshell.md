@@ -18,7 +18,7 @@ Before writing any code, follow this decision tree:
 1. Is this a git operation supported by the typed `Git` API (`status()`, `pull()`, `fetch()`, `branch()`, `stash()`, `worktree()`, `submodule()`, `diff()`, `log()`, `gitConfig()`, `merge()`, `commit()`, `rebase()`)?
    → Use `Git`
 2. Is this a git operation NOT covered by the typed `Git` API?
-   → Use `Command("\1", arguments: ...)`
+   → Use `Command("git", arguments: ...)`
 3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Rsync`)?
    → Use the typed wrapper
 4. Is this an archive operation (`tar`, `zip`, or `unzip`)?
@@ -265,7 +265,7 @@ public struct Workflow<Value>: Sendable {
 }
 ```
 
-Workflows are **single-use**. Call `run()` exactly once. Rebuild from the source client to repeat.
+`run()` is `consuming`, but workflows are copyable values that retain reusable closures. Each run starts the described operation again; avoid repetition or concurrency when the underlying operation makes it unsafe.
 
 #### Git / GitStatusWorkflow
 
@@ -1412,7 +1412,7 @@ public struct Unzip: RunnableCommandFamily {
 }
 ```
 
-`Tar` wraps the platform tar implementation for portable create, extract, and list workflows. `Zip` and `Unzip` wrap Info-ZIP binaries and behave identically on macOS (preinstalled) and Linux (`apt install zip unzip`). `Unzip.entries()` returns a single-use ``Workflow`` that parses the standard `unzip -l` table — paths with embedded spaces are preserved, missing timestamps surface as `nil`. SwiftyShell does not feed stdin to spawned processes, so unattended extracts should pass `overwrite()` or `neverOverwrite()` to avoid `unzip`'s overwrite prompt hanging the call.
+`Tar` wraps the platform tar implementation for portable create, extract, and list workflows. `Zip` and `Unzip` wrap Info-ZIP binaries and behave identically on macOS (preinstalled) and Linux (`apt install zip unzip`). `Unzip.entries()` returns a reusable ``Workflow`` that parses the standard `unzip -l` table — paths with embedded spaces are preserved, missing timestamps surface as `nil`. SwiftyShell does not feed stdin to commands run by this API, so unattended extracts should pass `overwrite()` or `neverOverwrite()` to avoid `unzip`'s overwrite prompt hanging the call.
 
 #### Brew
 
@@ -1572,18 +1572,20 @@ public struct MockSpawnedProcess: SpawnedProcess, Sendable {
 
 `MockExecutor` mirrors real `run()` semantics for invalid configuration and non-zero exits so unit tests behave like subprocess-backed execution. Its `spawn` support returns `MockSpawnedProcess`, which records signals, teardown, and the configured `TeardownStrategy`.
 
-`SubprocessExecutor` is the default production executor and is backed by the `swift-subprocess` package. Preserve SwiftyShell's public `ShellError` semantics when changing the execution layer, including partial output on timeout, output-limit, and cancellation paths.
+For pipelines, all stages run concurrently. The shortest resolved stage timeout governs the pipeline, each stage has its own captured-output limit, intermediate stdout is piped rather than captured, and captured stderr is aggregated in stage order. A non-zero stage cancels remaining stage tasks, but simultaneous failures do not guarantee a pipeline-order winner.
+
+`SubprocessExecutor` is the default production executor and is backed by the `swift-subprocess` package. Preserve SwiftyShell's public `ShellError` semantics when changing the execution layer, including captured partial output on timeout, output-limit, and cancellation paths. `run()` closes stdin and immediately sends `SIGKILL` to registered processes when forced to stop; graceful `TeardownStrategy` steps apply only to explicitly spawned processes.
 
 ### Code Generation Rules
 
 1. Always `import SwiftyShell`
 2. All `run()` calls are `async throws` — the caller must be in an `async` context
 3. Never construct raw shell strings as the primary execution model
-4. Prefer `Git` when the operation is covered by the typed git API; otherwise use `Command("\1", arguments: ...)`
+4. Prefer `Git` when the operation is covered by the typed git API; otherwise use `Command("git", arguments: ...)`
 5. Prefer key-path `require` over closure `require` when checking a single property equality
 6. Prefer `async let` / `TaskGroup` for concurrent runs — do not serialize what can run in parallel
 7. Always pass an explicit `ShellContext` rather than relying on the default `.init()`
-8. Workflows are single-use — rebuild from the source client to repeat
+8. Workflows can run repeatedly; account for side effects before repeating or running concurrently
 9. Use `MockExecutor` in tests — for spawn flows, assert against `MockSpawnedProcess` signal history, teardown state, and configured teardown instead of spawning real processes in unit tests
 10. **Every `public` declaration you write must have a `///` doc comment** — see Part 2 for documentation rules
 
@@ -1594,12 +1596,12 @@ public struct MockSpawnedProcess: SpawnedProcess, Sendable {
 let output = try await Command("mkdir").arg("-p").arg(outputDir).run(in: context)
 
 // Pipeline
-let output = try await Command("\1", arguments: "-la")
+let output = try await Command("ls", arguments: "-la")
     .pipe(to: Grep(".swift").command())
     .run(in: context)
 
 // Redirect stdout to file
-try await Command("\1", arguments: "release")
+try await Command("make", arguments: "release")
     .stdout(.file(path: logPath, append: false))
     .run(in: context)
 
@@ -1635,7 +1637,7 @@ try await withThrowingTaskGroup(of: GitFetchResult.self) { group in
 }
 
 // Environment override
-try await Command("\1", arguments: "deploy.rb")
+try await Command("ruby", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .run(in: context)
 
@@ -1723,7 +1725,7 @@ let status = try await Git(context: context).status().run()
 
 | Case | Cause | Typical response |
 |---|---|---|
-| `invalidConfiguration` | Timeout or output limit is negative | Fix the configuration value before running |
+| `invalidConfiguration` | Timeout is negative/non-finite, or output limit is negative | Fix the configuration value before running |
 | `commandNotFound` | Executable not on search path | Check `ShellContext.searchPaths` or use `.executable(_:)` |
 | `exitFailure` | Non-zero exit code | Inspect `output.stderr`; retry or abort |
 | `timeout` | Command exceeded time limit | Inspect `partialOutput`, increase timeout |
@@ -1936,7 +1938,7 @@ Declared in `Package.swift`:
 Consumers select families with `traits:` on `.package(...)`:
 
 ```swift
-.package(url: "...", from: "0.1.0", traits: ["Git", "Grep"])
+.package(url: "...", from: "0.3.0", traits: ["Git", "Grep"])
 ```
 
 ### Wiring Contract

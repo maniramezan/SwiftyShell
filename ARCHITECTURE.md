@@ -4,7 +4,7 @@ Design rationale, execution model, type-safety philosophy, and deferred roadmap.
 
 ## Vision
 
-SwiftyShell provides type-safe shell support in Swift. The goal is not merely to run subprocesses safely, but to model common shell concepts as Swift types:
+SwiftyShell provides a Swift-typed model for shell execution. It models common shell concepts as Swift values:
 
 - commands and arguments
 - executable resolution
@@ -27,7 +27,7 @@ SwiftyShell has two complementary execution styles:
 Build a `Command` or `Pipeline`, override config as needed, then run it in a `ShellContext`:
 
 ```swift
-let output = try await Command("\1", arguments: "deploy.rb")
+let output = try await Command("ruby", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .timeout(120)
     .run(in: context)
@@ -52,19 +52,19 @@ This split keeps the core shell model general while allowing high-level typed wo
 
 ## Type Safety
 
-"Type-safe shell support" means:
+"Type-safe shell support" describes the API shape, not a security guarantee about an executable or its inputs:
 
 1. **No raw shell strings as the main API** — users compose commands, pipelines, and workflows as Swift values rather than passing opaque strings to `sh`.
 
-2. **Explicit executable and argument boundaries** — executable names, arguments, environment values, and output destinations are separate Swift values, never concatenated strings.
+2. **Explicit executable and argument boundaries** — executable names, arguments, environment values, and output destinations are separate Swift values. `Command` passes each argument as one argv entry without shell parsing.
 
 3. **Typed shell semantics** — pipelines, redirections, and workflow gates are represented directly in Swift rather than parsed from shell syntax.
 
 4. **Typed command families where it matters** — domain APIs such as `Git` return typed values like `GitStatus` instead of unstructured strings.
 
-5. **Concrete error handling** — failures are represented as named `ShellError` cases, not loosely structured strings or opaque `NSError` values.
+5. **Concrete execution errors** — built-in executors represent their failures as named `ShellError` cases. Workflow transforms and custom executors can throw other `Error` values.
 
-This does **not** mean every executable on the system gets its own Swift type, or that raw shell script strings are parsed automatically.
+This does **not** validate arbitrary strings accepted by typed wrappers, make invoked tools trustworthy, or make shell scripts safe. Passing untrusted input to an interpreter (`sh -c`, `python -c`), tool-specific expression language, environment variable, executable override, or writable output path remains the caller's security boundary.
 
 ---
 
@@ -87,35 +87,36 @@ This does **not** mean every executable on the system gets its own Swift type, o
 
 - Output is buffered in memory by default (stdout and stderr decoded as UTF-8).
 - Default output limit is unlimited (`0`); configurable via `ShellContext.defaultOutputLimit` or per-command/client `.outputLimit(_:)`. Pass a positive byte count to cap captured output.
-- Exceeding the limit keeps draining the child process output, then throws `ShellError.outputLimitExceeded`.
+- For one command, the limit is the combined captured stdout and stderr byte count. Exceeding it terminates the command and throws `ShellError.outputLimitExceeded` with at most the configured number of captured bytes.
 - Invalid UTF-8 throws `ShellError.decodingError`.
 - Negative timeout or output-limit values throw `ShellError.invalidConfiguration`.
 - Redirected output (`OutputDestination.file` or `.discard`) is not also captured.
 
 ### Exit Code Behavior
 
-- `run()` throws `ShellError.exitFailure` for any non-zero exit.
-- `ShellError.exitFailure` always carries the full `ShellOutput` for diagnostics.
+- The built-in `SubprocessExecutor` and `MockExecutor` throw `ShellError.exitFailure` for a non-zero exit from `run()`; raw `Command` calls follow the same rule as typed families.
+- `ShellError.exitFailure` carries captured output. Streams sent to `.file` or `.discard` are absent, and an output limit can terminate execution before a later exit failure.
 
 ### Pipelines
 
 - Pipelines are explicit value types, not parsed shell strings.
 - `pipe(to:)` connects stdout from one command to stdin of the next.
-- If any stage exits non-zero, the pipeline throws `ShellError.exitFailure`; remaining stages are terminated.
+- All stages run concurrently. If a stage exits non-zero, the pipeline reports an observed failing stage and cancels the remaining stage tasks; concurrent failures do not provide a deterministic "first by pipeline order" guarantee.
+- Successful output contains the final stage's captured stdout and captured stderr concatenated in stage order. An exit failure uses the failing stage's exit code with that aggregate captured output.
+- Each stage has its own captured-output limit. Intermediate stdout is piped rather than captured, while captured stderr and the final stage's captured stdout count against their respective stage limits.
 
 ### Timeout & Cancellation
 
-- The most specific timeout wins (per-command > per-client > context default).
-- On timeout: `SIGTERM` → short grace period → `SIGKILL` → `ShellError.timeout` with partial output.
-- Swift task cancellation follows the same `SIGTERM` → `SIGKILL` sequence and throws `ShellError.canceled`.
-- stdin is always closed (`/dev/null`) for all spawned processes.
+- A command override replaces the context default. For a pipeline, the shortest resolved non-`nil` stage timeout governs the whole pipeline.
+- Timeout and task cancellation terminate registered processes immediately with `SIGKILL`, then throw `ShellError.timeout` or `ShellError.canceled` with captured partial output. They do not use the configurable graceful teardown strategy reserved for explicitly spawned processes.
+- `run()` does not inherit or accept interactive stdin. A single command's stdin is closed; the first pipeline stage receives no input, and later stages receive the preceding stage's stdout.
 
 ### Deferred Workflow Semantics
 
 - Typed workflow steps queue operations until `run()` is awaited.
 - `map` and `require` transformations do not trigger execution.
-- Workflows are single-use — `run()` is a `consuming` call. Rebuild from the source client to repeat.
-- Concurrent tasks must each build and run their own workflow instances.
+- `run()` is declared `consuming`, but `Workflow` is a copyable value that stores a reusable closure. A workflow value can be copied or run again; each run starts the described operation again.
+- Concurrent runs are permitted by the `Sendable` API, but callers remain responsible for whether the underlying operation and external tool can safely run concurrently.
 
 ---
 
@@ -171,7 +172,7 @@ public protocol CommandExecutor: Sendable {
 let context = ShellContext(executor: MockExecutor(stdout: "main\n"))
 ```
 
-`MockExecutor` mirrors real `run()` semantics for invalid configuration and non-zero exits so unit tests behave like subprocess-backed execution.
+`MockExecutor` mirrors built-in `run()` semantics for invalid configuration and non-zero exits. Its caller-supplied handler can also throw arbitrary errors.
 
 ---
 
@@ -192,6 +193,6 @@ Windows is out of scope for v1.
 - Explicit unsafe raw shell-string escape hatch
 - Alternative pipeline failure modes as explicit opt-ins
 - Interactive stdin
-- Additional typed command families (e.g. `Docker`)
+- Additional typed command families
 - Windows support
 - Alternative packaging if command families grow substantially

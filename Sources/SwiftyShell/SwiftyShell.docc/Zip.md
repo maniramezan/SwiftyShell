@@ -40,7 +40,7 @@ try await Zip(context: context)
 ```
 
 > Important: ``password(_:)`` puts the password directly on the subprocess argv where it may be
-> visible to other users via `ps`. Prefer ``encryptInteractive(_:)`` when stdin can answer the
+> visible to other users via `ps`. The current execution API cannot answer the interactive
 > password prompt.
 
 ## Topics

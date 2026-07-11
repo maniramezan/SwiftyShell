@@ -24,7 +24,7 @@ Enable a single family — Git in this example — by passing it through
 ```swift
 .package(
     url: "https://github.com/maniramezan/SwiftyShell.git",
-    from: "0.1.0",
+    from: "0.3.0",
     traits: ["Git"]
 )
 ```
@@ -83,7 +83,7 @@ let status = try await Git()
 ```swift
 .package(
     url: "https://github.com/maniramezan/SwiftyShell.git",
-    from: "0.1.0",
+    from: "0.3.0",
     traits: ["Git", "Grep", "Fzf"]
 )
 ```
@@ -93,7 +93,7 @@ let status = try await Git()
 ```swift
 .package(
     url: "https://github.com/maniramezan/SwiftyShell.git",
-    from: "0.1.0",
+    from: "0.3.0",
     traits: ["CommonUtilities"]
 )
 ```
@@ -103,7 +103,7 @@ let status = try await Git()
 ```swift
 .package(
     url: "https://github.com/maniramezan/SwiftyShell.git",
-    from: "0.1.0",
+    from: "0.3.0",
     traits: ["All"]
 )
 ```

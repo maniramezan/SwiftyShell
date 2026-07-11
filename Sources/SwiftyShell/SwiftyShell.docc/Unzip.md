@@ -45,7 +45,7 @@ let scriptOutput = try await Unzip(context: context)
     .run()
 ```
 
-> Important: SwiftyShell does not feed stdin to spawned processes. Pass ``overwrite(_:)`` or
+> Important: SwiftyShell does not feed stdin to commands run by this API. Pass ``overwrite(_:)`` or
 > ``neverOverwrite(_:)`` when extracting to avoid `unzip`'s interactive overwrite prompt
 > hanging the call. ``password(_:)`` puts the password on the subprocess argv where other
 > users may observe it via `ps`.

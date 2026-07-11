@@ -350,7 +350,7 @@ public struct Unzip: RunnableCommandFamily {
         return state.config.apply(to: base)
     }
 
-    /// Returns a single-use workflow that runs `unzip -l` and parses the listing.
+    /// Returns a workflow that runs `unzip -l` and parses the listing.
     ///
     /// The workflow forces a captured `unzip -l` listing regardless of any conflicting
     /// extraction or stdout-redirection state the caller may have configured. Members and
@@ -363,7 +363,7 @@ public struct Unzip: RunnableCommandFamily {
     ///     .run()
     /// ```
     ///
-    /// - Returns: A single-use ``Workflow`` producing parsed ``UnzipEntry`` values.
+    /// - Returns: A ``Workflow`` producing parsed ``UnzipEntry`` values.
     public func entries() -> Workflow<[UnzipEntry]> {
         let context = state.config.context
         let cmd = copy(

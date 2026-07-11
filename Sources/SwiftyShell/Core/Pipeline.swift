@@ -57,13 +57,15 @@ public struct Pipeline: Sendable {
     /// Runs the pipeline using the provided shell context and returns the final stage's output.
     ///
     /// All stages run concurrently as separate processes; the executor wires stdout-to-stdin
-    /// between them. A failure in any stage surfaces as ``ShellError`` from this call.
+    /// between them. The shortest configured stage timeout governs the pipeline. Each stage has
+    /// its own captured-output limit; intermediate stdout is piped rather than captured.
     ///
     /// - Parameter context: The shell context that supplies defaults to every stage. Defaults
     ///   to a freshly constructed ``ShellContext``.
     /// - Returns: The captured ``ShellOutput`` of the final stage.
-    /// - Throws: ``ShellError`` if any stage fails to spawn, exits non-zero, times out, exceeds
-    ///   an output limit, or is canceled.
+    /// - Throws: With the built-in executor, ``ShellError`` if a stage fails to spawn, exits
+    ///   non-zero, times out, exceeds an output limit, or is canceled. Custom executors may throw
+    ///   other errors.
     public func run(in context: ShellContext = .init()) async throws -> ShellOutput {
         try await context.executor.execute(self, in: context)
     }

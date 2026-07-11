@@ -2,7 +2,7 @@
 
 This file is maintainer-oriented automation guidance for AI assistants working in this repository. It is public so contributors can audit and improve it, but it is optional and not required to build, test, or contribute to SwiftyShell.
 
-SwiftyShell is a Swift package that provides type-safe shell command execution. It models shell concepts — commands, arguments, pipelines, redirection, workflows — as Swift values rather than raw strings.
+SwiftyShell is a Swift package that models shell execution as Swift values: commands, argv entries, pipelines, redirection, and workflows. Typed wrappers improve discoverability but are not a security or input-validation boundary.
 
 ## Repository Layout
 
@@ -187,17 +187,21 @@ Verify your work: after editing, scan the file for `public ` lines without a pre
 
 ### Error Handling
 
-All failures surface as `ShellError`. Never throw raw `Error` or `NSError` from public code. Use `ShellError.spawnError` for unexpected process launch failures.
+Built-in execution failures surface as `ShellError`. Workflow closures, transforms, custom gate errors, and custom executors may throw other `Error` values. Use `ShellError.spawnError` when the built-in executor maps an unexpected process-launch failure.
 
 ### Execution Engine
 
 `SubprocessExecutor` (in `Internal/Execution/`) is `public` because `ShellContext.init` defaults to it. The `Internal/` folder label is organizational — it does not imply the type is hidden from callers.
 
-The production executor uses the `swift-subprocess` package for process lifecycle management. Keep SwiftyShell's public error semantics stable when changing it: map process failures into `ShellError`, preserve partial output on timeout/output-limit/cancellation paths, and keep `MockExecutor` behavior aligned with production where practical.
+The production executor uses the `swift-subprocess` package for process lifecycle management. Keep SwiftyShell's public error semantics stable when changing it: map built-in execution failures into `ShellError`, preserve captured partial output on timeout/output-limit/cancellation paths, and keep `MockExecutor` behavior aligned with production where practical. `run()` closes stdin and immediately kills registered processes on forced teardown; graceful `TeardownStrategy` steps apply to explicitly spawned processes.
 
 ### Workflows
 
-`Workflow<Value>` is single-use — `run()` consumes it. Typed workflow types (`GitStatusWorkflow`) queue steps until `run()` is awaited. Never call `run()` more than once on the same workflow instance.
+`Workflow<Value>.run()` is `consuming`, but workflows are copyable values that retain reusable closures. Each run starts the described operation again. Typed workflow types (`GitStatusWorkflow`) queue steps until `run()` is awaited; avoid repeated or concurrent runs only when the underlying operation makes them unsafe.
+
+### Security Boundary
+
+Separate argv entries avoid implicit shell splitting, but do not validate tool-specific syntax. Treat executable names and overrides, environment values, writable paths, raw options, command strings, expressions, and values passed to interpreters such as `sh -c` as caller-controlled security boundaries. Prefer allowlists and fixed executable paths in privileged automation, and never describe typed families as a sandbox.
 
 ### Testing
 

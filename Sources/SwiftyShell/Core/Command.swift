@@ -9,14 +9,14 @@ import Foundation
 /// A basic command captures stdout and stderr in ``ShellOutput``:
 ///
 /// ```swift
-/// let output = try await Command("\1", arguments: "hello").run(in: context)
+/// let output = try await Command("echo", arguments: "hello").run(in: context)
 /// print(output.stdout)
 /// ```
 ///
 /// Fluent modifiers return new immutable command values, so this configures only this invocation:
 ///
 /// ```swift
-/// let deployOutput = try await Command("\1", arguments: "deploy.rb")
+/// let deployOutput = try await Command("ruby", arguments: "deploy.rb")
 ///     .env("RAILS_ENV", "production")
 ///     .workingDirectory("/var/app")
 ///     .timeout(120)
@@ -26,7 +26,7 @@ import Foundation
 /// Redirect stdout when output should go to a file instead of memory:
 ///
 /// ```swift
-/// try await Command("\1", arguments: "build", "--verbose")
+/// try await Command("swift", arguments: "build", "--verbose")
 ///     .stdout(.file(path: "/tmp/build.log", append: false))
 ///     .run(in: context)
 /// ```
@@ -34,8 +34,8 @@ import Foundation
 /// Use ``pipe(to:)`` to connect commands without writing a shell string:
 ///
 /// ```swift
-/// let output = try await Command("\1", arguments: "-la")
-///     .pipe(to: Grep(".swift").command())
+/// let output = try await Command("ls", arguments: "-la")
+///     .pipe(to: Command("grep", arguments: ".swift"))
 ///     .run(in: context)
 /// ```
 ///
@@ -110,7 +110,7 @@ public struct Command: Sendable {
     /// The example below builds a command equivalent to `echo hello world` and runs it:
     ///
     /// ```swift
-    /// let output = try await Command("\1", arguments: "hello", "world").run(in: context)
+    /// let output = try await Command("echo", arguments: "hello", "world").run(in: context)
     /// ```
     ///
     /// - Parameters:
@@ -160,7 +160,7 @@ public struct Command: Sendable {
     /// The example below pins `git` to the Xcode-bundled binary regardless of `PATH`:
     ///
     /// ```swift
-    /// try await Command("\1", arguments: "status")
+    /// try await Command("git", arguments: "status")
     ///     .executable("/Applications/Xcode.app/Contents/Developer/usr/bin/git")
     ///     .run(in: context)
     /// ```
@@ -210,7 +210,7 @@ public struct Command: Sendable {
     /// child process treat it as unset.
     ///
     /// ```swift
-    /// try await Command("\1", arguments: "deploy.rb")
+    /// try await Command("ruby", arguments: "deploy.rb")
     ///     .env("RAILS_ENV", "production")
     ///     .run(in: context)
     /// ```
@@ -232,7 +232,7 @@ public struct Command: Sendable {
     /// The merged set is then applied on top of ``ShellContext/environment`` at execution time.
     ///
     /// ```swift
-    /// try await Command("\1", arguments: "test")
+    /// try await Command("swift", arguments: "test")
     ///     .env(["CI": "true", "NODE_ENV": "test"])
     ///     .run(in: context)
     /// ```
@@ -251,7 +251,7 @@ public struct Command: Sendable {
     /// file destinations are then resolved against this effective directory.
     ///
     /// ```swift
-    /// try await Command("\1", arguments: "pull")
+    /// try await Command("git", arguments: "pull")
     ///     .workingDirectory("/var/app")
     ///     .run(in: context)
     /// ```
@@ -272,7 +272,7 @@ public struct Command: Sendable {
     /// This override replaces ``ShellContext/defaultTimeout`` for this invocation only.
     ///
     /// ```swift
-    /// try await Command("\1", arguments: "build")
+    /// try await Command("swift", arguments: "build")
     ///     .timeout(120)   // abort if the build runs longer than two minutes
     ///     .run(in: context)
     /// ```
@@ -295,7 +295,7 @@ public struct Command: Sendable {
     /// ``OutputDestination/discard`` do not contribute to the captured size.
     ///
     /// ```swift
-    /// try await Command("\1", arguments: "-R", "/")
+    /// try await Command("ls", arguments: "-R", "/")
     ///     .outputLimit(1_048_576)   // cap captured output at 1 MB
     ///     .run(in: context)
     /// ```
@@ -316,7 +316,7 @@ public struct Command: Sendable {
     /// memory, which is helpful when output can be large:
     ///
     /// ```swift
-    /// try await Command("\1", arguments: "build", "--verbose")
+    /// try await Command("swift", arguments: "build", "--verbose")
     ///     .stdout(.file(path: "/tmp/build.log", append: false))
     ///     .run(in: context)
     /// ```
@@ -333,7 +333,7 @@ public struct Command: Sendable {
     /// ``OutputDestination/capture``.
     ///
     /// ```swift
-    /// try await Command("\1", arguments: "clean")
+    /// try await Command("make", arguments: "clean")
     ///     .stderr(.discard)   // suppress noisy progress messages
     ///     .run(in: context)
     /// ```
@@ -354,9 +354,9 @@ public struct Command: Sendable {
     /// Chain additional stages by calling ``Pipeline/pipe(to:)`` on the returned value:
     ///
     /// ```swift
-    /// let pipeline = Command("\1", arguments: "-la")
-    ///     .pipe(to: Command("\1", arguments: ".swift"))
-    ///     .pipe(to: Command("\1", arguments: "-l"))
+    /// let pipeline = Command("ls", arguments: "-la")
+    ///     .pipe(to: Command("grep", arguments: ".swift"))
+    ///     .pipe(to: Command("wc", arguments: "-l"))
     ///
     /// let output = try await pipeline.run(in: context)
     /// ```
@@ -375,7 +375,7 @@ public struct Command: Sendable {
     /// surface as the matching ``ShellError`` case.
     ///
     /// ```swift
-    /// let output = try await Command("\1", arguments: "rev-parse", "HEAD").run(in: context)
+    /// let output = try await Command("git", arguments: "rev-parse", "HEAD").run(in: context)
     /// let sha = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     /// ```
     ///

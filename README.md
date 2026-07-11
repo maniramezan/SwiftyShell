@@ -5,7 +5,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/maniramezan/SwiftyShell/build.yml?branch=main&label=CI&logo=github)](https://github.com/maniramezan/SwiftyShell/actions/workflows/build.yml)
 [![DocC](https://img.shields.io/github/actions/workflow/status/maniramezan/SwiftyShell/docc.yml?branch=main&label=DocC&logo=swift&logoColor=white)](https://github.com/maniramezan/SwiftyShell/actions/workflows/docc.yml)
 
-**Type-safe shell support for Swift.** SwiftyShell models shell concepts — tools, subcommands, flags, pipelines, workflows — as Swift values. You pick a typed wrapper like `Git`, `Grep`, `Brew`, or `Ls` and the compiler enforces the shape of the call. When a tool does not yet have a typed wrapper, `Command` is the fluent escape hatch for arbitrary executables — but the typed APIs are the default.
+**Swift-typed shell support.** SwiftyShell models shell concepts — tools, subcommands, flags, pipelines, workflows — as Swift values. Typed wrappers such as `Git`, `Grep`, `Brew`, and `Ls` make supported options discoverable, while `Command` is the fluent escape hatch for arbitrary executables.
 
 ```swift
 import SwiftyShell
@@ -26,7 +26,7 @@ let output = try await Command("my-tool", arguments: "--flag").run(in: context)
 
 ## Why Type-Safe?
 
-- **No string composition.** Executables, arguments, env values, and output destinations are separate typed values — never concatenated strings that shell can reinterpret.
+- **Explicit argv boundaries.** Executables, arguments, environment values, and output destinations are separate values. `Command` does not ask a shell to split or reinterpret argv.
 - **Structured results where they matter.** `Git` returns `GitStatus`; `ShellError` has named cases. No grepping stderr to decide what failed.
 - **Workflow gates.** `require(_:equals:)` makes conditional chains — like "only pull if clean" — first-class, testable primitives.
 - **Test without spawning processes.** Swap the executor for `MockExecutor` and every typed call becomes observable in unit tests.
@@ -42,7 +42,7 @@ Add SwiftyShell to your `Package.swift` and select the families you need:
 dependencies: [
     .package(
         url: "https://github.com/maniramezan/SwiftyShell.git",
-        from: "0.1.0",
+        from: "0.3.0",
         traits: ["Git", "Grep"]   // pick only what you need
     )
 ],
@@ -58,11 +58,11 @@ targets: [
 
 Two umbrella traits cover common cases:
 
-- `CommonUtilities` — enables every `Common/*` family (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`).
+- `CommonUtilities` — enables every `Common/*` family (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`).
 - `All` — enables every command family SwiftyShell ships.
 
 ```swift
-.package(url: "...", from: "0.1.0", traits: ["All"])
+.package(url: "...", from: "0.3.0", traits: ["All"])
 ```
 
 See the [Selecting Command Families](https://maniramezan.github.io/SwiftyShell/documentation/swiftyshell/selectingcommandfamilies) guide for the full trait list and recipes.
@@ -94,7 +94,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Grep` | `grep` | `Grep` | Literal and regex patterns, recursive, case-insensitive |
 | `Rg` | `rg` | `Rg` | Comprehensive ripgrep support, context, globs, JSON output |
 | `Brew` | `brew` | `Brew` | Full top-level subcommand coverage, plus `--cask` and `--greedy` |
-| `Fzf` | `fzf` | `Fzf` | Fuzzy finder options for interactive and filter-mode pipelines |
+| `Fzf` | `fzf` | `Fzf` | Fuzzy finder options for non-interactive filter-mode pipelines |
 | `Swift` | `swift` | `Swift` | SwiftPM build, test, run, package commands, traits, compiler flags |
 | `Gh` | `gh` | `Gh` | GitHub CLI automation for PRs, repos, workflows, Copilot, skills, API calls |
 | `Docker` | `docker` | `Docker` | Docker automation for Buildx, Compose, Debug, MCP, Scout, images, containers |
@@ -127,7 +127,7 @@ When the tool you need isn't listed, `Command("tool", arguments: "arg").run(in: 
 
 `SubprocessExecutor` is the default production executor and is backed by Apple's `swift-subprocess` package. It runs each `Command` as a subprocess, connects `Pipeline` stages with OS pipes, and preserves captured partial output on timeouts, output-limit failures, and Swift task cancellation.
 
-Timeouts are user-controlled through `ShellContext(defaultTimeout:)` or `Command.timeout(_:)`. When SwiftyShell must stop a running command or pipeline, it sends `SIGTERM` to the subprocess process group, waits briefly for graceful shutdown, then sends `SIGKILL` so shell wrappers and their child processes do not continue running in the background.
+Timeouts are user-controlled through `ShellContext(defaultTimeout:)` or `Command.timeout(_:)`. Timeout, cancellation, and output-limit teardown immediately sends `SIGKILL` to each registered process. The configurable graceful teardown sequence applies to processes started with `spawn`, not `run()`.
 
 ```swift
 do {
@@ -138,6 +138,10 @@ do {
     print("Captured before timeout:", partial.stdout)
 }
 ```
+
+`run()` closes stdin and is intended for non-interactive execution. Arguments are passed as separate argv entries, but that is not a complete security boundary: validate untrusted executable names, paths, options, environment values, and any strings passed to interpreters such as `sh -c`. Prefer fixed executable paths and typed options for privileged automation.
+
+For a runnable package that uses the local checkout, see [`Example/`](Example/). Run it with `swift run --package-path Example`.
 
 ## Generate Your Own Typed Commands with AI
 

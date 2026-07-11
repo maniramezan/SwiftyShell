@@ -3,19 +3,10 @@ import Foundation
 
 /// A fluent wrapper for `fzf`, the command-line fuzzy finder.
 ///
-/// ``Fzf`` models a broad, fluent subset of fzf's CLI as a Swift value type. In interactive mode,
-/// fzf reads a candidate list from stdin (or walks the file system) and presents a fuzzy-matching
-/// UI. For non-interactive batch filtering, use ``filter(_:)`` which maps to `fzf --filter`.
-///
-/// Interactive usage with ``spawn(teardown:)`` lets callers manage the process lifecycle:
-///
-/// ```swift
-/// let process = try await Command("find", arguments: ".", "-type", "f")
-///     .pipe(to: Fzf(context: context).multi().reverse().command())
-///     .spawn(in: context)
-///
-/// let output = try await process.waitForOutput()
-/// ```
+/// ``Fzf`` models a broad, fluent subset of fzf's CLI as a Swift value type. SwiftyShell does not
+/// provide terminal-backed interactive stdin, so use ``filter(_:)`` for non-interactive batch
+/// filtering or pass the built ``Command`` to an external execution environment that supplies a
+/// terminal.
 ///
 /// Non-interactive filtering with ``filter(_:)`` fits the ``run()`` pattern naturally:
 ///

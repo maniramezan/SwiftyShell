@@ -37,6 +37,11 @@ struct ShellErrorTests {
         #expect(error.errorDescription == "Failed to decode stderr output for 'cat' as UTF-8")
     }
 
+    @Test func parsingErrorIncludesReason() {
+        let error = ShellError.parsingError(command: "git status", reason: "malformed record")
+        #expect(error.errorDescription == "Failed to parse output for 'git status': malformed record")
+    }
+
     @Test func outputLimitExceededDescription() {
         let error = ShellError.outputLimitExceeded(command: "find .", limit: 1024, partialOutput: emptyOutput)
         #expect(error.errorDescription == "'find .' exceeded the output limit of 1024 bytes")

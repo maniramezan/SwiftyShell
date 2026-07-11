@@ -106,8 +106,9 @@ public struct Git: ToolConfigurableCommandFamily {
         GitStatusWorkflow(
             git: self,
             workflow: Workflow {
-                let output = try await makeCommand("status", "--porcelain=v2", "--branch").run(in: context)
-                return try GitParsers.parseStatus(output.stdout)
+                let command = makeCommand("status", "--porcelain=v2", "--branch").stdout(.capture)
+                let output = try await command.run(in: context)
+                return try GitParsers.parse(output.stdout, from: command, using: GitParsers.parseStatus)
             }
         )
     }

@@ -62,6 +62,13 @@ public enum ShellError: Error, LocalizedError, Sendable {
     ///     ``StreamKind/stderr``).
     case decodingError(command: String, stream: StreamKind)
 
+    /// A command succeeded, but its structured output did not match the expected format.
+    ///
+    /// - Parameters:
+    ///   - command: The shell-quoted display string of the command that produced malformed output.
+    ///   - reason: A human-readable description of the malformed record.
+    case parsingError(command: String, reason: String)
+
     /// Captured output exceeded the configured limit and the process was terminated.
     ///
     /// - Parameters:
@@ -106,6 +113,8 @@ public enum ShellError: Error, LocalizedError, Sendable {
             return "'\(command)' timed out after \(duration) seconds"
         case let .decodingError(command, stream):
             return "Failed to decode \(stream) output for '\(command)' as UTF-8"
+        case let .parsingError(command, reason):
+            return "Failed to parse output for '\(command)': \(reason)"
         case let .outputLimitExceeded(command, limit, _):
             return "'\(command)' exceeded the output limit of \(limit) bytes"
         case let .canceled(command, _):

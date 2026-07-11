@@ -231,6 +231,7 @@ public enum ShellError: Error, LocalizedError {
     case exitFailure(command: String, output: ShellOutput)
     case timeout(command: String, duration: TimeInterval, partialOutput: ShellOutput)
     case decodingError(command: String, stream: StreamKind)
+    case parsingError(command: String, reason: String)
     case outputLimitExceeded(command: String, limit: Int, partialOutput: ShellOutput)
     case canceled(command: String, partialOutput: ShellOutput)
     case spawnError(command: String, reason: String)

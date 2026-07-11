@@ -8,6 +8,8 @@ Every failure inside SwiftyShell — typed command families, raw ``Command``
 calls, ``Pipeline`` stages, and ``Workflow`` gates alike — surfaces as a
 ``ShellError``. Match on a specific case rather than testing exit codes or
 parsing stderr strings; the cases are stable, the messages inside them are not.
+Structured command workflows report successful commands with malformed output as
+``parsingError(command:reason:)`` rather than silently returning an empty result.
 
 The most common shape is a `do/catch` that handles the specific failures you
 care about and lets the rest propagate:

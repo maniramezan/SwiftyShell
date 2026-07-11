@@ -6,8 +6,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: main-ci-${{ github.ref }}
@@ -16,5 +14,9 @@ concurrency:
 jobs:
   ci:
     uses: ./.github/workflows/reusable-ci.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     with:
       deploy_pages: true

@@ -11,7 +11,7 @@ let package = Package(
         // SwiftyShell ships with all command families OFF by default.
         // Opt into the families this example actually uses via `traits:`.
         // Add more here (e.g. "Git", "Grep", or the "All" umbrella) as needed.
-        .package(path: "..", traits: ["Ls"]),
+        .package(name: "swiftyshell", path: "..", traits: ["Ls"]),
     ],
     targets: [
         .executableTarget(

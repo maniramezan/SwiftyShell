@@ -141,7 +141,7 @@ Do not mark a task complete, declare work finished, or hand back to the user unt
 3. `swift -warnings-as-errors Scripts/validate-traits.swift` — package trait wiring remains valid.
 4. `swift -warnings-as-errors Scripts/validate-docc-coverage.swift` — authored DocC coverage remains valid.
 5. `swift package -Xswiftc -warnings-as-errors --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
-6. `swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors` and `swift -warnings-as-errors Scripts/validate-code-coverage.swift --input <codecov-path> --minimum-line-coverage 84` — the coverage gate remains valid.
+6. `swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors` and `swift -warnings-as-errors Scripts/validate-code-coverage.swift --input <codecov-path> --minimum-line-coverage 84 --all-traits` — the coverage gate remains valid and includes every compiled source file.
 
 This applies to any code change (new command families, bug fixes, doc snippets that live in Swift, tests). Do not skip either gate. If a lint rule feels wrong for a specific construct, propose a `.swift-format` change in the same PR rather than bypassing the check.
 

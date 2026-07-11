@@ -72,8 +72,10 @@ Typed wrapper for the Python interpreter CLI: `Python`.
 
 ### `Sources/SwiftyShell/Curl/`
 
-Typed HTTP wrapper for curl: `Curl` and `CurlHTTPMethod`. Sensitive headers should be supplied via
-permission-restricted files with `headerFile(_:)`, not argv-visible header values.
+Typed CLI-compatible HTTP transfer wrapper for curl: `Curl` and `CurlHTTPMethod`. Use it for shell
+pipelines, CI recipes, artifact transfer, and vendor-provided curl commands; prefer `URLSession` for
+ordinary in-process Swift API clients. Sensitive headers should be supplied via permission-restricted
+files with `headerFile(_:)`, not argv-visible header values.
 
 ### `Sources/SwiftyShell/Common/`
 

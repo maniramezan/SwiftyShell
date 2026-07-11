@@ -51,8 +51,8 @@ Before writing any code, follow this decision tree:
     → Use `Kubectl`
 18. Is this a Python interpreter operation (`python3 -m`, `python3 -c`, running a `.py` file, ...)?
     → Use `Python`
-19. Is this an HTTP transfer supported by the typed curl API (method, headers, body or file upload, redirects, retries, timeout, or output)?
-    → Use `Curl`; put sensitive headers in a permission-restricted file and use `headerFile(_:)`
+19. Is this a command-line HTTP transfer, artifact download/upload, shell pipeline stage, CI recipe, or vendor-provided `curl` command?
+    → Use `Curl`; for ordinary in-process Swift API clients prefer `URLSession`; put sensitive headers in a permission-restricted file and use `headerFile(_:)`
 20. Does the operation need typed output, structured results, or conditional follow-up?
     → Use the appropriate typed client
 21. Are two or more commands chained by pipe?

@@ -36,9 +36,14 @@ public enum CurlHTTPMethod: Sendable, Equatable, Hashable {
 
 /// A focused, fluent wrapper for HTTP transfers with curl.
 ///
-/// ``Curl`` models one request per value. It disables curl's implicit configuration file so
-/// invocation behavior comes only from the builder. Header and body strings become process
-/// arguments; use ``headerFile(_:)`` and ``bodyFile(_:)`` for sensitive or large content.
+/// ``Curl`` models one request per value for command-line automation. Prefer `URLSession` or a
+/// dedicated HTTP client for ordinary in-process Swift API calls. Use ``Curl`` when you need curl's
+/// CLI behavior: pipeline composition, CI script parity, artifact transfer, vendor recipe
+/// reproduction, or curl-specific transfer options.
+///
+/// The builder disables curl's implicit configuration file so invocation behavior comes only from
+/// the builder. Header and body strings become process arguments; use ``headerFile(_:)`` and
+/// ``bodyFile(_:)`` for sensitive or large content.
 ///
 /// ```swift
 /// let output = try await Curl("https://api.example.com/items", context: context)

@@ -107,7 +107,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Terraform` | `terraform` | `Terraform` | Terraform init, plan, apply, workspaces, outputs |
 | `Kubectl` | `kubectl` | `Kubectl` | Kubernetes get, apply, logs, exec, namespaces, contexts |
 | `Python` | `python3` | `Python` | Python interpreter modules, command strings, scripts, options |
-| `Curl` | `curl` | `Curl` | Typed HTTP requests, uploads, redirects, retries, timeouts, output |
+| `Curl` | `curl` | `Curl` | CLI-compatible HTTP transfers for pipelines, CI scripts, and artifacts |
 | `Ls` | `ls` | `Ls` | All flags, recursive, human-readable sizes |
 | `Cp` | `cp` | `Cp` | Recursive, force |
 | `Mkdir` | `mkdir` | `Mkdir` | Parent directories, permissions |

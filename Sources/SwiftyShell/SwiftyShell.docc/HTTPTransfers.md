@@ -6,9 +6,36 @@ Build focused HTTP requests without composing shell strings.
 
 ``Curl`` models one curl transfer at a time, including its URL, ``CurlHTTPMethod``, headers,
 request body or upload file, redirects, retries, timeouts, failure behavior, and output file.
+It is a typed wrapper for the curl CLI, not a replacement for Swift's networking APIs.
+
+For normal Swift application or service code, prefer `URLSession` or a dedicated HTTP client. Those
+APIs keep request and response data in-process, avoid process-spawning overhead, and offer native
+typed response handling. Use ``Curl`` when the curl command itself is the valuable part of the
+workflow: porting an existing shell recipe, composing with other command-line tools, transferring
+artifacts in CI, or reproducing a vendor-provided `curl` invocation exactly.
+
 Every invocation starts with `--disable`, preventing a local `.curlrc` from silently changing the
 request. Transfers also reject credentials embedded in URLs, and `--no-progress-meter` keeps
 captured stderr suitable for automation.
+
+## When to use Curl
+
+Use ``Curl`` when your Swift code is orchestrating command-line automation:
+
+- **Pipeline composition:** feed curl output into tools such as `jq`, `tar`, `grep`, or another
+  ``Pipeline`` stage without writing a shell string.
+- **CI and release scripts:** port documented shell steps into Swift while preserving curl's exit
+  codes, retry behavior, redirects, and command-line diagnostics.
+- **Artifact transfer:** download or upload archives, checksums, build products, release assets,
+  or other files using curl's mature transfer behavior.
+- **Vendor recipe parity:** keep behavior close to a documented `curl ...` command when debugging
+  against third-party instructions.
+- **curl-specific behavior:** rely on curl's protocol, proxy, TLS, retry, redirect, upload, and
+  file-output semantics where reimplementing the same behavior with `URLSession` would add more
+  code than value.
+
+Avoid ``Curl`` for ordinary in-process API clients, typed JSON decoding, long-lived networking
+abstractions, or app features where spawning a process would be inappropriate.
 
 ```swift
 let output = try await Curl("https://api.example.com/items")

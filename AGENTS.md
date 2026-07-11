@@ -72,7 +72,7 @@ Typed wrapper for the Python interpreter CLI: `Python`.
 
 ### `Sources/SwiftyShell/Common/`
 
-Typed wrappers for frequently used shell utilities: `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `JqArgument`, `Rsync`, `Tar`, `TarOperation`, `TarCompression`, `Zip`, `ZipCompressionLevel`, `Unzip`, and `UnzipEntry`. Each follows the same fluent builder conventions as all other command families.
+Typed wrappers for frequently used shell utilities: `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `JqArgument`, `Rsync`, `Tar`, `TarOperation`, `TarCompression`, `Zip`, `ZipCompressionLevel`, `Unzip`, `UnzipEntry`, `Ln`, `Touch`, `Env`, `Which`, and `WhichResult`. Each follows the same fluent builder conventions as all other command families. `Ln`, `Touch`, and `Which` require their essential operands in initializers; `Env.command(_:arguments:)` preserves argv boundaries; prefer `Which.lookup()` for typed found/not-found handling.
 
 ### `Sources/SwiftyShell/Internal/Execution/`
 
@@ -209,7 +209,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 **Trait inventory (declared in `Package.swift`):**
 
-- Per-family: `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Python`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip` (one trait per family directory; for `Common/`, one trait per file).
+- Per-family: `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Python`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`, `Ln`, `Touch`, `Env`, `Which` (one trait per family directory; for `Common/`, one trait per file).
 - Umbrellas: `CommonUtilities` (all `Common/*`), `All` (every family).
 
 **The wiring contract** — enforced by `Scripts/validate-traits.swift` and CI:

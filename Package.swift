@@ -45,11 +45,18 @@ let package = Package(
         .trait(name: "Tar", description: "Typed wrapper for tar archives."),
         .trait(name: "Zip", description: "Typed wrapper for zip (Info-ZIP)."),
         .trait(name: "Unzip", description: "Typed wrapper for unzip (Info-ZIP)."),
+        .trait(name: "Ln", description: "Typed wrapper for ln."),
+        .trait(name: "Touch", description: "Typed wrapper for touch."),
+        .trait(name: "Env", description: "Typed wrapper for env."),
+        .trait(name: "Which", description: "Typed executable lookup with which."),
         // Convenience umbrella that enables every Common/* utility family.
         .trait(
             name: "CommonUtilities",
-            description: "Enables all common file/directory utility families.",
-            enabledTraits: ["Ls", "Cp", "Mkdir", "Chmod", "Rm", "Mv", "Pwd", "Jq", "Rsync", "Tar", "Zip", "Unzip"]
+            description: "Enables all common utility command families.",
+            enabledTraits: [
+                "Ls", "Cp", "Mkdir", "Chmod", "Rm", "Mv", "Pwd", "Jq", "Rsync", "Tar", "Zip", "Unzip",
+                "Ln", "Touch", "Env", "Which",
+            ]
         ),
         // Convenience umbrella that enables every command family.
         .trait(

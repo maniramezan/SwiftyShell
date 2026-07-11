@@ -8,7 +8,7 @@ SwiftyShell's primary API is a family of typed wrappers — ``Git``, ``Grep``, `
 ``Brew``, ``Fzf``, ``Swift``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
 ``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Python``, ``Ls``, ``Cp``,
 ``Mkdir``, ``Chmod``, ``Rm``, ``Mv``, ``Pwd``, ``Jq``, ``Rsync``, ``Tar``, ``Zip``,
-``Unzip`` — that model shell tools as Swift values. The compiler enforces which flags exist,
+``Unzip``, ``Ln``, ``Touch``, ``Env``, ``Which`` — that model shell tools as Swift values. The compiler enforces which flags exist,
 which arguments are required, and what the result looks like. ``Command`` is
 the fluent escape hatch for tools that don't have a typed wrapper yet; it
 shares the same builder style so code does not change shape when you fall back
@@ -193,6 +193,11 @@ let output = try await Command("echo", arguments: "hello").run(in: context)
 - ``Rm``
 - ``Mv``
 - ``Pwd``
+- ``Ln``
+- ``Touch``
+- ``Env``
+- ``Which``
+- ``WhichResult``
 
 ### Archives
 

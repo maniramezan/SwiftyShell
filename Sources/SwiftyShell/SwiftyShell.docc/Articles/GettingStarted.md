@@ -5,7 +5,7 @@ Add SwiftyShell to your package, pick a typed command family, and run your first
 ## Overview
 
 SwiftyShell provides typed wrappers for common shell tools — ``Git``, ``Brew``, ``Grep``,
-``Make``, ``Npm``, ``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Python``, and more. These APIs make modeled options discoverable and provide structured results where available; raw option and argument escape hatches still require caller validation. For the full API reference and per-family guides, see the
+``Make``, ``Npm``, ``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Helm``, ``Python``, and more. These APIs make modeled options discoverable and provide structured results where available; raw option and argument escape hatches still require caller validation. For the full API reference and per-family guides, see the
 <doc:SelectingCommandFamilies> article and the [documentation](https://maniramezan.github.io/SwiftyShell/documentation/swiftyshell/).
 
 ## Installation

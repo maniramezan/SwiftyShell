@@ -6,7 +6,7 @@ Swift-typed shell support.
 
 SwiftyShell's primary API is a family of typed wrappers — ``Git``, ``Grep``, ``Rg``,
 ``Brew``, ``Fzf``, ``Swift``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
-``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Python``, ``Ls``, ``Cp``,
+``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Helm``, ``Python``, ``Ls``, ``Cp``,
 ``Mkdir``, ``Chmod``, ``Rm``, ``Mv``, ``Pwd``, ``Jq``, ``Rsync``, ``Tar``, ``Zip``,
 ``Unzip`` — that model shell tools as Swift values. Typed families make their modeled options
 discoverable and provide structured results where available. ``Command`` is
@@ -184,6 +184,17 @@ Arguments are forwarded as distinct argv entries without shell parsing, but Swif
 - ``TerraformSubcommand``
 - ``Kubectl``
 - ``KubectlSubcommand``
+- ``Helm``
+- ``HelmTemplate``
+- ``HelmLint``
+- ``HelmInstall``
+- ``HelmUpgrade``
+- ``HelmUninstall``
+- ``HelmList``
+- ``HelmStatus``
+- ``HelmOutputFormat``
+- ``HelmDryRunMode``
+- ``HelmReleaseStatus``
 - ``Python``
 
 ### Common File-System Commands

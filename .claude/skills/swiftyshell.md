@@ -51,15 +51,17 @@ Before writing any code, follow this decision tree:
     → Use `Kubectl`
 18. Is this a Helm operation (`helm template`, `helm lint`, `helm upgrade`, ...)?
     → Use `Helm` and its operation-specific builder
-19. Is this a Python interpreter operation (`python3 -m`, `python3 -c`, running a `.py` file, ...)?
+19. Is this a command-line HTTP transfer, artifact download/upload, shell pipeline stage, CI recipe, or vendor-provided `curl` command?
+    → Use `Curl`; for ordinary in-process Swift API clients prefer `URLSession`; put sensitive headers in a permission-restricted file and use `headerFile(_:)`
+20. Is this a Python interpreter operation (`python3 -m`, `python3 -c`, running a `.py` file, ...)?
     → Use `Python`
-20. Does the operation need typed output, structured results, or conditional follow-up?
+21. Does the operation need typed output, structured results, or conditional follow-up?
     → Use the appropriate typed client
-21. Are two or more commands chained by pipe?
+22. Are two or more commands chained by pipe?
     → Use `.pipe(to:)` to build a `Pipeline`
-22. Does the command write output to a file?
+23. Does the command write output to a file?
     → Use `.stdout(.file(path:append:))` on the command
-23. Is this any other command?
+24. Is this any other command?
        → Use `Command`
 
 ### API Reference
@@ -972,6 +974,44 @@ public struct Docker: RunnableCommandFamily {
     public func run() async throws -> ShellOutput
 }
 ```
+
+#### HTTP Transfers
+
+```swift
+public enum CurlHTTPMethod: Sendable, Equatable, Hashable {
+    case get, head, post, put, patch, delete, options
+    case custom(String)
+}
+
+public struct Curl: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public init(_ url: String, context: ShellContext = .init())
+    public func version() -> Self
+    public func url(_ value: String) -> Self
+    public func method(_ value: CurlHTTPMethod) -> Self
+    public func header(name: String, value: String) -> Self
+    public func headerFile(_ path: String) -> Self
+    public func body(_ value: String) -> Self
+    public func bodyFile(_ path: String) -> Self
+    public func uploadFile(_ path: String) -> Self
+    public func followRedirects(_ enabled: Bool = true) -> Self
+    public func maximumRedirects(_ count: Int) -> Self
+    public func retry(_ count: Int) -> Self
+    public func retryDelay(_ seconds: Int) -> Self
+    public func retryMaximumTime(_ seconds: Int) -> Self
+    public func retryAllErrors(_ enabled: Bool = true) -> Self
+    public func retryConnectionRefused(_ enabled: Bool = true) -> Self
+    public func requestTimeout(_ seconds: TimeInterval) -> Self
+    public func connectionTimeout(_ seconds: TimeInterval) -> Self
+    public func failWithBody(_ enabled: Bool = true) -> Self
+    public func outputFile(_ path: String) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+```
+
+`header(name:value:)` and `body(_:)` are argv-visible. Never place credentials in them or log built
+authenticated commands. Put sensitive headers in a protected file and use `headerFile(_:)`.
 
 #### Scripting CLIs
 
@@ -1964,7 +2004,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Curl`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:
@@ -1977,7 +2017,7 @@ Consumers select families with `traits:` on `.package(...)`:
 
 The contract is enforced by `Scripts/validate-traits.swift` and CI:
 
-1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Helm/`, `Python/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
+1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Helm/`, `Python/`, `Curl/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
 2. Every test file targeting a gated family is wrapped the same way. Cross-family tests use combined guards (`#if Git && Grep`).
 3. Every family directory (or `Common/*.swift` file) has a matching `.trait(name:)` entry in `Package.swift`.
 4. The `All` umbrella's `enabledTraits` transitively enables every per-family trait. The `CommonUtilities` umbrella enables every `Common/*` trait.

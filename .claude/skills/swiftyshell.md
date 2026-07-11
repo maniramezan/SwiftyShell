@@ -1227,7 +1227,7 @@ public struct Kubectl: RunnableCommandFamily {
     public func apply() -> Self
     public func delete(_ resource: String? = nil) -> Self
     public func logs(_ resource: String? = nil) -> Self
-    public func exec(_ resource: String? = nil) -> Self
+    public func exec(_ resource: String, command: [String]) -> Self
     public func kubeconfig(_ path: String) -> Self
     public func contextName(_ name: String) -> Self
     public func namespace(_ name: String) -> Self
@@ -1383,7 +1383,7 @@ public struct Zip: RunnableCommandFamily {
     public func verbose(_ enabled: Bool = true) -> Self       // -v
     public func junkPaths(_ enabled: Bool = true) -> Self     // -j
     public func storeSymlinks(_ enabled: Bool = true) -> Self // -y
-    public func preservePermissions(_ enabled: Bool = true) -> Self // -X
+    public func stripExtraFields(_ enabled: Bool = true) -> Self // -X
 
     // Compression and split
     public func compressionLevel(_ level: ZipCompressionLevel) -> Self
@@ -1433,7 +1433,7 @@ public struct Unzip: RunnableCommandFamily {
     public func neverOverwrite(_ enabled: Bool = true) -> Self // -n
     public func quiet(_ enabled: Bool = true) -> Self         // -q
     public func junkPaths(_ enabled: Bool = true) -> Self     // -j
-    public func preserveCase(_ enabled: Bool = true) -> Self  // -K
+    public func restoreSecurityMetadata(_ enabled: Bool = true) -> Self // -K; restores setuid/setgid/sticky bits
     public func password(_ value: String) -> Self             // -P <pwd>  (argv-visible)
 
     // Typed listing

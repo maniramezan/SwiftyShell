@@ -77,6 +77,10 @@ struct UnzipCommandTests {
         let command = subject.test().archive("/tmp/in.zip").command()
         #expect(command.arguments == ["-t", "/tmp/in.zip"])
     }
+
+    @Test func restoreSecurityMetadataUsesPrivilegedPermissionFlag() {
+        #expect(subject.restoreSecurityMetadata().command().arguments == ["-K"])
+    }
 }
 
 struct UnzipEntryParserTests {

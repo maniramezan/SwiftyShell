@@ -247,7 +247,8 @@ public struct Command: Sendable {
     ///
     /// The path replaces ``ShellContext/workingDirectory`` for this invocation only. Both
     /// absolute and relative paths are accepted; relative paths are resolved by the executor
-    /// against the current process's working directory at spawn time.
+    /// against the current process's working directory. Relative executable overrides and output
+    /// file destinations are then resolved against this effective directory.
     ///
     /// ```swift
     /// try await Command("\1", arguments: "pull")

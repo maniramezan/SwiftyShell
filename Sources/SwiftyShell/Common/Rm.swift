@@ -133,6 +133,7 @@ public struct Rm: RunnableCommandFamily {
             arguments.append("-f")
         }
 
+        if !state.paths.isEmpty { arguments.append("--") }
         arguments.append(contentsOf: state.paths)
 
         let base = Command("rm")

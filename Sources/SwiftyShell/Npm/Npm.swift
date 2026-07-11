@@ -113,6 +113,9 @@ public struct Npm: RunnableCommandFamily {
     public func arguments(_ values: [String]) -> Self { copy(extraArguments: state.extraArguments + values) }
 
     /// Returns a copy that appends a positional package, binary, or script argument.
+    ///
+    /// For ``runScript(_:)``, these values are emitted after an automatically inserted `--` so
+    /// npm forwards them to the package script.
     public func positionalArgument(_ value: String) -> Self { copy(positionals: state.positionals + [value]) }
 
     /// Returns a copy that appends positional package, binary, or script arguments.
@@ -128,7 +131,10 @@ public struct Npm: RunnableCommandFamily {
         if state.isSilent { arguments.append("--silent") }
         if state.outputsJSON { arguments.append("--json") }
         arguments += state.extraArguments
-        if let scriptName = state.scriptName { arguments.append(scriptName) }
+        if let scriptName = state.scriptName {
+            arguments.append(scriptName)
+            if !state.positionals.isEmpty { arguments.append("--") }
+        }
         arguments += state.positionals
         let base = Command("npm").args(arguments).stdout(state.stdoutDestination).stderr(state.stderrDestination)
         return state.config.apply(to: base)

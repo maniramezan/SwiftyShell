@@ -65,7 +65,7 @@ try await Zip(context: context)
 - ``verbose(_:)``
 - ``junkPaths(_:)``
 - ``storeSymlinks(_:)``
-- ``preservePermissions(_:)``
+- ``stripExtraFields(_:)``
 
 ### Compression
 

@@ -12,7 +12,7 @@ struct MvCommandTests {
             .command()
 
         #expect(command.executableName == "mv")
-        #expect(command.arguments == ["-f", "from", "to"])
+        #expect(command.arguments == ["-f", "--", "from", "to"])
     }
 
     @Test func movesFile() async throws {

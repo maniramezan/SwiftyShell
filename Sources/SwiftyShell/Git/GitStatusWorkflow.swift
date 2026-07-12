@@ -35,9 +35,8 @@ public struct GitStatusWorkflow: Sendable {
 
     /// Runs the underlying git status workflow and returns the parsed result.
     ///
-    /// `consuming` because ``Workflow`` is single-use; running the same workflow twice would
-    /// re-execute every queued step. After this call the value is consumed and may not be
-    /// reused.
+    /// `consuming` to match ``Workflow/run()``. Workflow values are copyable, and running a copy
+    /// re-executes every queued step.
     ///
     /// - Returns: The parsed ``GitStatus`` value produced by `git status --porcelain=v2 --branch`.
     /// - Throws: ``ShellError`` if `git` exits non-zero, the output cannot be parsed, or any

@@ -40,7 +40,7 @@ docc:
 coverage:
 	path="$$(swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors --show-codecov-path)"; \
 	swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors; \
-	swift -warnings-as-errors Scripts/validate-code-coverage.swift --input "$$path" --minimum-line-coverage "$(MINIMUM_LINE_COVERAGE)"
+	swift -warnings-as-errors Scripts/validate-code-coverage.swift --input "$$path" --minimum-line-coverage "$(MINIMUM_LINE_COVERAGE)" --all-traits
 
 check: lint test validate-traits validate-docc docc coverage linux-ci
 

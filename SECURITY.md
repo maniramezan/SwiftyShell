@@ -4,7 +4,13 @@ SwiftyShell executes local commands and can affect the caller's filesystem, envi
 
 ## Supported Versions
 
-During the `0.x` beta period, security fixes target the latest released version and the `main` branch.
+Security fixes target the current `0.3.x` release line and the `main` branch.
+
+## Caller Security Boundary
+
+SwiftyShell passes `Command` arguments as separate argv entries and does not invoke a shell unless the caller explicitly runs one. This prevents shell parsing of ordinary arguments, but it does not validate executable behavior or make untrusted input safe for `sh -c`, `python -c`, regular expressions, templates, tool-specific command strings, environment variables, executable overrides, or output paths.
+
+Validate untrusted values according to the invoked tool's grammar, use allowlists for executables and privileged options, prefer absolute executable paths in sensitive contexts, avoid placing secrets in argv, and constrain writable paths before execution. Typed command families improve API discoverability; they are not a sandbox or authorization layer.
 
 ## Reporting a Vulnerability
 

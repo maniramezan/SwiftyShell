@@ -26,6 +26,16 @@ try await Kubectl(context: context)
     .run()
 ```
 
+Execute a command in a container. ``exec(_:command:)`` places `--` after the pod and kubectl
+options automatically, so command flags are forwarded safely:
+
+```swift
+try await Kubectl(context: context)
+    .exec("pod/api", command: ["env", "--show-hidden"])
+    .container("api")
+    .run()
+```
+
 ## Topics
 
 ### Subcommands
@@ -38,7 +48,7 @@ try await Kubectl(context: context)
 - ``apply()``
 - ``delete(_:)``
 - ``logs(_:)``
-- ``exec(_:)``
+- ``exec(_:command:)``
 
 ### Options
 

@@ -57,7 +57,7 @@ For the standard local pre-PR pass, run `make check`. It bundles:
 - `swift -warnings-as-errors Scripts/validate-docc-coverage.swift`
 - `swift package -Xswiftc -warnings-as-errors --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell`
 - `swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors`
-- `swift -warnings-as-errors Scripts/validate-code-coverage.swift --input <codecov-path> --minimum-line-coverage 84`
+- `swift -warnings-as-errors Scripts/validate-code-coverage.swift --input <codecov-path> --minimum-line-coverage 84 --all-traits`
 - `Scripts/linux-ci.sh`
 
 On Apple Silicon Macs, the helpers run a native Linux ARM container by default for speed. To match GitHub Actions' `amd64` container more closely, set `SWIFTYSHELL_LINUX_PLATFORM=linux/amd64`:

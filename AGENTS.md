@@ -2,7 +2,7 @@
 
 This file is maintainer-oriented automation guidance for AI assistants working in this repository. It is public so contributors can audit and improve it, but it is optional and not required to build, test, or contribute to SwiftyShell.
 
-SwiftyShell is a Swift package that provides type-safe shell command execution. It models shell concepts — commands, arguments, pipelines, redirection, workflows — as Swift values rather than raw strings.
+SwiftyShell is a Swift package that models shell execution as Swift values: commands, argv entries, pipelines, redirection, and workflows. Typed wrappers improve discoverability but are not a security or input-validation boundary.
 
 ## Repository Layout
 
@@ -74,6 +74,13 @@ Operation-specific Helm wrapper: `Helm`, `HelmTemplate`, `HelmLint`, `HelmInstal
 
 Typed wrapper for the Python interpreter CLI: `Python`.
 
+### `Sources/SwiftyShell/Curl/`
+
+Typed CLI-compatible HTTP transfer wrapper for curl: `Curl` and `CurlHTTPMethod`. Use it for shell
+pipelines, CI recipes, artifact transfer, and vendor-provided curl commands; prefer `URLSession` for
+ordinary in-process Swift API clients. Sensitive headers should be supplied via permission-restricted
+files with `headerFile(_:)`, not argv-visible header values.
+
 ### `Sources/SwiftyShell/Common/`
 
 Typed wrappers for frequently used shell utilities: `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `JqArgument`, `Rsync`, `Tar`, `TarOperation`, `TarCompression`, `Zip`, `ZipCompressionLevel`, `Unzip`, `UnzipEntry`, `Ln`, `Touch`, `Env`, `Which`, and `WhichResult`. Each follows the same fluent builder conventions as all other command families. `Ln`, `Touch`, and `Which` require their essential operands in initializers; `Env.command(_:arguments:)` preserves argv boundaries; prefer `Which.lookup()` for typed found/not-found handling.
@@ -92,7 +99,7 @@ DocC documentation catalog. `SwiftyShell.md` is the top-level landing page. Arti
 
 ### `Tests/SwiftyShellTests/`
 
-Test suite. Sub-folders mirror the source layout: `Brew/`, `Bun/`, `Common/`, `Core/`, `Docker/`, `Fzf/`, `Gh/`, `Git/`, `Grep/`, `Helm/`, `Kubectl/`, `Make/`, `Node/`, `Npm/`, `Pipelines/`, `Pnpm/`, `Python/`, `Rg/`, `Swift/`, `Terraform/`, and `Yarn/`. Test files for gated families are wrapped in `#if <Trait>` so the test target compiles under any trait selection. `Common/` has one test file per family (`LsTests.swift`, `CpTests.swift`, …) plus `CommonTestSupport.swift` (shared helpers, ungated).
+Test suite. Sub-folders mirror the source layout: `Brew/`, `Bun/`, `Common/`, `Core/`, `Curl/`, `Docker/`, `Fzf/`, `Gh/`, `Git/`, `Grep/`, `Helm/`, `Kubectl/`, `Make/`, `Node/`, `Npm/`, `Pipelines/`, `Pnpm/`, `Python/`, `Rg/`, `Swift/`, `Terraform/`, and `Yarn/`. Test files for gated families are wrapped in `#if <Trait>` so the test target compiles under any trait selection. `Common/` has one test file per family (`LsTests.swift`, `CpTests.swift`, …) plus `CommonTestSupport.swift` (shared helpers, ungated).
 
 ### `Scripts/`
 
@@ -145,7 +152,7 @@ Do not mark a task complete, declare work finished, or hand back to the user unt
 3. `swift -warnings-as-errors Scripts/validate-traits.swift` — package trait wiring remains valid.
 4. `swift -warnings-as-errors Scripts/validate-docc-coverage.swift` — authored DocC coverage remains valid.
 5. `swift package -Xswiftc -warnings-as-errors --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
-6. `swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors` and `swift -warnings-as-errors Scripts/validate-code-coverage.swift --input <codecov-path> --minimum-line-coverage 84` — the coverage gate remains valid.
+6. `swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors` and `swift -warnings-as-errors Scripts/validate-code-coverage.swift --input <codecov-path> --minimum-line-coverage 84 --all-traits` — the coverage gate remains valid and includes every compiled source file.
 
 This applies to any code change (new command families, bug fixes, doc snippets that live in Swift, tests). Do not skip either gate. If a lint rule feels wrong for a specific construct, propose a `.swift-format` change in the same PR rather than bypassing the check.
 
@@ -187,17 +194,21 @@ Verify your work: after editing, scan the file for `public ` lines without a pre
 
 ### Error Handling
 
-All failures surface as `ShellError`. Never throw raw `Error` or `NSError` from public code. Use `ShellError.spawnError` for unexpected process launch failures.
+Built-in execution failures surface as `ShellError`. Workflow closures, transforms, custom gate errors, and custom executors may throw other `Error` values. Use `ShellError.spawnError` when the built-in executor maps an unexpected process-launch failure.
 
 ### Execution Engine
 
 `SubprocessExecutor` (in `Internal/Execution/`) is `public` because `ShellContext.init` defaults to it. The `Internal/` folder label is organizational — it does not imply the type is hidden from callers.
 
-The production executor uses the `swift-subprocess` package for process lifecycle management. Keep SwiftyShell's public error semantics stable when changing it: map process failures into `ShellError`, preserve partial output on timeout/output-limit/cancellation paths, and keep `MockExecutor` behavior aligned with production where practical.
+The production executor uses the `swift-subprocess` package for process lifecycle management. Keep SwiftyShell's public error semantics stable when changing it: map built-in execution failures into `ShellError`, preserve captured partial output on timeout/output-limit/cancellation paths, and keep `MockExecutor` behavior aligned with production where practical. `run()` closes stdin and immediately kills registered processes on forced teardown; graceful `TeardownStrategy` steps apply to explicitly spawned processes.
 
 ### Workflows
 
-`Workflow<Value>` is single-use — `run()` consumes it. Typed workflow types (`GitStatusWorkflow`) queue steps until `run()` is awaited. Never call `run()` more than once on the same workflow instance.
+`Workflow<Value>.run()` is `consuming`, but workflows are copyable values that retain reusable closures. Each run starts the described operation again. Typed workflow types (`GitStatusWorkflow`) queue steps until `run()` is awaited; avoid repeated or concurrent runs only when the underlying operation makes them unsafe.
+
+### Security Boundary
+
+Separate argv entries avoid implicit shell splitting, but do not validate tool-specific syntax. Treat executable names and overrides, environment values, writable paths, raw options, command strings, expressions, and values passed to interpreters such as `sh -c` as caller-controlled security boundaries. Prefer allowlists and fixed executable paths in privileged automation, and never describe typed families as a sandbox.
 
 ### Testing
 
@@ -213,12 +224,12 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 **Trait inventory (declared in `Package.swift`):**
 
-- Per-family: `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`, `Ln`, `Touch`, `Env`, `Which` (one trait per family directory; for `Common/`, one trait per file).
+- Per-family: `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Curl`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`, `Ln`, `Touch`, `Env`, `Which` (one trait per family directory; for `Common/`, one trait per file).
 - Umbrellas: `CommonUtilities` (all `Common/*`), `All` (every family).
 
 **The wiring contract** — enforced by `Scripts/validate-traits.swift` and CI:
 
-1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Helm/`, `Python/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
+1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Helm/`, `Python/`, `Curl/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
 2. Every test file targeting a gated family is wrapped the same way. Cross-family tests use combined guards (`#if Git && Grep`).
 3. Every family directory (or `Common/*.swift` file) has a matching `.trait(name:)` entry in `Package.swift`.
 4. The `All` umbrella's `enabledTraits` transitively enables every per-family trait. The `CommonUtilities` umbrella enables every `Common/*` trait.

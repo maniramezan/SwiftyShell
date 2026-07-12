@@ -20,6 +20,13 @@ Use ``GitSubmodule/recursive(_:)`` when you also want nested submodules. The
 result is an array of entries, one per submodule path, that you can branch on
 without parsing stdout yourself.
 
+Typed git workflows always capture their parser input, even if the fluent command
+was previously configured to redirect stdout. Structured diff results use git's
+NUL-delimited format so spaces, tabs, newlines, and rename or copy paths are
+preserved exactly. Malformed structured output throws
+``ShellError/parsingError(command:reason:)`` rather than being treated as an
+empty result or clean repository.
+
 ```swift
 let entries = try await Git(context: context)
     .workingDirectory(repoPath)

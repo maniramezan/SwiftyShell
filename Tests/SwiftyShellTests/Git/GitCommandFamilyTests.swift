@@ -598,6 +598,27 @@ struct GitCommandFamilyTests {
         #expect(entries.contains { $0.name == "main" && $0.isCurrent })
     }
 
+    @Test func typedBranchEntriesPreserveAllAndForceCapture() async throws {
+        let recorder = GitCommandRecorder()
+        let context = ShellContext(
+            executor: MockExecutor { command, _ in
+                await recorder.record(command)
+                return ShellOutput(stdout: "*\tmain\torigin/main\n", stderr: "", exitCode: 0)
+            }
+        )
+
+        _ = try await Git(context: context)
+            .branch()
+            .all()
+            .stdout(.discard)
+            .entries()
+            .run()
+
+        let command = try #require(await recorder.snapshot().first)
+        #expect(command.arguments == ["branch", "--format=%(HEAD)\t%(refname:short)\t%(upstream:short)", "--all"])
+        #expect(command.stdoutDestination == .capture)
+    }
+
     @Test func parsesTypedLogEntriesFromRepository() async throws {
         let repoURL = try makeTemporaryDirectoryForGitCommandTests()
         defer { try? FileManager.default.removeItem(at: repoURL) }
@@ -625,6 +646,24 @@ struct GitCommandFamilyTests {
         #expect(entries.count == 1)
         #expect(entries[0].authorName == "Test User")
         #expect(entries[0].subject == "initial commit")
+    }
+
+    @Test func typedLogEntriesForceCapture() async throws {
+        let recorder = GitCommandRecorder()
+        let context = ShellContext(
+            executor: MockExecutor { command, _ in
+                await recorder.record(command)
+                return ShellOutput(
+                    stdout: "hash\u{1F}short\u{1F}name\u{1F}email\u{1F}subject\n",
+                    stderr: "",
+                    exitCode: 0
+                )
+            }
+        )
+
+        _ = try await Git(context: context).log().stdout(.file(path: "/tmp/log", append: false)).entries().run()
+
+        #expect(try #require(await recorder.snapshot().first).stdoutDestination == .capture)
     }
 
     @Test func parsesTypedDiffFileChangesFromRepository() async throws {
@@ -655,6 +694,52 @@ struct GitCommandFamilyTests {
         #expect(changes.contains { $0.path == "README.md" && $0.kind == .modified })
     }
 
+    @Test func typedDiffPreservesUnusualRenamePaths() async throws {
+        let repoURL = try makeTemporaryDirectoryForGitCommandTests()
+        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let context = ShellContext()
+        try await initializeRepository(at: repoURL, context: context)
+
+        let oldPath = "old name\twith tab.txt"
+        let newPath = "new name\nwith newline.txt"
+        try "content".write(to: repoURL.appendingPathComponent(oldPath), atomically: true, encoding: .utf8)
+        _ = try await Command("git", arguments: "add", "--", oldPath).workingDirectory(repoURL.path).run(in: context)
+        _ = try await Command("git", arguments: "commit", "-m", "add unusual path")
+            .workingDirectory(repoURL.path)
+            .run(in: context)
+        _ = try await Command("git", arguments: "mv", "--", oldPath, newPath).workingDirectory(repoURL.path).run(
+            in: context
+        )
+
+        let changes = try await Git(context: context)
+            .workingDirectory(repoURL.path)
+            .diff()
+            .staged()
+            .stdout(.discard)
+            .fileChanges()
+            .run()
+
+        #expect(
+            changes == [GitDiffFileChange(kind: .renamed, path: newPath, originalPath: oldPath, statusCode: "R100")]
+        )
+    }
+
+    @Test func typedDiffPlacesNULTerminationBeforePathspec() async throws {
+        let recorder = GitCommandRecorder()
+        let context = ShellContext(
+            executor: MockExecutor { command, _ in
+                await recorder.record(command)
+                return ShellOutput(stdout: "M\0path\0", stderr: "", exitCode: 0)
+            }
+        )
+
+        _ = try await Git(context: context).diff().path("path").fileChanges().run()
+
+        #expect(
+            try #require(await recorder.snapshot().first).arguments == ["diff", "--name-status", "-z", "--", "path"]
+        )
+    }
+
     @Test func parsesTypedSubmoduleStatusEntriesFromRepository() async throws {
         let parentURL = try makeTemporaryDirectoryForGitCommandTests()
         let childURL = try makeTemporaryDirectoryForGitCommandTests()
@@ -664,7 +749,7 @@ struct GitCommandFamilyTests {
         let context = ShellContext()
         try await initializeRepository(at: childURL, context: context)
         try await initializeRepository(at: parentURL, context: context)
-        _ = try await Command("git", arguments: "submodule", "add", childURL.path, "Vendor/Child")
+        _ = try await Command("git", arguments: "submodule", "add", childURL.path, "Vendor/Child With Spaces")
             .env("GIT_ALLOW_PROTOCOL", "file")
             .workingDirectory(parentURL.path)
             .run(in: context)
@@ -677,7 +762,7 @@ struct GitCommandFamilyTests {
 
         #expect(entries.count == 1)
         #expect(entries[0].state == .current)
-        #expect(entries[0].path == "Vendor/Child")
+        #expect(entries[0].path == "Vendor/Child With Spaces")
         #expect(!entries[0].commitHash.isEmpty)
     }
 
@@ -708,6 +793,7 @@ struct GitCommandFamilyTests {
             .recursive()
             .cached()
             .path("Vendor/Ready")
+            .stdout(.discard)
             .statusEntries()
             .run()
 
@@ -733,6 +819,37 @@ struct GitCommandFamilyTests {
                 ]
             ]
         )
+        #expect(try #require(await recorder.snapshot().first).stdoutDestination == .capture)
+    }
+
+    @Test func malformedTypedOutputThrowsShellError() async throws {
+        let context = ShellContext(
+            executor: MockExecutor { _, _ in
+                ShellOutput(stdout: "malformed", stderr: "", exitCode: 0)
+            }
+        )
+
+        do {
+            _ = try await Git(context: context).branch().entries().run()
+            Issue.record("Expected parsingError")
+        } catch let ShellError.parsingError(command, reason) {
+            #expect(command.contains("git branch"))
+            #expect(reason.contains("malformed record"))
+        } catch {
+            Issue.record("Expected parsingError, got \(error)")
+        }
+    }
+}
+
+private actor GitCommandRecorder {
+    private var commands: [Command] = []
+
+    func record(_ command: Command) {
+        commands.append(command)
+    }
+
+    func snapshot() -> [Command] {
+        commands
     }
 }
 

@@ -27,7 +27,7 @@ jobs:
       - name: Compute affected traits
         id: compute
         run: |
-          FULL='["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "Make", "Node", "Npm", "Yarn", "Pnpm", "Bun", "Terraform", "Kubectl", "Helm", "Python", "Curl", "Ls", "Cp", "Mkdir", "Chmod", "Rm", "Mv", "Pwd", "Jq", "Rsync", "Tar", "Zip", "Unzip", "Find", "CommonUtilities", "All"]'
+          FULL='["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Cargo", "Gh", "Docker", "Make", "Node", "Npm", "Yarn", "Pnpm", "Bun", "Terraform", "Kubectl", "Helm", "Python", "Curl", "Ls", "Cp", "Mkdir", "Chmod", "Rm", "Mv", "Pwd", "Jq", "Rsync", "Tar", "Zip", "Unzip", "Ln", "Touch", "Env", "Which", "Find", "CommonUtilities", "All"]'
 
           CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
           echo "Changed files:"
@@ -55,6 +55,7 @@ jobs:
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Fzf/|Tests/SwiftyShellTests/Fzf/)' && family_traits+=("Fzf")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Rg/|Tests/SwiftyShellTests/Rg/)' && family_traits+=("Rg")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Swift/|Tests/SwiftyShellTests/Swift/)' && family_traits+=("Swift")
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Cargo/|Tests/SwiftyShellTests/Cargo/)' && family_traits+=("Cargo")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Gh/|Tests/SwiftyShellTests/Gh/)' && family_traits+=("Gh")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Docker/|Tests/SwiftyShellTests/Docker/)' && family_traits+=("Docker")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Make/|Tests/SwiftyShellTests/Make/)' && family_traits+=("Make")
@@ -80,6 +81,10 @@ jobs:
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Tar\.swift|Tests/SwiftyShellTests/Common/TarTests\.swift)$' && family_traits+=("Tar") && common_changed=true
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Zip\.swift|Tests/SwiftyShellTests/Common/(ZipTests|ZipUnzipTests)\.swift)$' && family_traits+=("Zip") && common_changed=true
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Unzip\.swift|Tests/SwiftyShellTests/Common/(UnzipTests|ZipUnzipTests)\.swift)$' && family_traits+=("Unzip") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Ln\.swift|Tests/SwiftyShellTests/Common/LnTests\.swift)$' && family_traits+=("Ln") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Touch\.swift|Tests/SwiftyShellTests/Common/TouchTests\.swift)$' && family_traits+=("Touch") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Env\.swift|Tests/SwiftyShellTests/Common/EnvTests\.swift)$' && family_traits+=("Env") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Which\.swift|Tests/SwiftyShellTests/Common/WhichTests\.swift)$' && family_traits+=("Which") && common_changed=true
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Find\.swift|Tests/SwiftyShellTests/Common/FindTests\.swift)$' && family_traits+=("Find") && common_changed=true
           [ "$common_changed" = true ] && family_traits+=("CommonUtilities")
           traits+=("${family_traits[@]}")

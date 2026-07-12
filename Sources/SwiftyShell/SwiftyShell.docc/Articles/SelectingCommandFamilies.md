@@ -9,7 +9,7 @@ pipelines, contexts, errors, executors) and a set of **opt-in** typed
 command families: ``Git``, ``Brew``, ``Grep``, ``Fzf``, ``Rg``, ``Swift``, ``Cargo``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
 ``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Helm``, ``Python``, ``Curl``, and a collection of common
 file/directory utilities (``Ls``, ``Cp``, ``Mv``, ``Mkdir``, ``Chmod``, ``Rm``, ``Pwd``,
-``Jq``, ``Rsync``, ``Tar``, ``Zip``, ``Unzip``, ``Find``).
+``Jq``, ``Rsync``, ``Tar``, ``Zip``, ``Unzip``, ``Ln``, ``Touch``, ``Env``, ``Which``, ``Find``).
 
 Each family is gated behind a SwiftPM **package trait**. By default no
 families are enabled, so a fresh `import SwiftyShell` exposes only `Core`.
@@ -76,6 +76,10 @@ let status = try await Git()
 | `Tar`              | ``Tar`` portable archive creation, extraction, and listing |
 | `Zip`              | ``Zip`` Info-ZIP archive creation wrapper                  |
 | `Unzip`            | ``Unzip`` Info-ZIP archive extraction and listing wrapper  |
+| `Ln`               | ``Ln`` hard and symbolic link wrapper                       |
+| `Touch`            | ``Touch`` file creation and timestamp wrapper               |
+| `Env`              | ``Env`` environment and safe command invocation wrapper     |
+| `Which`            | ``Which`` typed executable lookup                           |
 | `Find`             | ``Find`` portable file traversal and matching wrapper       |
 | `CommonUtilities`  | All common file, directory, archive, data, and search utilities |
 | `All`              | Every per-family trait above (the kitchen-sink umbrella)   |

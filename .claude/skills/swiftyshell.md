@@ -19,7 +19,7 @@ Before writing any code, follow this decision tree:
    → Use `Git`
 2. Is this a git operation NOT covered by the typed `Git` API?
    → Use `Command("git", arguments: ...)`
-3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Rsync`, `Find`)?
+3. Is this a common operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Ln`, `Touch`, `Env`, `Which`, `Rsync`, `Find`)?
    → Use the typed wrapper
 4. Is this an archive operation (`tar`, `zip`, or `unzip`)?
    → Use `Tar`, `Zip`, or `Unzip`
@@ -665,6 +665,46 @@ public struct Pwd: RunnableCommandFamily {
     public func logical(_ enabled: Bool = true) -> Self      // -L (preserve symlinks)
     public func command() -> Command
     public func run() async throws -> ShellOutput
+}
+
+public struct Ln: RunnableCommandFamily {
+    public init(source: String, destination: String, context: ShellContext = .init())
+    public func symbolic(_ enabled: Bool = true) -> Self
+    public func force(_ enabled: Bool = true) -> Self
+    public func command() -> Command
+}
+
+public struct Touch: RunnableCommandFamily {
+    public init(_ path: String, context: ShellContext = .init())
+    public func accessTimeOnly(_ enabled: Bool = true) -> Self
+    public func modificationTimeOnly(_ enabled: Bool = true) -> Self
+    public func noCreate(_ enabled: Bool = true) -> Self
+    public func reference(_ path: String) -> Self
+    public func timestamp(_ value: String) -> Self
+    public func path(_ value: String) -> Self
+    public func paths(_ values: [String]) -> Self
+    public func command() -> Command
+}
+
+public struct Env: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func clean(_ enabled: Bool = true) -> Self
+    public func set(_ name: String, _ value: String) -> Self
+    public func set(_ values: [String: String]) -> Self
+    public func unset(_ name: String) -> Self
+    public func command(_ executable: String, arguments: [String] = []) -> Self
+    public func command() -> Command
+}
+
+public enum WhichResult: Sendable, Equatable, Hashable {
+    case found(path: String)
+    case notFound
+}
+
+public struct Which: RunnableCommandFamily {
+    public init(_ name: String, context: ShellContext = .init())
+    public func lookup() -> Workflow<WhichResult>
+    public func command() -> Command
 }
 
 public struct Find: RunnableCommandFamily {
@@ -2110,7 +2150,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Cargo`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Curl`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`, `Find`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Cargo`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Curl`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`, `Ln`, `Touch`, `Env`, `Which`, `Find`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:

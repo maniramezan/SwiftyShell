@@ -8,8 +8,8 @@ SwiftyShell's primary API is a family of typed wrappers — ``Git``, ``Grep``, `
 ``Brew``, ``Fzf``, ``Swift``, ``Cargo``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
 ``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Helm``, ``Python``, ``Curl``, ``Ls``, ``Cp``,
 ``Mkdir``, ``Chmod``, ``Rm``, ``Mv``, ``Pwd``, ``Jq``, ``Rsync``, ``Tar``, ``Zip``,
-``Unzip``, ``Find`` — that model shell tools as Swift values. Typed families make their modeled options
-discoverable and provide structured results where available. ``Command`` is
+``Unzip``, ``Ln``, ``Touch``, ``Env``, ``Which``, ``Find`` — that model shell tools as Swift values. Typed families make their modeled options
+discoverable, require essential arguments where appropriate, and provide structured results where available. ``Command`` is
 the fluent escape hatch for tools that don't have a typed wrapper yet; it
 shares the same builder style so code does not change shape when you fall back
 to it.
@@ -218,6 +218,11 @@ Arguments are forwarded as distinct argv entries without shell parsing, but Swif
 - ``Rm``
 - ``Mv``
 - ``Pwd``
+- ``Ln``
+- ``Touch``
+- ``Env``
+- ``Which``
+- ``WhichResult``
 - ``Find``
 - ``FindExpression``
 - ``FindFileType``

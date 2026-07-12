@@ -96,6 +96,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Brew` | `brew` | `Brew` | Full top-level subcommand coverage, plus `--cask` and `--greedy` |
 | `Fzf` | `fzf` | `Fzf` | Fuzzy finder options for non-interactive filter-mode pipelines |
 | `Swift` | `swift` | `Swift` | SwiftPM build, test, run, package commands, traits, compiler flags |
+| `Cargo` | `cargo` | `Cargo` | Rust build, test, check, run, format, Clippy, and package operations |
 | `Gh` | `gh` | `Gh` | GitHub CLI automation for PRs, repos, workflows, Copilot, skills, API calls |
 | `Docker` | `docker` | `Docker` | Docker automation for Buildx, Compose, Debug, MCP, Scout, images, containers |
 | `Make` | `make` | `Make` | Makefile targets, parallel jobs, dry runs, keep-going builds |

@@ -21,17 +21,17 @@ try await Docker(context: context)
     .run()
 ```
 
-Run a one-off container:
+Run a non-interactive one-off container:
 
 ```swift
 try await Docker(context: context)
     .subcommand("run")
     .removeWhenDone()
-    .interactive()
-    .tty()
     .positionalArguments(["swift:6.1", "swift", "--version"])
     .run()
 ```
+
+> Note: ``interactive(_:)`` and ``tty(_:)`` only add Docker CLI flags. SwiftyShell's `run()` does not provide terminal-backed stdin, so use them only with an external execution environment that supplies the required terminal behavior.
 
 Use Docker Debug or MCP commands without needing dedicated types for each nested command:
 

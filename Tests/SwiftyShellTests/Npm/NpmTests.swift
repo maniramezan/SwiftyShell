@@ -16,7 +16,6 @@ struct NpmCommandTests {
             .prefix("Example")
             .ifPresent()
             .silent()
-            .argument("--")
             .positionalArguments(["--mode", "production"])
             .command()
 
@@ -26,8 +25,8 @@ struct NpmCommandTests {
                 "--prefix", "Example",
                 "--if-present",
                 "--silent",
-                "--",
                 "build",
+                "--",
                 "--mode", "production",
             ]
         )

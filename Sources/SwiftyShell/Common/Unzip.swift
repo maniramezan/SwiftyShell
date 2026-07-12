@@ -256,14 +256,16 @@ public struct Unzip: RunnableCommandFamily {
         copy(junksPaths: enabled)
     }
 
-    /// Returns a copy that toggles preserve-case mode (`-K`).
+    /// Returns a copy that restores archived setuid, setgid, and sticky permission bits (`-K`).
     ///
-    /// Preserves the original case of file names on case-insensitive file systems.
+    /// Info-ZIP clears these privileged permission bits by default. Enable this only for trusted
+    /// archives whose entries and ownership have been independently verified: restoring them can
+    /// create executables that run with elevated privileges.
     ///
     /// - Parameter enabled: `true` to add `-K`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
-    public func preserveCase(_ enabled: Bool = true) -> Self {
-        copy(preservesCase: enabled)
+    public func restoreSecurityMetadata(_ enabled: Bool = true) -> Self {
+        copy(restoresSecurityMetadata: enabled)
     }
 
     /// Returns a copy that toggles freshen mode (`-f`).
@@ -317,7 +319,7 @@ public struct Unzip: RunnableCommandFamily {
         if state.neverOverwrites { arguments.append("-n") }
         if state.isQuiet { arguments.append("-q") }
         if state.junksPaths { arguments.append("-j") }
-        if state.preservesCase { arguments.append("-K") }
+        if state.restoresSecurityMetadata { arguments.append("-K") }
 
         if let password = state.password {
             arguments.append("-P")
@@ -348,7 +350,7 @@ public struct Unzip: RunnableCommandFamily {
         return state.config.apply(to: base)
     }
 
-    /// Returns a single-use workflow that runs `unzip -l` and parses the listing.
+    /// Returns a workflow that runs `unzip -l` and parses the listing.
     ///
     /// The workflow forces a captured `unzip -l` listing regardless of any conflicting
     /// extraction or stdout-redirection state the caller may have configured. Members and
@@ -361,7 +363,7 @@ public struct Unzip: RunnableCommandFamily {
     ///     .run()
     /// ```
     ///
-    /// - Returns: A single-use ``Workflow`` producing parsed ``UnzipEntry`` values.
+    /// - Returns: A ``Workflow`` producing parsed ``UnzipEntry`` values.
     public func entries() -> Workflow<[UnzipEntry]> {
         let context = state.config.context
         let cmd = copy(
@@ -394,7 +396,7 @@ public struct Unzip: RunnableCommandFamily {
         neverOverwrites: Bool? = nil,
         isQuiet: Bool? = nil,
         junksPaths: Bool? = nil,
-        preservesCase: Bool? = nil,
+        restoresSecurityMetadata: Bool? = nil,
         password: String?? = nil
     ) -> Self {
         Self(
@@ -415,7 +417,7 @@ public struct Unzip: RunnableCommandFamily {
                 neverOverwrites: neverOverwrites ?? state.neverOverwrites,
                 isQuiet: isQuiet ?? state.isQuiet,
                 junksPaths: junksPaths ?? state.junksPaths,
-                preservesCase: preservesCase ?? state.preservesCase,
+                restoresSecurityMetadata: restoresSecurityMetadata ?? state.restoresSecurityMetadata,
                 password: password ?? state.password
             )
         )
@@ -439,7 +441,7 @@ private struct State: Sendable {
     let neverOverwrites: Bool
     let isQuiet: Bool
     let junksPaths: Bool
-    let preservesCase: Bool
+    let restoresSecurityMetadata: Bool
     let password: String?
 
     init(
@@ -459,7 +461,7 @@ private struct State: Sendable {
         neverOverwrites: Bool = false,
         isQuiet: Bool = false,
         junksPaths: Bool = false,
-        preservesCase: Bool = false,
+        restoresSecurityMetadata: Bool = false,
         password: String? = nil
     ) {
         self.config = config
@@ -478,7 +480,7 @@ private struct State: Sendable {
         self.neverOverwrites = neverOverwrites
         self.isQuiet = isQuiet
         self.junksPaths = junksPaths
-        self.preservesCase = preservesCase
+        self.restoresSecurityMetadata = restoresSecurityMetadata
         self.password = password
     }
 }

@@ -101,7 +101,7 @@ public struct Git: ToolConfigurableCommandFamily {
     ///     .run()
     /// ```
     ///
-    /// - Returns: A single-use ``GitStatusWorkflow`` that produces a ``GitStatus`` when run.
+    /// - Returns: A ``GitStatusWorkflow`` that produces a ``GitStatus`` when run.
     public func status() -> GitStatusWorkflow {
         GitStatusWorkflow(
             git: self,
@@ -222,7 +222,7 @@ public struct Git: ToolConfigurableCommandFamily {
     /// `git pull` itself uses the repository's configured remote and branch — set them via
     /// repo configuration rather than here.
     ///
-    /// - Returns: A single-use ``Workflow`` producing a ``GitPullResult``.
+    /// - Returns: A ``Workflow`` producing a ``GitPullResult``.
     public func pull() -> Workflow<GitPullResult> {
         Workflow {
             _ = try await makeCommand("pull").run(in: context)
@@ -237,7 +237,7 @@ public struct Git: ToolConfigurableCommandFamily {
     /// `git remote`, otherwise `origin` as a final fallback (which lets `git fetch` produce
     /// its own diagnostic if no remote is configured).
     ///
-    /// - Returns: A single-use ``Workflow`` producing a ``GitFetchResult`` describing the
+    /// - Returns: A ``Workflow`` producing a ``GitFetchResult`` describing the
     ///   fetched remote.
     public func fetch() -> Workflow<GitFetchResult> {
         Workflow {

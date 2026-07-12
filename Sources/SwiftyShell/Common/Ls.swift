@@ -173,6 +173,7 @@ public struct Ls: RunnableCommandFamily {
             arguments.append("-d")
         }
 
+        if !state.paths.isEmpty { arguments.append("--") }
         arguments.append(contentsOf: state.paths)
 
         let base = Command("ls")

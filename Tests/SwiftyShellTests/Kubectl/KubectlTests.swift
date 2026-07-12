@@ -47,8 +47,8 @@ struct KubectlCommandTests {
             Kubectl().logs("pod/api").container("api").command().arguments == ["logs", "--container", "api", "pod/api"]
         )
         #expect(
-            Kubectl().exec("pod/api").argument("--").positionalArguments(["env"]).command().arguments == [
-                "exec", "--", "pod/api", "env",
+            Kubectl().exec("pod/api", command: ["env", "--show-hidden"]).container("api").command().arguments == [
+                "exec", "--container", "api", "pod/api", "--", "env", "--show-hidden",
             ]
         )
         #expect(

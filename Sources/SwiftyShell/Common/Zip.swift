@@ -250,16 +250,15 @@ public struct Zip: RunnableCommandFamily {
         copy(storesSymlinks: enabled)
     }
 
-    /// Returns a copy that preserves extended attributes and permissions (`-X` / `--no-extra`).
+    /// Returns a copy that strips nonessential extra fields from archive entries (`-X` / `--no-extra`).
     ///
-    /// Maps to `-X`, which strips extra-field metadata that some tools handle inconsistently.
-    /// The flag's name is intentionally inverted here: enabling `preservePermissions(true)` means
-    /// "keep only portable permission bits" the way Info-ZIP documents `-X`.
+    /// Info-ZIP retains only the extra fields needed to extract entries, producing a more portable
+    /// archive and omitting platform-specific metadata. This does not preserve permissions.
     ///
     /// - Parameter enabled: `true` to add `-X`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
-    public func preservePermissions(_ enabled: Bool = true) -> Self {
-        copy(preservesPermissions: enabled)
+    public func stripExtraFields(_ enabled: Bool = true) -> Self {
+        copy(stripsExtraFields: enabled)
     }
 
     /// Returns a copy that toggles interactive encryption (`-e`).
@@ -364,7 +363,7 @@ public struct Zip: RunnableCommandFamily {
         if state.isVerbose { arguments.append("-v") }
         if state.junksPaths { arguments.append("-j") }
         if state.storesSymlinks { arguments.append("-y") }
-        if state.preservesPermissions { arguments.append("-X") }
+        if state.stripsExtraFields { arguments.append("-X") }
         if state.encryptsInteractively { arguments.append("-e") }
 
         if let level = state.compressionLevel {
@@ -420,7 +419,7 @@ public struct Zip: RunnableCommandFamily {
         isVerbose: Bool? = nil,
         junksPaths: Bool? = nil,
         storesSymlinks: Bool? = nil,
-        preservesPermissions: Bool? = nil,
+        stripsExtraFields: Bool? = nil,
         encryptsInteractively: Bool? = nil,
         compressionLevel: ZipCompressionLevel?? = nil,
         splitSize: String?? = nil,
@@ -444,7 +443,7 @@ public struct Zip: RunnableCommandFamily {
                 isVerbose: isVerbose ?? state.isVerbose,
                 junksPaths: junksPaths ?? state.junksPaths,
                 storesSymlinks: storesSymlinks ?? state.storesSymlinks,
-                preservesPermissions: preservesPermissions ?? state.preservesPermissions,
+                stripsExtraFields: stripsExtraFields ?? state.stripsExtraFields,
                 encryptsInteractively: encryptsInteractively ?? state.encryptsInteractively,
                 compressionLevel: compressionLevel ?? state.compressionLevel,
                 splitSize: splitSize ?? state.splitSize,
@@ -471,7 +470,7 @@ private struct State: Sendable {
     let isVerbose: Bool
     let junksPaths: Bool
     let storesSymlinks: Bool
-    let preservesPermissions: Bool
+    let stripsExtraFields: Bool
     let encryptsInteractively: Bool
     let compressionLevel: ZipCompressionLevel?
     let splitSize: String?
@@ -494,7 +493,7 @@ private struct State: Sendable {
         isVerbose: Bool = false,
         junksPaths: Bool = false,
         storesSymlinks: Bool = false,
-        preservesPermissions: Bool = false,
+        stripsExtraFields: Bool = false,
         encryptsInteractively: Bool = false,
         compressionLevel: ZipCompressionLevel? = nil,
         splitSize: String? = nil,
@@ -516,7 +515,7 @@ private struct State: Sendable {
         self.isVerbose = isVerbose
         self.junksPaths = junksPaths
         self.storesSymlinks = storesSymlinks
-        self.preservesPermissions = preservesPermissions
+        self.stripsExtraFields = stripsExtraFields
         self.encryptsInteractively = encryptsInteractively
         self.compressionLevel = compressionLevel
         self.splitSize = splitSize

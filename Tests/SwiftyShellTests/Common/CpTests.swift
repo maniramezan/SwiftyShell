@@ -13,7 +13,7 @@ struct CpCommandTests {
             .command()
 
         #expect(command.executableName == "cp")
-        #expect(command.arguments == ["-R", "-f", "src", "dst"])
+        #expect(command.arguments == ["-R", "-f", "--", "src", "dst"])
     }
 
     @Test func copiesFile() async throws {

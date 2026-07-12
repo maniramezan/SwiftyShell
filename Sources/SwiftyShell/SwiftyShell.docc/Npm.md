@@ -16,6 +16,16 @@ try await Npm(context: context)
     .run()
 ```
 
+Script arguments supplied through ``positionalArgument(_:)`` or ``positionalArguments(_:)`` are
+placed after `npm run <name> --`, preventing npm from consuming script-specific flags:
+
+```swift
+try await Npm(context: context)
+    .runScript("build")
+    .positionalArguments(["--mode", "production"])
+    .run()
+```
+
 Install dependencies in CI:
 
 ```swift

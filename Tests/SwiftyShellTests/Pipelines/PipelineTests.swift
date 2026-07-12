@@ -133,20 +133,23 @@ struct PipelineTests {
 
     @Test func pipelineCancellationPreservesPartialOutput() async throws {
         let marker = "/tmp/swiftyshell-pipeline-cancel-\(UUID().uuidString)"
+        let outputMarker = "\(marker)-output"
         defer { try? FileManager.default.removeItem(atPath: marker) }
+        defer { try? FileManager.default.removeItem(atPath: outputMarker) }
         let task = Task {
             try await Command("/bin/sh", arguments: "-c", "printf 'start'; exec sleep 30")
                 .pipe(
                     to: Command(
                         "/bin/sh",
                         arguments: "-c",
-                        "dd bs=5 count=1 2>/dev/null; touch '\(marker)'; exec sleep 30"
+                        "chunk=$(dd bs=5 count=1 2>/dev/null); printf '%s' \"$chunk\"; touch '\(outputMarker)'; touch '\(marker)'; exec sleep 30"
                     )
                 )
                 .run(in: ShellContext())
         }
 
         try await waitForFile(at: marker)
+        try await waitForFile(at: outputMarker)
         task.cancel()
 
         do {

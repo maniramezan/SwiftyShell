@@ -119,7 +119,7 @@ public struct MockExecutor: CommandExecutor {
     }
 
     private func validateConfiguration(for command: Command, in context: ShellContext) throws {
-        if let timeout = command.timeoutOverride ?? context.defaultTimeout, timeout < 0 {
+        if let timeout = command.timeoutOverride ?? context.defaultTimeout, timeout < 0 || !timeout.isFinite {
             throw ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")
         }
 

@@ -18,7 +18,7 @@ Before writing any code, follow this decision tree:
 1. Is this a git operation supported by the typed `Git` API (`status()`, `pull()`, `fetch()`, `branch()`, `stash()`, `worktree()`, `submodule()`, `diff()`, `log()`, `gitConfig()`, `merge()`, `commit()`, `rebase()`)?
    → Use `Git`
 2. Is this a git operation NOT covered by the typed `Git` API?
-   → Use `Command("\1", arguments: ...)`
+   → Use `Command("git", arguments: ...)`
 3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Rsync`)?
    → Use the typed wrapper
 4. Is this an archive operation (`tar`, `zip`, or `unzip`)?
@@ -53,15 +53,17 @@ Before writing any code, follow this decision tree:
     → Use `Kubectl`
 19. Is this a Helm operation (`helm template`, `helm lint`, `helm upgrade`, ...)?
     → Use `Helm` and its operation-specific builder
-20. Is this a Python interpreter operation (`python3 -m`, `python3 -c`, running a `.py` file, ...)?
+20. Is this a command-line HTTP transfer, artifact download/upload, shell pipeline stage, CI recipe, or vendor-provided `curl` command?
+    → Use `Curl`; for ordinary in-process Swift API clients prefer `URLSession`; put sensitive headers in a permission-restricted file and use `headerFile(_:)`
+21. Is this a Python interpreter operation (`python3 -m`, `python3 -c`, running a `.py` file, ...)?
     → Use `Python`
-21. Does the operation need typed output, structured results, or conditional follow-up?
+22. Does the operation need typed output, structured results, or conditional follow-up?
     → Use the appropriate typed client
-22. Are two or more commands chained by pipe?
+23. Are two or more commands chained by pipe?
     → Use `.pipe(to:)` to build a `Pipeline`
-23. Does the command write output to a file?
+24. Does the command write output to a file?
     → Use `.stdout(.file(path:append:))` on the command
-24. Is this any other command?
+25. Is this any other command?
        → Use `Command`
 
 ### API Reference
@@ -269,7 +271,7 @@ public struct Workflow<Value>: Sendable {
 }
 ```
 
-Workflows are **single-use**. Call `run()` exactly once. Rebuild from the source client to repeat.
+`run()` is `consuming`, but workflows are copyable values that retain reusable closures. Each run starts the described operation again; avoid repetition or concurrency when the underlying operation makes it unsafe.
 
 #### Git / GitStatusWorkflow
 
@@ -1052,6 +1054,44 @@ public struct Docker: RunnableCommandFamily {
 }
 ```
 
+#### HTTP Transfers
+
+```swift
+public enum CurlHTTPMethod: Sendable, Equatable, Hashable {
+    case get, head, post, put, patch, delete, options
+    case custom(String)
+}
+
+public struct Curl: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public init(_ url: String, context: ShellContext = .init())
+    public func version() -> Self
+    public func url(_ value: String) -> Self
+    public func method(_ value: CurlHTTPMethod) -> Self
+    public func header(name: String, value: String) -> Self
+    public func headerFile(_ path: String) -> Self
+    public func body(_ value: String) -> Self
+    public func bodyFile(_ path: String) -> Self
+    public func uploadFile(_ path: String) -> Self
+    public func followRedirects(_ enabled: Bool = true) -> Self
+    public func maximumRedirects(_ count: Int) -> Self
+    public func retry(_ count: Int) -> Self
+    public func retryDelay(_ seconds: Int) -> Self
+    public func retryMaximumTime(_ seconds: Int) -> Self
+    public func retryAllErrors(_ enabled: Bool = true) -> Self
+    public func retryConnectionRefused(_ enabled: Bool = true) -> Self
+    public func requestTimeout(_ seconds: TimeInterval) -> Self
+    public func connectionTimeout(_ seconds: TimeInterval) -> Self
+    public func failWithBody(_ enabled: Bool = true) -> Self
+    public func outputFile(_ path: String) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+```
+
+`header(name:value:)` and `body(_:)` are argv-visible. Never place credentials in them or log built
+authenticated commands. Put sensitive headers in a protected file and use `headerFile(_:)`.
+
 #### Scripting CLIs
 
 ```swift
@@ -1306,7 +1346,7 @@ public struct Kubectl: RunnableCommandFamily {
     public func apply() -> Self
     public func delete(_ resource: String? = nil) -> Self
     public func logs(_ resource: String? = nil) -> Self
-    public func exec(_ resource: String? = nil) -> Self
+    public func exec(_ resource: String, command: [String]) -> Self
     public func kubeconfig(_ path: String) -> Self
     public func contextName(_ name: String) -> Self
     public func namespace(_ name: String) -> Self
@@ -1462,7 +1502,7 @@ public struct Zip: RunnableCommandFamily {
     public func verbose(_ enabled: Bool = true) -> Self       // -v
     public func junkPaths(_ enabled: Bool = true) -> Self     // -j
     public func storeSymlinks(_ enabled: Bool = true) -> Self // -y
-    public func preservePermissions(_ enabled: Bool = true) -> Self // -X
+    public func stripExtraFields(_ enabled: Bool = true) -> Self // -X
 
     // Compression and split
     public func compressionLevel(_ level: ZipCompressionLevel) -> Self
@@ -1512,7 +1552,7 @@ public struct Unzip: RunnableCommandFamily {
     public func neverOverwrite(_ enabled: Bool = true) -> Self // -n
     public func quiet(_ enabled: Bool = true) -> Self         // -q
     public func junkPaths(_ enabled: Bool = true) -> Self     // -j
-    public func preserveCase(_ enabled: Bool = true) -> Self  // -K
+    public func restoreSecurityMetadata(_ enabled: Bool = true) -> Self // -K; restores setuid/setgid/sticky bits
     public func password(_ value: String) -> Self             // -P <pwd>  (argv-visible)
 
     // Typed listing
@@ -1523,7 +1563,7 @@ public struct Unzip: RunnableCommandFamily {
 }
 ```
 
-`Tar` wraps the platform tar implementation for portable create, extract, and list workflows. `Zip` and `Unzip` wrap Info-ZIP binaries and behave identically on macOS (preinstalled) and Linux (`apt install zip unzip`). `Unzip.entries()` returns a single-use ``Workflow`` that parses the standard `unzip -l` table — paths with embedded spaces are preserved, missing timestamps surface as `nil`. SwiftyShell does not feed stdin to spawned processes, so unattended extracts should pass `overwrite()` or `neverOverwrite()` to avoid `unzip`'s overwrite prompt hanging the call.
+`Tar` wraps the platform tar implementation for portable create, extract, and list workflows. `Zip` and `Unzip` wrap Info-ZIP binaries and behave identically on macOS (preinstalled) and Linux (`apt install zip unzip`). `Unzip.entries()` returns a reusable ``Workflow`` that parses the standard `unzip -l` table — paths with embedded spaces are preserved, missing timestamps surface as `nil`. SwiftyShell does not feed stdin to commands run by this API, so unattended extracts should pass `overwrite()` or `neverOverwrite()` to avoid `unzip`'s overwrite prompt hanging the call.
 
 #### Brew
 
@@ -1683,18 +1723,20 @@ public struct MockSpawnedProcess: SpawnedProcess, Sendable {
 
 `MockExecutor` mirrors real `run()` semantics for invalid configuration and non-zero exits so unit tests behave like subprocess-backed execution. Its `spawn` support returns `MockSpawnedProcess`, which records signals, teardown, and the configured `TeardownStrategy`.
 
-`SubprocessExecutor` is the default production executor and is backed by the `swift-subprocess` package. Preserve SwiftyShell's public `ShellError` semantics when changing the execution layer, including partial output on timeout, output-limit, and cancellation paths.
+For pipelines, all stages run concurrently. The shortest resolved stage timeout governs the pipeline, each stage has its own captured-output limit, intermediate stdout is piped rather than captured, and captured stderr is aggregated in stage order. A non-zero stage cancels remaining stage tasks, but simultaneous failures do not guarantee a pipeline-order winner.
+
+`SubprocessExecutor` is the default production executor and is backed by the `swift-subprocess` package. Preserve SwiftyShell's public `ShellError` semantics when changing the execution layer, including captured partial output on timeout, output-limit, and cancellation paths. `run()` closes stdin and immediately sends `SIGKILL` to registered processes when forced to stop; graceful `TeardownStrategy` steps apply only to explicitly spawned processes.
 
 ### Code Generation Rules
 
 1. Always `import SwiftyShell`
 2. All `run()` calls are `async throws` — the caller must be in an `async` context
 3. Never construct raw shell strings as the primary execution model
-4. Prefer `Git` when the operation is covered by the typed git API; otherwise use `Command("\1", arguments: ...)`
+4. Prefer `Git` when the operation is covered by the typed git API; otherwise use `Command("git", arguments: ...)`
 5. Prefer key-path `require` over closure `require` when checking a single property equality
 6. Prefer `async let` / `TaskGroup` for concurrent runs — do not serialize what can run in parallel
 7. Always pass an explicit `ShellContext` rather than relying on the default `.init()`
-8. Workflows are single-use — rebuild from the source client to repeat
+8. Workflows can run repeatedly; account for side effects before repeating or running concurrently
 9. Use `MockExecutor` in tests — for spawn flows, assert against `MockSpawnedProcess` signal history, teardown state, and configured teardown instead of spawning real processes in unit tests
 10. **Every `public` declaration you write must have a `///` doc comment** — see Part 2 for documentation rules
 
@@ -1705,12 +1747,12 @@ public struct MockSpawnedProcess: SpawnedProcess, Sendable {
 let output = try await Command("mkdir").arg("-p").arg(outputDir).run(in: context)
 
 // Pipeline
-let output = try await Command("\1", arguments: "-la")
+let output = try await Command("ls", arguments: "-la")
     .pipe(to: Grep(".swift").command())
     .run(in: context)
 
 // Redirect stdout to file
-try await Command("\1", arguments: "release")
+try await Command("make", arguments: "release")
     .stdout(.file(path: logPath, append: false))
     .run(in: context)
 
@@ -1746,7 +1788,7 @@ try await withThrowingTaskGroup(of: GitFetchResult.self) { group in
 }
 
 // Environment override
-try await Command("\1", arguments: "deploy.rb")
+try await Command("ruby", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .run(in: context)
 
@@ -1834,7 +1876,7 @@ let status = try await Git(context: context).status().run()
 
 | Case | Cause | Typical response |
 |---|---|---|
-| `invalidConfiguration` | Timeout or output limit is negative | Fix the configuration value before running |
+| `invalidConfiguration` | Timeout is negative/non-finite, or output limit is negative | Fix the configuration value before running |
 | `commandNotFound` | Executable not on search path | Check `ShellContext.searchPaths` or use `.executable(_:)` |
 | `exitFailure` | Non-zero exit code | Inspect `output.stderr`; retry or abort |
 | `timeout` | Command exceeded time limit | Inspect `partialOutput`, increase timeout |
@@ -2041,20 +2083,20 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Cargo`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Cargo`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Curl`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:
 
 ```swift
-.package(url: "...", from: "0.1.0", traits: ["Git", "Grep"])
+.package(url: "...", from: "0.3.0", traits: ["Git", "Grep"])
 ```
 
 ### Wiring Contract
 
 The contract is enforced by `Scripts/validate-traits.swift` and CI:
 
-1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Cargo/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Helm/`, `Python/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
+1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Cargo/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Helm/`, `Python/`, `Curl/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
 2. Every test file targeting a gated family is wrapped the same way. Cross-family tests use combined guards (`#if Git && Grep`).
 3. Every family directory (or `Common/*.swift` file) has a matching `.trait(name:)` entry in `Package.swift`.
 4. The `All` umbrella's `enabledTraits` transitively enables every per-family trait. The `CommonUtilities` umbrella enables every `Common/*` trait.

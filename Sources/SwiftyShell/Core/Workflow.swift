@@ -30,8 +30,8 @@ import Foundation
 /// let branch = try await branchWorkflow.run()
 /// ```
 ///
-/// > Important: ``Workflow`` is **single-use** — call ``run()`` exactly once.
-/// > Rebuild from the source client if you need to run the same operation again.
+/// Each call to ``run()`` starts the captured operation again. Avoid concurrent or repeated runs
+/// when the underlying operation is not safe to repeat.
 public struct Workflow<Value>: Sendable {
     private let operation: @Sendable () async throws -> Value
 
@@ -49,9 +49,8 @@ public struct Workflow<Value>: Sendable {
 
     /// Runs the workflow and returns its value.
     ///
-    /// ``Workflow`` is `consuming` and **single-use** — call this method exactly once. To run an
-    /// equivalent operation again, rebuild the workflow from its source (for example by calling
-    /// the typed client method that returned it).
+    /// Although this method is `consuming`, ``Workflow`` is a copyable value and retains a reusable
+    /// closure. Each invocation starts the captured operation again.
     ///
     /// - Returns: The value produced by the captured operation.
     /// - Throws: Whatever the operation throws (typically ``ShellError``).

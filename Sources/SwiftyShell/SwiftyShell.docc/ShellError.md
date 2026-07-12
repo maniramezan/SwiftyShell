@@ -1,13 +1,14 @@
 # ``ShellError``
 
-Errors thrown while building workflows or running shell commands.
+Built-in errors reported while running shell commands and workflow gates.
 
 ## Overview
 
-Every failure inside SwiftyShell — typed command families, raw ``Command``
-calls, ``Pipeline`` stages, and ``Workflow`` gates alike — surfaces as a
-``ShellError``. Match on a specific case rather than testing exit codes or
-parsing stderr strings; the cases are stable, the messages inside them are not.
+Built-in execution failures from typed command families, raw ``Command`` calls,
+``Pipeline`` stages, and built-in ``Workflow`` gates surface as ``ShellError``.
+Match on a specific case rather than testing exit codes or parsing stderr strings;
+the cases are stable, the messages inside them are not. Custom executors, workflow
+closures and transforms, and custom gate errors can throw other `Error` values.
 
 The most common shape is a `do/catch` that handles the specific failures you
 care about and lets the rest propagate:

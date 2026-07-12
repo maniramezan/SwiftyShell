@@ -84,11 +84,17 @@ public struct Kubectl: RunnableCommandFamily {
     /// Returns a copy configured for `kubectl logs <resource>`.
     public func logs(_ resource: String? = nil) -> Self { resourceCommand(.logs, resource) }
 
-    /// Returns a copy configured for `kubectl exec <resource>`.
+    /// Returns a copy configured for `kubectl exec <resource> -- <command>`.
     ///
-    /// Use ``argument(_:)`` or ``positionalArgument(_:)`` to insert `--` before the remote command
-    /// when the command needs to be separated from kubectl flags.
-    public func exec(_ resource: String? = nil) -> Self { resourceCommand(.exec, resource) }
+    /// The separator is inserted automatically after kubectl options and the resource, ensuring
+    /// command flags are forwarded to the container rather than parsed by kubectl.
+    ///
+    /// - Parameters:
+    ///   - resource: The pod or resource containing the target container.
+    ///   - command: The executable and arguments to run in the container.
+    public func exec(_ resource: String, command: [String]) -> Self {
+        copy(subcommand: KubectlSubcommand.exec.rawValue, resources: [resource], remoteCommand: command)
+    }
 
     /// Returns a copy that passes `--kubeconfig <path>`.
     public func kubeconfig(_ path: String) -> Self { copy(kubeconfigPath: path) }
@@ -142,6 +148,10 @@ public struct Kubectl: RunnableCommandFamily {
         appendOption("--container", state.containerName, to: &arguments)
         if state.allNamespacesEnabled { arguments.append("--all-namespaces") }
         arguments += state.extraArguments + state.resources
+        if state.subcommand == KubectlSubcommand.exec.rawValue, !state.remoteCommand.isEmpty {
+            arguments.append("--")
+            arguments += state.remoteCommand
+        }
         let base = Command("kubectl").args(arguments).stdout(state.stdoutDestination).stderr(state.stderrDestination)
         return state.config.apply(to: base)
     }
@@ -166,7 +176,8 @@ public struct Kubectl: RunnableCommandFamily {
         containerName: String?? = nil,
         allNamespacesEnabled: Bool? = nil,
         extraArguments: [String]? = nil,
-        resources: [String]? = nil
+        resources: [String]? = nil,
+        remoteCommand: [String]? = nil
     ) -> Self {
         Self(
             state: State(
@@ -183,7 +194,8 @@ public struct Kubectl: RunnableCommandFamily {
                 containerName: containerName ?? state.containerName,
                 allNamespacesEnabled: allNamespacesEnabled ?? state.allNamespacesEnabled,
                 extraArguments: extraArguments ?? state.extraArguments,
-                resources: resources ?? state.resources
+                resources: resources ?? state.resources,
+                remoteCommand: remoteCommand ?? state.remoteCommand
             )
         )
     }
@@ -204,6 +216,7 @@ private struct State: Sendable {
     let allNamespacesEnabled: Bool
     let extraArguments: [String]
     let resources: [String]
+    let remoteCommand: [String]
 
     init(
         config: ToolConfiguration,
@@ -219,7 +232,8 @@ private struct State: Sendable {
         containerName: String? = nil,
         allNamespacesEnabled: Bool = false,
         extraArguments: [String] = [],
-        resources: [String] = []
+        resources: [String] = [],
+        remoteCommand: [String] = []
     ) {
         self.config = config
         self.stdoutDestination = stdoutDestination
@@ -235,6 +249,7 @@ private struct State: Sendable {
         self.allNamespacesEnabled = allNamespacesEnabled
         self.extraArguments = extraArguments
         self.resources = resources
+        self.remoteCommand = remoteCommand
     }
 }
 #endif

@@ -67,9 +67,11 @@ func isDirectory(_ path: String) -> Bool {
 }
 
 func swiftFiles(in directory: String) -> [String] {
-    listChildren(of: directory)
-        .filter { $0.hasSuffix(".swift") }
-        .map { "\(directory)/\($0)" }
+    guard let enumerator = FileManager.default.enumerator(atPath: directory) else { return [] }
+    return enumerator.compactMap { entry in
+        guard let relativePath = entry as? String, relativePath.hasSuffix(".swift") else { return nil }
+        return "\(directory)/\(relativePath)"
+    }.sorted()
 }
 
 /// Returns the trait names declared in `Package.swift` along with the
@@ -112,8 +114,7 @@ func parsePackageTraits(manifestPath: String) -> (perFamily: Set<String>, umbrel
     return (perFamily, umbrellas)
 }
 
-/// Returns true when `file` begins with `#if <trait>` (skipping leading blank
-/// lines and `//` comments) and ends with a matching `#endif`.
+/// Returns true when the outer conditional requires `trait` and encloses the whole file.
 func isWrapped(filePath: String, trait: String) -> Bool {
     guard let contents = readFile(filePath) else { return false }
     let lines = contents.split(separator: "\n", omittingEmptySubsequences: false)
@@ -128,20 +129,36 @@ func isWrapped(filePath: String, trait: String) -> Bool {
     guard let first = firstSignificant?.trimmingCharacters(in: .whitespaces) else {
         return false
     }
-    // Accept both `#if Trait` and combined guards like `#if Trait && OtherTrait`.
     guard first.hasPrefix("#if ") else { return false }
     let condition = String(first.dropFirst("#if ".count))
     var nonIdentifier = CharacterSet.alphanumerics
     nonIdentifier.insert("_")
     let identifiers = condition.components(separatedBy: nonIdentifier.inverted)
-    guard identifiers.contains(trait) else { return false }
+    let escapedTrait = NSRegularExpression.escapedPattern(for: trait)
+    let negatedTraitPattern = #"!\s*"# + escapedTrait + #"\b"#
+    let negatedTrait = condition.range(of: negatedTraitPattern, options: .regularExpression) != nil
+    guard identifiers.contains(trait), !condition.contains("||"), !negatedTrait else { return false }
 
-    // Find last significant line.
-    let lastSignificant = lines.reversed().first {
-        let trimmed = $0.trimmingCharacters(in: .whitespaces)
-        return !trimmed.isEmpty
+    var depth = 0
+    var outerEndIndex: Int?
+    for (index, line) in lines.enumerated() {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("#if ") {
+            depth += 1
+        } else if trimmed == "#endif" {
+            depth -= 1
+            if depth == 0 {
+                outerEndIndex = index
+                break
+            }
+            if depth < 0 { return false }
+        }
     }
-    return lastSignificant?.trimmingCharacters(in: .whitespaces) == "#endif"
+    guard let outerEndIndex else { return false }
+    return lines.dropFirst(outerEndIndex + 1).allSatisfy {
+        let trimmed = $0.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty || trimmed.hasPrefix("//")
+    }
 }
 
 // MARK: - Validation

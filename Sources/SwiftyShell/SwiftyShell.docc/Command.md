@@ -44,6 +44,11 @@ try await Command("swift", arguments: "build", "--verbose")
     .run(in: context)
 ```
 
+Relative executable overrides and output-file paths resolve against the effective working
+directory. When stdout and stderr target the same file, use append mode for both streams;
+configuring either stream to overwrite the shared file raises
+``ShellError/invalidConfiguration(description:)`` to prevent truncation races.
+
 To compose with other commands, use ``pipe(to:)`` to build a ``Pipeline``.
 
 ## Topics

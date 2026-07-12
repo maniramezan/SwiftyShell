@@ -12,7 +12,7 @@ struct MkdirCommandTests {
             .command()
 
         #expect(command.executableName == "mkdir")
-        #expect(command.arguments == ["-p", "-m", "755", "/tmp/example"])
+        #expect(command.arguments == ["-p", "-m", "755", "--", "/tmp/example"])
     }
 
     @Test func acceptsRawModeString() {
@@ -21,7 +21,7 @@ struct MkdirCommandTests {
             .directory("/tmp/example")
             .command()
 
-        #expect(command.arguments == ["-m", "u=rwx,go=rx", "/tmp/example"])
+        #expect(command.arguments == ["-m", "u=rwx,go=rx", "--", "/tmp/example"])
     }
 
     @Test func createsDirectories() async throws {

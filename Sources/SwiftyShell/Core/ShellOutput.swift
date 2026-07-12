@@ -14,8 +14,10 @@ import Foundation
 /// }
 /// ```
 ///
-/// When running typed command families, errors are surfaced as ``ShellError``
-/// rather than requiring manual exit-code inspection.
+/// The built-in executors throw ``ShellError/exitFailure(command:output:)`` for non-zero exits
+/// from both raw commands and typed command families, so successful `run()` calls normally return
+/// an output whose ``isSuccess`` is `true`. Inspect the output attached to `exitFailure` for a
+/// failed process.
 public struct ShellOutput: Sendable, Equatable {
     /// The captured stdout text, decoded as UTF-8.
     ///

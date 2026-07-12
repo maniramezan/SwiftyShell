@@ -6,8 +6,7 @@ A reusable asynchronous workflow that can be transformed and composed.
 
 A ``Workflow`` wraps an `async` operation that produces a single value of type
 `Value`. The wrapped work is **lazy** — nothing executes until you call
-``run()`` — and **single-use**: each ``Workflow`` instance is consumed by the
-first ``run()`` call. Compose new behavior by chaining ``map(_:)-((Value)->T)``,
+``run()``. Compose new behavior by chaining ``map(_:)-((Value)->T)``,
 ``flatMap(_:)``, ``then(_:)``, and the ``require(_:else:)-swift.method`` /
 ``require(_:equals:else:)`` gates, then await ``run()`` once at the end.
 
@@ -50,8 +49,7 @@ let count = Workflow {
 let total = try await count.run()
 ```
 
-> Important: A workflow value is consumed by ``run()``. To run the same logic
-> again, build a new workflow.
+Although ``run()`` is a `consuming` method, ``Workflow`` is a copyable value that stores a reusable closure. Calling it again, or running a copy, starts the described work again. Avoid repetition or concurrency when the underlying operation has side effects that make that unsafe.
 
 ## Topics
 

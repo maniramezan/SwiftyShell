@@ -31,6 +31,7 @@ let sourcesRoot = "\(repoRoot)/Sources/SwiftyShell"
 let doccRoot = "\(repoRoot)/Sources/SwiftyShell/SwiftyShell.docc"
 
 let groupedCommandFamilyPages: [String: String] = [
+    "Curl": "HTTPTransfers.md",
     "GitBranch": "Git.md",
     "GitStash": "Git.md",
     "GitWorktree": "Git.md",

@@ -7,7 +7,7 @@ Pick exactly the typed shell wrappers your project needs.
 SwiftyShell is split into a small, always-available `Core` (commands,
 pipelines, contexts, errors, executors) and a set of **opt-in** typed
 command families: ``Git``, ``Brew``, ``Grep``, ``Fzf``, ``Rg``, ``Swift``, ``Cargo``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
-``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Helm``, ``Python``, and a collection of common
+``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Helm``, ``Python``, ``Curl``, and a collection of common
 file/directory utilities (``Ls``, ``Cp``, ``Mv``, ``Mkdir``, ``Chmod``, ``Rm``, ``Pwd``,
 ``Jq``, ``Rsync``, ``Tar``, ``Zip``, ``Unzip``).
 
@@ -24,7 +24,7 @@ Enable a single family — Git in this example — by passing it through
 ```swift
 .package(
     url: "https://github.com/maniramezan/SwiftyShell.git",
-    from: "0.1.0",
+    from: "0.3.0",
     traits: ["Git"]
 )
 ```
@@ -63,6 +63,7 @@ let status = try await Git()
 | `Kubectl`          | ``Kubectl`` Kubernetes CLI automation wrapper              |
 | `Helm`             | ``Helm`` operation-specific Kubernetes package manager wrapper |
 | `Python`           | ``Python`` interpreter and script runner wrapper           |
+| `Curl`             | ``Curl`` typed HTTP request and transfer wrapper            |
 | `Ls`               | ``Ls``                                                     |
 | `Cp`               | ``Cp``                                                     |
 | `Mv`               | ``Mv``                                                     |
@@ -85,7 +86,7 @@ let status = try await Git()
 ```swift
 .package(
     url: "https://github.com/maniramezan/SwiftyShell.git",
-    from: "0.1.0",
+    from: "0.3.0",
     traits: ["Git", "Grep", "Fzf"]
 )
 ```
@@ -95,7 +96,7 @@ let status = try await Git()
 ```swift
 .package(
     url: "https://github.com/maniramezan/SwiftyShell.git",
-    from: "0.1.0",
+    from: "0.3.0",
     traits: ["CommonUtilities"]
 )
 ```
@@ -105,7 +106,7 @@ let status = try await Git()
 ```swift
 .package(
     url: "https://github.com/maniramezan/SwiftyShell.git",
-    from: "0.1.0",
+    from: "0.3.0",
     traits: ["All"]
 )
 ```

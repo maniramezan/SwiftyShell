@@ -3,12 +3,6 @@
 // validate-code-coverage.swift
 //
 // Validates package line coverage using SwiftPM's exported code coverage JSON.
-//
-// Run from the repository root:
-//
-//     swift Scripts/validate-code-coverage.swift \
-//       --input .build/arm64-apple-macosx/debug/codecov/SwiftyShell.json \
-//       --minimum-line-coverage 84.33
 
 import Foundation
 
@@ -27,6 +21,8 @@ enum ValidationError: Error, CustomStringConvertible {
     case unreadableFile(String)
     case invalidJSON(String)
     case missingCoverageData(String)
+    case missingSourceFiles([String])
+    case invalidThreshold(Double)
     case thresholdNotMet(actual: Double, minimum: Double)
 
     var description: String {
@@ -39,6 +35,10 @@ enum ValidationError: Error, CustomStringConvertible {
             return "Coverage report at `\(path)` is not valid JSON."
         case .missingCoverageData(let path):
             return "Coverage report at `\(path)` does not contain source line coverage data."
+        case .missingSourceFiles(let paths):
+            return "Coverage report is missing expected compiled source files:\n  " + paths.joined(separator: "\n  ")
+        case .invalidThreshold(let threshold):
+            return "Minimum line coverage must be between 0 and 100; received \(threshold)."
         case .thresholdNotMet(let actual, let minimum):
             return String(
                 format: "Package line coverage %.2f%% is below the required %.2f%%.",
@@ -49,26 +49,40 @@ enum ValidationError: Error, CustomStringConvertible {
     }
 }
 
+struct Arguments {
+    let inputPath: String
+    let minimumLineCoverage: Double
+    let allTraits: Bool
+}
+
 func usageMessage() -> String {
     """
     Usage:
-      swift Scripts/validate-code-coverage.swift --input <path> --minimum-line-coverage <percent>
+      swift Scripts/validate-code-coverage.swift --input <path> --minimum-line-coverage <percent> [--all-traits]
+      swift Scripts/validate-code-coverage.swift --self-test
     """
 }
 
-func parseArguments() throws -> (inputPath: String, minimumLineCoverage: Double) {
+func validateThreshold(_ value: Double) throws {
+    guard value.isFinite, (0...100).contains(value) else {
+        throw ValidationError.invalidThreshold(value)
+    }
+}
+
+func parseArguments() throws -> Arguments? {
     let arguments = Array(CommandLine.arguments.dropFirst())
+    if arguments == ["--self-test"] { return nil }
+
     var inputPath: String?
     var minimumLineCoverage: Double?
+    var allTraits = false
     var index = 0
 
     while index < arguments.count {
         switch arguments[index] {
         case "--input":
             index += 1
-            guard index < arguments.count else {
-                throw ValidationError.usage(usageMessage())
-            }
+            guard index < arguments.count else { throw ValidationError.usage(usageMessage()) }
             inputPath = arguments[index]
         case "--minimum-line-coverage":
             index += 1
@@ -76,27 +90,63 @@ func parseArguments() throws -> (inputPath: String, minimumLineCoverage: Double)
                 throw ValidationError.usage(usageMessage())
             }
             minimumLineCoverage = value
+        case "--all-traits":
+            allTraits = true
         default:
             throw ValidationError.usage(usageMessage())
         }
-
         index += 1
     }
 
     guard let inputPath, let minimumLineCoverage else {
         throw ValidationError.usage(usageMessage())
     }
-
-    return (inputPath, minimumLineCoverage)
+    try validateThreshold(minimumLineCoverage)
+    return Arguments(
+        inputPath: inputPath,
+        minimumLineCoverage: minimumLineCoverage,
+        allTraits: allTraits
+    )
 }
 
-func sourceCoverageTotals(from reportPath: String) throws -> CoverageTotals {
-    let reportURL = URL(fileURLWithPath: reportPath)
+func normalizedPath(_ path: String, relativeTo root: URL) -> String {
+    let url = path.hasPrefix("/") ? URL(fileURLWithPath: path) : root.appendingPathComponent(path)
+    return url.standardizedFileURL.resolvingSymlinksInPath().path
+}
 
+func expectedSourceFiles(repoRoot: URL, allTraits: Bool) throws -> Set<String> {
+    let sourcesRoot = repoRoot.appendingPathComponent("Sources/SwiftyShell")
+    // LLVM does not emit coverage entries for files containing declarations but no executable regions.
+    let declarationOnlyFiles: Set<String> = [
+        "Core/CommandExecutor.swift",
+        "Core/OutputDestination.swift",
+        "Core/ProcessSignal.swift",
+    ]
+    guard
+        let enumerator = FileManager.default.enumerator(
+            at: sourcesRoot,
+            includingPropertiesForKeys: [.isRegularFileKey]
+        )
+    else {
+        throw ValidationError.unreadableFile(sourcesRoot.path)
+    }
+
+    var paths = Set<String>()
+    for case let fileURL as URL in enumerator where fileURL.pathExtension == "swift" {
+        let relativePath = fileURL.path.replacingOccurrences(of: sourcesRoot.path + "/", with: "")
+        let isUngated = relativePath.hasPrefix("Core/") || relativePath.hasPrefix("Internal/")
+        if (allTraits || isUngated) && !declarationOnlyFiles.contains(relativePath) {
+            paths.insert(fileURL.standardizedFileURL.resolvingSymlinksInPath().path)
+        }
+    }
+    return paths
+}
+
+func sourceCoverageTotals(from reportPath: String, repoRoot: URL, allTraits: Bool) throws -> CoverageTotals {
+    let reportURL = URL(fileURLWithPath: reportPath)
     guard let data = try? Data(contentsOf: reportURL) else {
         throw ValidationError.unreadableFile(reportPath)
     }
-
     guard
         let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
         let containers = json["data"] as? [[String: Any]]
@@ -104,56 +154,109 @@ func sourceCoverageTotals(from reportPath: String) throws -> CoverageTotals {
         throw ValidationError.invalidJSON(reportPath)
     }
 
-    let repoRoot = FileManager.default.currentDirectoryPath
-    let sourcesPrefix = "\(repoRoot)/Sources/SwiftyShell/"
-
-    var coveredLines = 0
-    var executableLines = 0
+    let sourcesRoot = normalizedPath("Sources/SwiftyShell", relativeTo: repoRoot) + "/"
+    var coverageByPath: [String: CoverageTotals] = [:]
 
     for container in containers {
         guard let files = container["files"] as? [[String: Any]] else { continue }
-
         for file in files {
             guard
                 let filename = file["filename"] as? String,
-                filename.hasPrefix(sourcesPrefix),
                 let summary = file["summary"] as? [String: Any],
                 let lines = summary["lines"] as? [String: Any],
                 let count = lines["count"] as? Int,
                 let covered = lines["covered"] as? Int
-            else {
-                continue
-            }
+            else { continue }
 
-            executableLines += count
-            coveredLines += covered
+            let path = normalizedPath(filename, relativeTo: repoRoot)
+            guard path.hasPrefix(sourcesRoot) else { continue }
+            coverageByPath[path] = CoverageTotals(coveredLines: covered, executableLines: count)
         }
     }
 
-    guard executableLines > 0 else {
-        throw ValidationError.missingCoverageData(reportPath)
+    let expected = try expectedSourceFiles(repoRoot: repoRoot, allTraits: allTraits)
+    let missing = expected.subtracting(coverageByPath.keys).sorted()
+    guard missing.isEmpty else {
+        let prefix = repoRoot.standardizedFileURL.resolvingSymlinksInPath().path + "/"
+        throw ValidationError.missingSourceFiles(missing.map { $0.replacingOccurrences(of: prefix, with: "") })
     }
 
-    return CoverageTotals(coveredLines: coveredLines, executableLines: executableLines)
+    let totals = coverageByPath.values.reduce(CoverageTotals(coveredLines: 0, executableLines: 0)) { result, value in
+        CoverageTotals(
+            coveredLines: result.coveredLines + value.coveredLines,
+            executableLines: result.executableLines + value.executableLines
+        )
+    }
+    guard totals.executableLines > 0 else {
+        throw ValidationError.missingCoverageData(reportPath)
+    }
+    return totals
+}
+
+func runSelfTest() throws {
+    let temporaryRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let core = temporaryRoot.appendingPathComponent("Sources/SwiftyShell/Core")
+    let family = temporaryRoot.appendingPathComponent("Sources/SwiftyShell/Git")
+    try FileManager.default.createDirectory(at: core, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: family, withIntermediateDirectories: true)
+    try "struct Core {}".write(to: core.appendingPathComponent("Core.swift"), atomically: true, encoding: .utf8)
+    try "struct Git {}".write(to: family.appendingPathComponent("Git.swift"), atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+
+    func writeReport(_ filenames: [String]) throws -> String {
+        let files = filenames.map { filename in
+            ["filename": filename, "summary": ["lines": ["count": 10, "covered": 9]]] as [String: Any]
+        }
+        let report = ["data": [["files": files]]]
+        let reportURL = temporaryRoot.appendingPathComponent(UUID().uuidString + ".json")
+        try JSONSerialization.data(withJSONObject: report).write(to: reportURL)
+        return reportURL.path
+    }
+
+    let corePath = core.appendingPathComponent("Core.swift").path
+    let duplicateReport = try writeReport([corePath, "Sources/SwiftyShell/Core/Core.swift"])
+    let totals = try sourceCoverageTotals(from: duplicateReport, repoRoot: temporaryRoot, allTraits: false)
+    guard totals.coveredLines == 9, totals.executableLines == 10 else {
+        throw ValidationError.missingCoverageData("self-test did not deduplicate normalized paths")
+    }
+
+    do {
+        _ = try sourceCoverageTotals(from: duplicateReport, repoRoot: temporaryRoot, allTraits: true)
+        throw ValidationError.missingCoverageData("self-test accepted a missing all-traits source")
+    } catch ValidationError.missingSourceFiles(let paths) where paths == ["Sources/SwiftyShell/Git/Git.swift"] {}
+
+    for threshold in [-0.1, 100.1, Double.infinity, Double.nan] {
+        do {
+            try validateThreshold(threshold)
+            throw ValidationError.missingCoverageData("self-test accepted invalid threshold \(threshold)")
+        } catch ValidationError.invalidThreshold {}
+    }
+    print("validate-code-coverage: self-test ok.")
 }
 
 do {
-    let arguments = try parseArguments()
-    let totals = try sourceCoverageTotals(from: arguments.inputPath)
-
-    guard totals.percent >= arguments.minimumLineCoverage else {
-        throw ValidationError.thresholdNotMet(actual: totals.percent, minimum: arguments.minimumLineCoverage)
-    }
-
-    print(
-        String(
-            format: "validate-code-coverage: ok - package line coverage %.2f%% (%d/%d) meets %.2f%%.",
-            totals.percent,
-            totals.coveredLines,
-            totals.executableLines,
-            arguments.minimumLineCoverage
+    if let arguments = try parseArguments() {
+        let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let totals = try sourceCoverageTotals(
+            from: arguments.inputPath,
+            repoRoot: repoRoot,
+            allTraits: arguments.allTraits
         )
-    )
+        guard totals.percent >= arguments.minimumLineCoverage else {
+            throw ValidationError.thresholdNotMet(actual: totals.percent, minimum: arguments.minimumLineCoverage)
+        }
+        print(
+            String(
+                format: "validate-code-coverage: ok - package line coverage %.2f%% (%d/%d) meets %.2f%%.",
+                totals.percent,
+                totals.coveredLines,
+                totals.executableLines,
+                arguments.minimumLineCoverage
+            )
+        )
+    } else {
+        try runSelfTest()
+    }
 } catch let error as ValidationError {
     fputs("validate-code-coverage: \(error.description)\n", stderr)
     exit(1)

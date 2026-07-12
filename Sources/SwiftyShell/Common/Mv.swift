@@ -124,6 +124,7 @@ public struct Mv: RunnableCommandFamily {
             arguments.append("-f")
         }
 
+        if !state.sources.isEmpty || state.destinationPath != nil { arguments.append("--") }
         arguments.append(contentsOf: state.sources)
 
         if let destinationPath = state.destinationPath {

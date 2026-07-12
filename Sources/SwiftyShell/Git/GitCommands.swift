@@ -290,7 +290,7 @@ public struct GitBranch: RunnableCommandFamily {
     /// }
     /// ```
     ///
-    /// - Returns: A single-use ``Workflow`` producing parsed ``GitBranchEntry`` values.
+    /// - Returns: A ``Workflow`` producing parsed ``GitBranchEntry`` values.
     public func entries() -> Workflow<[GitBranchEntry]> {
         let git = state.git
         var arguments = ["branch", "--format=%(HEAD)\t%(refname:short)\t%(upstream:short)"]
@@ -886,7 +886,7 @@ public struct GitDiff: RunnableCommandFamily {
     /// }
     /// ```
     ///
-    /// - Returns: A single-use ``Workflow`` producing parsed ``GitDiffFileChange`` values.
+    /// - Returns: A ``Workflow`` producing parsed ``GitDiffFileChange`` values.
     public func fileChanges() -> Workflow<[GitDiffFileChange]> {
         let git = state.git
         let command = self.format(.nameStatus).settingStdoutDestination(.capture).buildCommand(nullTerminated: true)
@@ -1047,7 +1047,7 @@ public struct GitLog: RunnableCommandFamily {
     /// }
     /// ```
     ///
-    /// - Returns: A single-use ``Workflow`` producing parsed ``GitLogEntry`` values.
+    /// - Returns: A ``Workflow`` producing parsed ``GitLogEntry`` values.
     public func entries() -> Workflow<[GitLogEntry]> {
         let git = state.git
         let command = self.format(.pretty("format:%H%x1f%h%x1f%an%x1f%ae%x1f%s"))

@@ -104,17 +104,19 @@ Call `run(in:)` to execute it:
 try await cmd.run(in: context)
 ```
 
-### Argument Safety
+### Argument Boundaries
 
-Arguments are an array, not a shell string. SwiftyShell never invokes a shell interpreter — arguments with spaces, quotes, or special characters are passed verbatim to the process:
+Arguments are an array, not a shell string. SwiftyShell does not invoke a shell interpreter unless you explicitly run one, so arguments with spaces, quotes, or special characters are passed as individual argv entries:
 
 ```swift
-// Safe: the space in "/tmp/My Project" is one argument, not two
+// The space in "/tmp/My Project" stays inside one argument
 try await Command("ls", arguments: "-la", "/tmp/My Project").run(in: context)
 
-// This would be wrong with a shell string; here it works correctly
+// The pattern is also one argument
 try await Command("grep", arguments: "-r", "TODO: fix this", "Sources/").run(in: context)
 ```
+
+This boundary prevents shell splitting, not tool-specific interpretation. Validate untrusted values before passing them to interpreters such as `sh -c`, executable overrides, environment variables, paths, regular expressions, templates, or options that the invoked program evaluates.
 
 ### Output Destinations
 
@@ -135,6 +137,12 @@ try await Command("swift", arguments: "build", "--verbose")
     .stdout(.file(path: "/tmp/build.log", append: false))
     .stderr(.file(path: "/tmp/build.log", append: true))
     .run(in: context)
+
+// Tee — show progress live and retain it in ShellOutput
+let build = try await Command("swift", arguments: "build")
+    .stdout(.tee)
+    .stderr(.tee)
+    .run(in: context)
 ```
 
 ## Shell Output
@@ -153,7 +161,7 @@ if output.isSuccess {
 }
 ```
 
-> Note: Typed command families (``Git``, ``Brew``, etc.) throw ``ShellError/exitFailure(command:output:)`` on non-zero exit codes, so you typically only inspect ``ShellOutput`` directly when working with raw ``Command`` calls.
+> Note: The built-in executors throw ``ShellError/exitFailure(command:output:)`` on non-zero exits for both raw ``Command`` calls and typed families. Inspect the output associated with that error for failed-process diagnostics. Custom executors can define different behavior.
 
 ## Pipeline
 
@@ -178,7 +186,7 @@ let result = try await Command("ls", arguments: "-la")
     .run(in: context)
 ```
 
-The final stage's stdout is returned as ``ShellOutput``. Earlier stages' stdout feeds into the next stage's stdin. Stderr from every stage is accumulated in stage order. If a pipeline times out, is canceled, or exceeds a captured output limit, the thrown ``ShellError`` carries the partial output captured up to that point.
+The first stage receives closed stdin; each later stage receives the preceding stage's stdout. Successful output contains the final stage's captured stdout and captured stderr concatenated in stage order. All stages run concurrently, and an observed non-zero stage cancels the remaining stage tasks. Each stage resolves its own output limit; intermediate stdout is piped rather than captured, while captured stderr and final-stage stdout count against their stage limits. The shortest resolved stage timeout governs the pipeline. Timeout, cancellation, and output-limit errors carry captured partial output.
 
 ## Executor Protocol
 
@@ -191,7 +199,7 @@ public protocol CommandExecutor: Sendable {
 }
 ```
 
-``SubprocessExecutor`` is the default production executor and is backed by the `swift-subprocess` package. It resolves executables from ``ShellContext/searchPaths``, runs single commands and pipelines as subprocesses, and preserves partial captured output for timeout, cancellation, and output-limit failures. On Unix platforms each spawned process runs as its own process group leader; timeout and cancellation teardown signals are sent directly to that process, which is PID-reuse-safe on Linux via `pidfd_send_signal`.
+``SubprocessExecutor`` is the default production executor and is backed by the `swift-subprocess` package. It resolves executables from ``ShellContext/searchPaths``, runs single commands and pipelines as subprocesses, and preserves captured partial output for timeout, cancellation, and output-limit failures. `run()` closes stdin and immediately sends `SIGKILL` directly to registered processes when it must stop them. Explicitly spawned processes instead use their configured ``TeardownStrategy`` when the caller requests teardown.
 
 ``MockExecutor`` is the test double. You can also implement your own — for example, to add structured logging around every command:
 

@@ -15,7 +15,7 @@ struct LsCommandTests {
             .command()
 
         #expect(command.executableName == "ls")
-        #expect(command.arguments == ["-a", "-l", "-h", "-R", "-d", "/tmp"])
+        #expect(command.arguments == ["-a", "-l", "-h", "-R", "-d", "--", "/tmp"])
     }
 
     @Test func listsDirectoryContents() async throws {

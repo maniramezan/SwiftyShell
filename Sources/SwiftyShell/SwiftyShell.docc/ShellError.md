@@ -1,13 +1,14 @@
 # ``ShellError``
 
-Errors thrown while building workflows or running shell commands.
+Built-in errors reported while running shell commands and workflow gates.
 
 ## Overview
 
-Every failure inside SwiftyShell — typed command families, raw ``Command``
-calls, ``Pipeline`` stages, and ``Workflow`` gates alike — surfaces as a
-``ShellError``. Match on a specific case rather than testing exit codes or
-parsing stderr strings; the cases are stable, the messages inside them are not.
+Built-in execution failures from typed command families, raw ``Command`` calls,
+``Pipeline`` stages, and built-in ``Workflow`` gates surface as ``ShellError``.
+Match on a specific case rather than testing exit codes or parsing stderr strings;
+the cases are stable, the messages inside them are not. Custom executors, workflow
+closures and transforms, and custom gate errors can throw other `Error` values.
 Structured command workflows report successful commands with malformed output as
 ``parsingError(command:reason:)`` rather than silently returning an empty result.
 
@@ -43,6 +44,9 @@ The cases group naturally by failure source:
 - **Stream errors** — ``decodingError(command:stream:)`` is raised when output
   is not valid UTF-8. Redirect to a file with
   ``OutputDestination/file(path:append:)`` and read it as `Data` instead.
+- **Parsing errors** — ``parsingError(command:reason:)`` is raised when a
+  typed workflow receives valid text that does not match the expected structured
+  output shape.
 - **Task and workflow errors** — ``canceled(command:partialOutput:)`` is
   raised when the surrounding `Task` is canceled and carries partial output, and
   ``workflowConditionFailed(description:)`` when a ``Workflow/require(_:else:)-swift.method``
@@ -71,6 +75,10 @@ For a complete walkthrough — including each case's recovery strategy — see
 ### Stream Error
 
 - ``decodingError(command:stream:)``
+
+### Parsing Error
+
+- ``parsingError(command:reason:)``
 
 ### Task Error
 

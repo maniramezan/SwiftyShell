@@ -19,7 +19,7 @@ Before writing any code, follow this decision tree:
    → Use `Git`
 2. Is this a git operation NOT covered by the typed `Git` API?
    → Use `Command("git", arguments: ...)`
-3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Rsync`)?
+3. Is this a file-system operation covered by a typed wrapper (`Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Rsync`, `Find`)?
    → Use the typed wrapper
 4. Is this an archive operation (`tar`, `zip`, or `unzip`)?
    → Use `Tar`, `Zip`, or `Unzip`
@@ -665,6 +665,32 @@ public struct Pwd: RunnableCommandFamily {
     public func logical(_ enabled: Bool = true) -> Self      // -L (preserve symlinks)
     public func command() -> Command
     public func run() async throws -> ShellOutput
+}
+
+public struct Find: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func root(_ path: String) -> Self
+    public func roots(_ paths: [String]) -> Self
+    public func expression(_ value: FindExpression) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+
+public indirect enum FindExpression: Sendable, Equatable, Hashable {
+    case name(String)
+    case path(String)
+    case type(FindFileType)
+    case minimumDepth(UInt)
+    case maximumDepth(UInt)
+    case not(FindExpression)
+    case and(FindExpression, FindExpression)
+    case or(FindExpression, FindExpression)
+    case print
+    case print0
+}
+
+public enum FindFileType: String, Sendable, Equatable, Hashable {
+    case blockDevice, characterDevice, directory, regularFile, symbolicLink, namedPipe, socket
 }
 
 public struct Rsync: RunnableCommandFamily {
@@ -2084,7 +2110,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Cargo`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Curl`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Cargo`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Curl`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`, `Find`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:

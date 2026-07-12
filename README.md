@@ -96,6 +96,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Brew` | `brew` | `Brew` | Full top-level subcommand coverage, plus `--cask` and `--greedy` |
 | `Fzf` | `fzf` | `Fzf` | Fuzzy finder options for non-interactive filter-mode pipelines |
 | `Swift` | `swift` | `Swift` | SwiftPM build, test, run, package commands, traits, compiler flags |
+| `Cargo` | `cargo` | `Cargo` | Rust build, test, check, run, format, Clippy, and package operations |
 | `Gh` | `gh` | `Gh` | GitHub CLI automation for PRs, repos, workflows, Copilot, skills, API calls |
 | `Docker` | `docker` | `Docker` | Docker automation for Buildx, Compose, Debug, MCP, Scout, images, containers |
 | `Make` | `make` | `Make` | Makefile targets, parallel jobs, dry runs, keep-going builds |
@@ -125,6 +126,7 @@ SwiftyShell ships typed wrappers for common tools. Each family is gated behind a
 | `Touch` | `touch` | `Touch` | Required path, portable timestamp controls |
 | `Env` | `env` | `Env` | Clean/set/unset environments and shell-free command invocation |
 | `Which` | `which` | `Which` | Typed found/not-found executable lookup workflow |
+| `Find` | `find` | `Find` | Portable typed predicates, boolean expressions, and safe path output |
 
 When the tool you need isn't listed, `Command("tool", arguments: "arg").run(in: context)` is the fluent escape hatch. If you use the same tool repeatedly, promoting it to a typed family is straightforward — see below.
 

@@ -22,6 +22,7 @@ let package = Package(
         .trait(name: "Fzf", description: "Typed wrapper for the fzf fuzzy finder."),
         .trait(name: "Rg", description: "Typed wrapper for ripgrep (rg)."),
         .trait(name: "Swift", description: "Typed wrapper for the Swift toolchain CLI."),
+        .trait(name: "Cargo", description: "Typed wrapper for the Cargo package manager and build tool."),
         .trait(name: "Gh", description: "Typed wrapper for the GitHub CLI."),
         .trait(name: "Docker", description: "Typed wrapper for the Docker CLI."),
         .trait(name: "Make", description: "Typed wrapper for the make build automation CLI."),
@@ -51,13 +52,14 @@ let package = Package(
         .trait(name: "Touch", description: "Typed wrapper for touch."),
         .trait(name: "Env", description: "Typed wrapper for env."),
         .trait(name: "Which", description: "Typed executable lookup with which."),
+        .trait(name: "Find", description: "Typed portable wrapper for find."),
         // Convenience umbrella that enables every Common/* utility family.
         .trait(
             name: "CommonUtilities",
-            description: "Enables all common utility command families.",
+            description: "Enables all common file/directory utility families.",
             enabledTraits: [
                 "Ls", "Cp", "Mkdir", "Chmod", "Rm", "Mv", "Pwd", "Jq", "Rsync", "Tar", "Zip", "Unzip",
-                "Ln", "Touch", "Env", "Which",
+                "Ln", "Touch", "Env", "Which", "Find",
             ]
         ),
         // Convenience umbrella that enables every command family.
@@ -65,8 +67,8 @@ let package = Package(
             name: "All",
             description: "Enables every command family shipped by SwiftyShell.",
             enabledTraits: [
-                "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "Make", "Node", "Npm", "Yarn",
-                "Pnpm", "Bun", "Terraform", "Kubectl", "Helm", "Python", "Curl", "CommonUtilities",
+                "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Cargo", "Gh", "Docker", "Make", "Node", "Npm",
+                "Yarn", "Pnpm", "Bun", "Terraform", "Kubectl", "Helm", "Python", "Curl", "CommonUtilities",
             ]
         ),
         // Default is intentionally empty: consumers opt in to the families they want.

@@ -5,10 +5,10 @@ Swift-typed shell support.
 ## Overview
 
 SwiftyShell's primary API is a family of typed wrappers — ``Git``, ``Grep``, ``Rg``,
-``Brew``, ``Fzf``, ``Swift``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
+``Brew``, ``Fzf``, ``Swift``, ``Cargo``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
 ``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Helm``, ``Python``, ``Curl``, ``Ls``, ``Cp``,
 ``Mkdir``, ``Chmod``, ``Rm``, ``Mv``, ``Pwd``, ``Jq``, ``Rsync``, ``Tar``, ``Zip``,
-``Unzip``, ``Ln``, ``Touch``, ``Env``, ``Which`` — that model shell tools as Swift values. Typed families make their modeled options
+``Unzip``, ``Ln``, ``Touch``, ``Env``, ``Which``, ``Find`` — that model shell tools as Swift values. Typed families make their modeled options
 discoverable, require essential arguments where appropriate, and provide structured results where available. ``Command`` is
 the fluent escape hatch for tools that don't have a typed wrapper yet; it
 shares the same builder style so code does not change shape when you fall back
@@ -157,6 +157,12 @@ Arguments are forwarded as distinct argv entries without shell parsing, but Swif
 - ``SwiftSubcommand``
 - ``SwiftBuildConfiguration``
 
+### Rust Toolchain
+
+- ``Cargo``
+- ``CargoSubcommand``
+- ``CargoTarget``
+
 ### GitHub CLI
 
 - ``Gh``
@@ -217,6 +223,9 @@ Arguments are forwarded as distinct argv entries without shell parsing, but Swif
 - ``Env``
 - ``Which``
 - ``WhichResult``
+- ``Find``
+- ``FindExpression``
+- ``FindFileType``
 
 ### Archives
 

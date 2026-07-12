@@ -25,7 +25,7 @@ on:
           Defaults to the full matrix when omitted.
         required: false
         type: string
-        default: '["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "Make", "Node", "Npm", "Yarn", "Pnpm", "Bun", "Terraform", "Kubectl", "Helm", "Python", "Curl", "Ls", "Cp", "Mkdir", "Chmod", "Rm", "Mv", "Pwd", "Jq", "Rsync", "Tar", "Zip", "Unzip", "Ln", "Touch", "Env", "Which", "CommonUtilities", "All"]'
+        default: '["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Cargo", "Gh", "Docker", "Make", "Node", "Npm", "Yarn", "Pnpm", "Bun", "Terraform", "Kubectl", "Helm", "Python", "Curl", "Ls", "Cp", "Mkdir", "Chmod", "Rm", "Mv", "Pwd", "Jq", "Rsync", "Tar", "Zip", "Unzip", "Ln", "Touch", "Env", "Which", "Find", "CommonUtilities", "All"]'
 
 permissions:
   contents: read

@@ -6,10 +6,10 @@ Pick exactly the typed shell wrappers your project needs.
 
 SwiftyShell is split into a small, always-available `Core` (commands,
 pipelines, contexts, errors, executors) and a set of **opt-in** typed
-command families: ``Git``, ``Brew``, ``Grep``, ``Fzf``, ``Rg``, ``Swift``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
+command families: ``Git``, ``Brew``, ``Grep``, ``Fzf``, ``Rg``, ``Swift``, ``Cargo``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
 ``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Helm``, ``Python``, ``Curl``, and a collection of common
 file/directory utilities (``Ls``, ``Cp``, ``Mv``, ``Mkdir``, ``Chmod``, ``Rm``, ``Pwd``,
-``Jq``, ``Rsync``, ``Tar``, ``Zip``, ``Unzip``, ``Ln``, ``Touch``, ``Env``, ``Which``).
+``Jq``, ``Rsync``, ``Tar``, ``Zip``, ``Unzip``, ``Ln``, ``Touch``, ``Env``, ``Which``, ``Find``).
 
 Each family is gated behind a SwiftPM **package trait**. By default no
 families are enabled, so a fresh `import SwiftyShell` exposes only `Core`.
@@ -50,6 +50,7 @@ let status = try await Git()
 | `Fzf`              | ``Fzf`` typed fuzzy-finder wrapper                         |
 | `Rg`               | ``Rg`` typed ripgrep wrapper                               |
 | `Swift`            | ``Swift`` Swift toolchain and SwiftPM wrapper              |
+| `Cargo`            | ``Cargo`` Rust package manager and build tool wrapper      |
 | `Gh`               | ``Gh`` GitHub CLI automation wrapper                       |
 | `Docker`           | ``Docker`` Docker CLI automation wrapper                   |
 | `Make`             | ``Make`` build automation wrapper                          |
@@ -79,7 +80,8 @@ let status = try await Git()
 | `Touch`            | ``Touch`` file creation and timestamp wrapper               |
 | `Env`              | ``Env`` environment and safe command invocation wrapper     |
 | `Which`            | ``Which`` typed executable lookup                           |
-| `CommonUtilities`  | Every common utility family listed above                    |
+| `Find`             | ``Find`` portable file traversal and matching wrapper       |
+| `CommonUtilities`  | All common file, directory, archive, data, and search utilities |
 | `All`              | Every per-family trait above (the kitchen-sink umbrella)   |
 
 ## Common recipes

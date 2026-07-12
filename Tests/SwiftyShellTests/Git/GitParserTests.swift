@@ -125,13 +125,13 @@ struct GitParserTests {
         #expect(status.hasUntrackedFiles)
     }
 
-    @Test func parsesBranchEntries() {
+    @Test func parsesBranchEntries() throws {
         let output = """
             *	main	origin/main
              	feature/demo	origin/feature/demo
              	remotes/origin/main	
             """
-        let entries = GitParsers.parseBranchEntries(output)
+        let entries = try GitParsers.parseBranchEntries(output)
 
         #expect(
             entries == [
@@ -142,12 +142,12 @@ struct GitParserTests {
         )
     }
 
-    @Test func parsesLogEntries() {
+    @Test func parsesLogEntries() throws {
         let output = """
             abcdef1234567890\u{1F}abcdef1\u{1F}Test User\u{1F}test@example.com\u{1F}Initial commit
             fedcba0987654321\u{1F}fedcba0\u{1F}Other User\u{1F}other@example.com\u{1F}Follow-up change
             """
-        let entries = GitParsers.parseLogEntries(output)
+        let entries = try GitParsers.parseLogEntries(output)
 
         #expect(
             entries == [
@@ -169,43 +169,51 @@ struct GitParserTests {
         )
     }
 
-    @Test func parsesDiffFileChanges() {
-        let output = """
-            M\tREADME.md
-            A\tSources/NewFile.swift
-            R100\tOld.swift\tNew.swift
-            """
-        let changes = GitParsers.parseDiffFileChanges(output)
+    @Test func parsesNULTerminatedDiffFileChanges() throws {
+        let output =
+            "M\0README.md\0A\0Sources/New\tFile.swift\0R100\0Old\nFile.swift\0New.swift\0C75\0Copy Source\0Copy Target\0"
+        let changes = try GitParsers.parseDiffFileChanges(output)
 
         #expect(
             changes == [
                 GitDiffFileChange(kind: .modified, path: "README.md", originalPath: nil, statusCode: "M"),
                 GitDiffFileChange(
                     kind: .added,
-                    path: "Sources/NewFile.swift",
+                    path: "Sources/New\tFile.swift",
                     originalPath: nil,
                     statusCode: "A"
                 ),
-                GitDiffFileChange(kind: .renamed, path: "New.swift", originalPath: "Old.swift", statusCode: "R100"),
+                GitDiffFileChange(
+                    kind: .renamed,
+                    path: "New.swift",
+                    originalPath: "Old\nFile.swift",
+                    statusCode: "R100"
+                ),
+                GitDiffFileChange(
+                    kind: .copied,
+                    path: "Copy Target",
+                    originalPath: "Copy Source",
+                    statusCode: "C75"
+                ),
             ]
         )
     }
 
-    @Test func parsesSubmoduleStatusEntries() {
+    @Test func parsesSubmoduleStatusEntries() throws {
         let output = """
-             abcdef1234567890abcdef1234567890abcdef12 Vendor/Ready (heads/main)
+             abcdef1234567890abcdef1234567890abcdef12 Vendor/Ready With Spaces (heads/main)
             -fedcba0987654321fedcba0987654321fedcba09 Vendor/Missing
             +1234567890abcdef1234567890abcdef12345678 Vendor/Changed (v1.2.3-4-g1234567)
             U0987654321fedcba0987654321fedcba09876543 Vendor/Conflicted
             """
-        let entries = GitParsers.parseSubmoduleStatusEntries(output)
+        let entries = try GitParsers.parseSubmoduleStatusEntries(output)
 
         #expect(
             entries == [
                 GitSubmoduleStatusEntry(
                     state: .current,
                     commitHash: "abcdef1234567890abcdef1234567890abcdef12",
-                    path: "Vendor/Ready",
+                    path: "Vendor/Ready With Spaces",
                     description: "(heads/main)"
                 ),
                 GitSubmoduleStatusEntry(
@@ -228,6 +236,49 @@ struct GitParserTests {
                 ),
             ]
         )
+    }
+
+    @Test(arguments: [
+        "unexpected",
+        "# branch.oid abc123",
+        "# branch.head main\n1 X N... file",
+        "# branch.head ",
+    ]) func rejectsMalformedStatus(output: String) {
+        #expect(throws: GitParsers.ParseError.self) {
+            try GitParsers.parseStatus(output)
+        }
+    }
+
+    @Test(arguments: ["*\tmain", "x\tmain\torigin/main", "\t\torigin/main"])
+    func rejectsMalformedBranchEntry(output: String) {
+        #expect(throws: GitParsers.ParseError.self) {
+            try GitParsers.parseBranchEntries(output)
+        }
+    }
+
+    @Test(arguments: ["hash\u{1F}short", "\u{1F}short\u{1F}name\u{1F}email\u{1F}subject"])
+    func rejectsMalformedLogEntry(output: String) {
+        #expect(throws: GitParsers.ParseError.self) {
+            try GitParsers.parseLogEntries(output)
+        }
+    }
+
+    @Test(arguments: ["M\0path", "M\0", "R100\0old\0", "\0"])
+    func rejectsMalformedDiffEntry(output: String) {
+        #expect(throws: GitParsers.ParseError.self) {
+            try GitParsers.parseDiffFileChanges(output)
+        }
+    }
+
+    @Test(arguments: ["+hash-only", " hash ", ""])
+    func rejectsMalformedSubmoduleEntry(output: String) throws {
+        if output.isEmpty {
+            #expect(try GitParsers.parseSubmoduleStatusEntries(output).isEmpty)
+        } else {
+            #expect(throws: GitParsers.ParseError.self) {
+                try GitParsers.parseSubmoduleStatusEntries(output)
+            }
+        }
     }
 }
 #endif

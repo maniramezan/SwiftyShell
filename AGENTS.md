@@ -26,6 +26,10 @@ Typed wrapper for the Homebrew package manager: `Brew` and `BrewSubcommand`.
 
 Typed wrapper for the Swift toolchain: `Swift`, `SwiftSubcommand`, and `SwiftBuildConfiguration`.
 
+### `Sources/SwiftyShell/Cargo/`
+
+Typed wrapper for the Rust package manager and build tool: `Cargo`, `CargoSubcommand`, and `CargoTarget`.
+
 ### `Sources/SwiftyShell/Gh/`
 
 Typed wrapper for the GitHub CLI: `Gh` and `GhSubcommand`.
@@ -83,7 +87,7 @@ files with `headerFile(_:)`, not argv-visible header values.
 
 ### `Sources/SwiftyShell/Common/`
 
-Typed wrappers for frequently used shell utilities: `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `JqArgument`, `Rsync`, `Tar`, `TarOperation`, `TarCompression`, `Zip`, `ZipCompressionLevel`, `Unzip`, `UnzipEntry`, `Ln`, `Touch`, `Env`, `Which`, and `WhichResult`. Each follows the same fluent builder conventions as all other command families. `Ln`, `Touch`, and `Which` require their essential operands in initializers; `Env.command(_:arguments:)` preserves argv boundaries; prefer `Which.lookup()` for typed found/not-found handling.
+Typed wrappers for frequently used shell utilities: `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `JqArgument`, `Rsync`, `Tar`, `TarOperation`, `TarCompression`, `Zip`, `ZipCompressionLevel`, `Unzip`, `UnzipEntry`, `Ln`, `Touch`, `Env`, `Which`, `WhichResult`, `Find`, `FindExpression`, and `FindFileType`. Each follows the same fluent builder conventions as all other command families. `Ln`, `Touch`, and `Which` require their essential operands in initializers; `Env.command(_:arguments:)` preserves argv boundaries; prefer `Which.lookup()` for typed found/not-found handling.
 
 ### `Sources/SwiftyShell/Internal/Execution/`
 
@@ -99,7 +103,7 @@ DocC documentation catalog. `SwiftyShell.md` is the top-level landing page. Arti
 
 ### `Tests/SwiftyShellTests/`
 
-Test suite. Sub-folders mirror the source layout: `Brew/`, `Bun/`, `Common/`, `Core/`, `Curl/`, `Docker/`, `Fzf/`, `Gh/`, `Git/`, `Grep/`, `Helm/`, `Kubectl/`, `Make/`, `Node/`, `Npm/`, `Pipelines/`, `Pnpm/`, `Python/`, `Rg/`, `Swift/`, `Terraform/`, and `Yarn/`. Test files for gated families are wrapped in `#if <Trait>` so the test target compiles under any trait selection. `Common/` has one test file per family (`LsTests.swift`, `CpTests.swift`, …) plus `CommonTestSupport.swift` (shared helpers, ungated).
+Test suite. Sub-folders mirror the source layout: `Brew/`, `Bun/`, `Cargo/`, `Common/`, `Core/`, `Curl/`, `Docker/`, `Fzf/`, `Gh/`, `Git/`, `Grep/`, `Helm/`, `Kubectl/`, `Make/`, `Node/`, `Npm/`, `Pipelines/`, `Pnpm/`, `Python/`, `Rg/`, `Swift/`, `Terraform/`, and `Yarn/`. Test files for gated families are wrapped in `#if <Trait>` so the test target compiles under any trait selection. `Common/` has one test file per family (`LsTests.swift`, `CpTests.swift`, …) plus `CommonTestSupport.swift` (shared helpers, ungated).
 
 ### `Scripts/`
 
@@ -224,12 +228,12 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 **Trait inventory (declared in `Package.swift`):**
 
-- Per-family: `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Curl`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`, `Ln`, `Touch`, `Env`, `Which` (one trait per family directory; for `Common/`, one trait per file).
+- Per-family: `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Cargo`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Curl`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`, `Ln`, `Touch`, `Env`, `Which`, `Find` (one trait per family directory; for `Common/`, one trait per file).
 - Umbrellas: `CommonUtilities` (all `Common/*`), `All` (every family).
 
 **The wiring contract** — enforced by `Scripts/validate-traits.swift` and CI:
 
-1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Helm/`, `Python/`, `Curl/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
+1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Cargo/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Helm/`, `Python/`, `Curl/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
 2. Every test file targeting a gated family is wrapped the same way. Cross-family tests use combined guards (`#if Git && Grep`).
 3. Every family directory (or `Common/*.swift` file) has a matching `.trait(name:)` entry in `Package.swift`.
 4. The `All` umbrella's `enabledTraits` transitively enables every per-family trait. The `CommonUtilities` umbrella enables every `Common/*` trait.

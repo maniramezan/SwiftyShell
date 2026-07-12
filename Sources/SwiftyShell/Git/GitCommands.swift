@@ -293,13 +293,14 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Returns: A ``Workflow`` producing parsed ``GitBranchEntry`` values.
     public func entries() -> Workflow<[GitBranchEntry]> {
         let git = state.git
-        let command = git.makeCommand(
-            "branch",
-            "--format=%(HEAD)\t%(refname:short)\t%(upstream:short)"
-        )
+        var arguments = ["branch", "--format=%(HEAD)\t%(refname:short)\t%(upstream:short)"]
+        if state.includesAllBranches {
+            arguments.append("--all")
+        }
+        let command = git.makeCommand(arguments).stdout(.capture)
         return Workflow {
             let output = try await command.run(in: git.context)
-            return GitParsers.parseBranchEntries(output.stdout)
+            return try GitParsers.parse(output.stdout, from: command, using: GitParsers.parseBranchEntries)
         }
     }
 
@@ -848,8 +849,15 @@ public struct GitDiff: RunnableCommandFamily {
     ///
     /// - Returns: A ``Command`` ready for execution or pipeline composition.
     public func command() -> Command {
+        buildCommand(nullTerminated: false)
+    }
+
+    private func buildCommand(nullTerminated: Bool) -> Command {
         var arguments = ["diff"]
         arguments.append(contentsOf: state.format.arguments)
+        if nullTerminated {
+            arguments.append("-z")
+        }
         if state.staged {
             arguments.append("--staged")
         }
@@ -866,10 +874,10 @@ public struct GitDiff: RunnableCommandFamily {
             .stderr(state.stderrDestination)
     }
 
-    /// Runs `git diff --name-status` and parses the output into typed file changes.
+    /// Runs `git diff --name-status -z` and parses the output into typed file changes.
     ///
     /// Forces ``GitDiffFormat/nameStatus`` regardless of any prior ``format(_:)`` call so the
-    /// parser can read git's status code plus path columns reliably.
+    /// parser can preserve arbitrary valid file names, including tabs and newlines.
     ///
     /// ```swift
     /// let changes = try await git.diff().staged().fileChanges().run()
@@ -881,10 +889,10 @@ public struct GitDiff: RunnableCommandFamily {
     /// - Returns: A ``Workflow`` producing parsed ``GitDiffFileChange`` values.
     public func fileChanges() -> Workflow<[GitDiffFileChange]> {
         let git = state.git
-        let command = self.format(.nameStatus).command()
+        let command = self.format(.nameStatus).settingStdoutDestination(.capture).buildCommand(nullTerminated: true)
         return Workflow {
             let output = try await command.run(in: git.context)
-            return GitParsers.parseDiffFileChanges(output.stdout)
+            return try GitParsers.parse(output.stdout, from: command, using: GitParsers.parseDiffFileChanges)
         }
     }
 
@@ -1042,10 +1050,12 @@ public struct GitLog: RunnableCommandFamily {
     /// - Returns: A ``Workflow`` producing parsed ``GitLogEntry`` values.
     public func entries() -> Workflow<[GitLogEntry]> {
         let git = state.git
-        let command = self.format(.pretty("format:%H%x1f%h%x1f%an%x1f%ae%x1f%s")).command()
+        let command = self.format(.pretty("format:%H%x1f%h%x1f%an%x1f%ae%x1f%s"))
+            .settingStdoutDestination(.capture)
+            .command()
         return Workflow {
             let output = try await command.run(in: git.context)
-            return GitParsers.parseLogEntries(output.stdout)
+            return try GitParsers.parse(output.stdout, from: command, using: GitParsers.parseLogEntries)
         }
     }
 

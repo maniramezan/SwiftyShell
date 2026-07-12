@@ -199,7 +199,7 @@ public protocol CommandExecutor: Sendable {
 }
 ```
 
-``SubprocessExecutor`` is the default production executor and is backed by the `swift-subprocess` package. It resolves executables from ``ShellContext/searchPaths``, runs single commands and pipelines as subprocesses, and preserves captured partial output for timeout, cancellation, and output-limit failures. `run()` closes stdin and immediately sends `SIGKILL` directly to registered processes when it must stop them. Explicitly spawned processes instead use their configured ``TeardownStrategy`` when the caller requests teardown.
+``SubprocessExecutor`` is the default production executor and is backed by the `swift-subprocess` package. It resolves executables from ``ShellContext/searchPaths``, runs single commands and pipelines as subprocesses, closes stdin for `run()` calls, and preserves captured partial output for timeout, cancellation, and output-limit failures. On Unix platforms each process started for `run()` executes as its own process-group leader; early termination sends `SIGKILL` to the process group, including descendants, and waits for process completion before returning. Explicitly spawned processes instead use their configured ``TeardownStrategy`` when the caller requests teardown.
 
 ``MockExecutor`` is the test double. You can also implement your own — for example, to add structured logging around every command:
 

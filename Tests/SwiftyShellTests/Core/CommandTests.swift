@@ -419,6 +419,42 @@ struct CommandTests {
         #expect(command.stderrDestination == .file(path: "/tmp/err.log", append: true))
     }
 
+    @Test func resolvesRelativeExecutableAndOutputAgainstWorkingDirectory() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("swiftyshell-relative-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let executable = directory.appendingPathComponent("tool.sh")
+        try "#!/bin/sh\nprintf relative".write(to: executable, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+
+        _ = try await Command("tool")
+            .executable("./tool.sh")
+            .workingDirectory(directory.path)
+            .stdout(.file(path: "output.txt", append: false))
+            .run()
+
+        let output = try String(contentsOf: directory.appendingPathComponent("output.txt"), encoding: .utf8)
+        #expect(output == "relative")
+    }
+
+    @Test func rejectsStdoutAndStderrOverwritingSameFile() async throws {
+        do {
+            _ = try await Command("echo", arguments: "hello")
+                .stdout(.file(path: "same.log", append: false))
+                .stderr(.file(path: "./same.log", append: false))
+                .run()
+            Issue.record("Expected invalidConfiguration")
+        } catch let error as ShellError {
+            guard case let .invalidConfiguration(description) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(description.contains("stdout and stderr"))
+        }
+    }
+
     @Test func displayStringQuotesArgumentsWithSpaces() {
         let command = Command("echo", arguments: "hello world", "foo")
         #expect(command.displayString() == #"echo "hello world" foo"#)

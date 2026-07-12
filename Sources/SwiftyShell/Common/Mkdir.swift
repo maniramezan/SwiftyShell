@@ -152,6 +152,7 @@ public struct Mkdir: RunnableCommandFamily {
             arguments.append(contentsOf: ["-m", modeValue])
         }
 
+        if !state.directories.isEmpty { arguments.append("--") }
         arguments.append(contentsOf: state.directories)
 
         let base = Command("mkdir")

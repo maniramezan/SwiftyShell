@@ -12,7 +12,7 @@ struct RmCommandTests {
             .command()
 
         #expect(command.executableName == "rm")
-        #expect(command.arguments == ["-r", "-f", "/tmp/example"])
+        #expect(command.arguments == ["-r", "-f", "--", "/tmp/example"])
     }
 
     @Test func removesDirectories() async throws {

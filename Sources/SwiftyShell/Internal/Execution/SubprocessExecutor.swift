@@ -98,14 +98,17 @@ private struct ResolvedCommand: Sendable {
     let displayCommand: String
 
     init(command: Command, context: ShellContext) throws {
+        let workingDirectory = command.workingDirectoryOverride ?? context.workingDirectory
+        let resolvedWorkingDirectory = workingDirectory.map { Self.absolutePath($0) }
         self.original = command
         self.executablePath = try Self.resolveExecutable(
             command.executableOverride ?? command.executableName,
-            searchPaths: context.searchPaths
+            searchPaths: context.searchPaths,
+            workingDirectory: resolvedWorkingDirectory
         )
         self.arguments = command.arguments
         self.environment = context.environment.merging(command.environmentOverrides) { _, new in new }
-        self.workingDirectory = command.workingDirectoryOverride ?? context.workingDirectory
+        self.workingDirectory = resolvedWorkingDirectory
         self.timeout = command.timeoutOverride ?? context.defaultTimeout
         let rawLimit = command.outputLimitOverride ?? context.defaultOutputLimit
         guard rawLimit >= 0 else {
@@ -118,8 +121,15 @@ private struct ResolvedCommand: Sendable {
         if let timeout, timeout < 0 || timeout.isFinite == false {
             throw ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")
         }
-        self.stdoutDestination = command.stdoutDestination
-        self.stderrDestination = command.stderrDestination
+        self.stdoutDestination = Self.resolveOutputDestination(
+            command.stdoutDestination,
+            workingDirectory: resolvedWorkingDirectory
+        )
+        self.stderrDestination = Self.resolveOutputDestination(
+            command.stderrDestination,
+            workingDirectory: resolvedWorkingDirectory
+        )
+        try Self.validateOutputDestinations(stdout: stdoutDestination, stderr: stderrDestination)
         self.displayCommand = command.displayString(using: executablePath)
     }
 
@@ -133,12 +143,17 @@ private struct ResolvedCommand: Sendable {
         )
     }
 
-    private static func resolveExecutable(_ executable: String, searchPaths: [String]) throws -> String {
+    private static func resolveExecutable(
+        _ executable: String,
+        searchPaths: [String],
+        workingDirectory: String?
+    ) throws -> String {
         if executable.contains("/") {
-            guard FileManager.default.isExecutableFile(atPath: executable) else {
+            let path = absolutePath(executable, relativeTo: workingDirectory)
+            guard FileManager.default.isExecutableFile(atPath: path) else {
                 throw ShellError.commandNotFound(executable)
             }
-            return executable
+            return path
         }
 
         for directory in searchPaths {
@@ -149,6 +164,39 @@ private struct ResolvedCommand: Sendable {
         }
 
         throw ShellError.commandNotFound(executable)
+    }
+
+    private static func resolveOutputDestination(
+        _ destination: OutputDestination,
+        workingDirectory: String?
+    ) -> OutputDestination {
+        guard case let .file(path, append) = destination else { return destination }
+        return .file(path: absolutePath(path, relativeTo: workingDirectory), append: append)
+    }
+
+    private static func validateOutputDestinations(
+        stdout: OutputDestination,
+        stderr: OutputDestination
+    ) throws {
+        guard case let .file(stdoutPath, stdoutAppend) = stdout,
+            case let .file(stderrPath, stderrAppend) = stderr,
+            stdoutPath == stderrPath,
+            !stdoutAppend || !stderrAppend
+        else { return }
+
+        throw ShellError.invalidConfiguration(
+            description: "stdout and stderr cannot overwrite the same file; use append mode for both streams"
+        )
+    }
+
+    private static func absolutePath(_ path: String, relativeTo directory: String? = nil) -> String {
+        if path.hasPrefix("/") {
+            return URL(fileURLWithPath: path).standardizedFileURL.path
+        }
+        let base =
+            directory.map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+        return URL(fileURLWithPath: path, relativeTo: base).standardizedFileURL.path
     }
 }
 

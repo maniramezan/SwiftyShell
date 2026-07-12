@@ -20,14 +20,14 @@ jobs:
     outputs:
       matrix: ${{ steps.compute.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
 
       - name: Compute affected traits
         id: compute
         run: |
-          FULL='["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "Make", "Node", "Npm", "Yarn", "Pnpm", "Bun", "Terraform", "Kubectl", "Helm", "Python", "Rsync", "Tar", "Zip", "Unzip", "CommonUtilities", "All"]'
+          FULL='["", "Git", "Brew", "Grep", "Fzf", "Rg", "Swift", "Gh", "Docker", "Make", "Node", "Npm", "Yarn", "Pnpm", "Bun", "Terraform", "Kubectl", "Helm", "Python", "Ls", "Cp", "Mkdir", "Chmod", "Rm", "Mv", "Pwd", "Jq", "Rsync", "Tar", "Zip", "Unzip", "CommonUtilities", "All"]'
 
           CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
           echo "Changed files:"
@@ -35,7 +35,7 @@ jobs:
 
           # Changes to Core, Internal, Package.swift, CI workflows, or the
           # ungated shared test helper affect every trait build.
-          if echo "$CHANGED" | grep -qE '^(Package\.swift$|Package\.resolved$|\.github/workflows/|Sources/SwiftyShell/Core/|Sources/SwiftyShell/Internal/|Tests/SwiftyShellTests/Common/CommonTestSupport\.swift$)'; then
+          if echo "$CHANGED" | grep -qE '^(Package\.swift$|Package\.resolved$|\.github/workflows/|Scripts/validate-(code-coverage|traits)\.swift$|Sources/SwiftyShell/Core/|Sources/SwiftyShell/Internal/|Tests/SwiftyShellTests/Common/CommonTestSupport\.swift$)'; then
             echo "Full matrix required (core/package/CI workflow change detected)"
             echo "matrix=$FULL" >> "$GITHUB_OUTPUT"
             exit 0
@@ -48,6 +48,7 @@ jobs:
 
           # Per-family builds — only when that family's sources or tests changed.
           family_traits=()
+          common_changed=false
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Git/|Tests/SwiftyShellTests/Git/)' && family_traits+=("Git")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Brew/|Tests/SwiftyShellTests/Brew/)' && family_traits+=("Brew")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Grep/|Tests/SwiftyShellTests/Grep/)' && family_traits+=("Grep")
@@ -66,7 +67,19 @@ jobs:
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Kubectl/|Tests/SwiftyShellTests/Kubectl/)' && family_traits+=("Kubectl")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Helm/|Tests/SwiftyShellTests/Helm/)' && family_traits+=("Helm")
           echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Python/|Tests/SwiftyShellTests/Python/)' && family_traits+=("Python")
-          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/|Tests/SwiftyShellTests/Common/)' && family_traits+=("CommonUtilities")
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Ls\.swift|Tests/SwiftyShellTests/Common/LsTests\.swift)$' && family_traits+=("Ls") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Cp\.swift|Tests/SwiftyShellTests/Common/CpTests\.swift)$' && family_traits+=("Cp") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Mkdir\.swift|Tests/SwiftyShellTests/Common/MkdirTests\.swift)$' && family_traits+=("Mkdir") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Chmod\.swift|Tests/SwiftyShellTests/Common/ChmodTests\.swift)$' && family_traits+=("Chmod") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Rm\.swift|Tests/SwiftyShellTests/Common/RmTests\.swift)$' && family_traits+=("Rm") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Mv\.swift|Tests/SwiftyShellTests/Common/MvTests\.swift)$' && family_traits+=("Mv") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Pwd\.swift|Tests/SwiftyShellTests/Common/PwdTests\.swift)$' && family_traits+=("Pwd") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Jq\.swift|Tests/SwiftyShellTests/Common/JqTests\.swift)$' && family_traits+=("Jq") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Rsync\.swift|Tests/SwiftyShellTests/Common/RsyncTests\.swift)$' && family_traits+=("Rsync") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Tar\.swift|Tests/SwiftyShellTests/Common/TarTests\.swift)$' && family_traits+=("Tar") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Zip\.swift|Tests/SwiftyShellTests/Common/(ZipTests|ZipUnzipTests)\.swift)$' && family_traits+=("Zip") && common_changed=true
+          echo "$CHANGED" | grep -qE '^(Sources/SwiftyShell/Common/Unzip\.swift|Tests/SwiftyShellTests/Common/(UnzipTests|ZipUnzipTests)\.swift)$' && family_traits+=("Unzip") && common_changed=true
+          [ "$common_changed" = true ] && family_traits+=("CommonUtilities")
           traits+=("${family_traits[@]}")
 
           # "All" umbrella whenever any family changed.

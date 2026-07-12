@@ -1,10 +1,10 @@
 # Error Handling
 
-Catch the right ``ShellError`` case for every failure mode SwiftyShell can produce.
+Catch the right ``ShellError`` case for built-in execution failures.
 
 ## Overview
 
-All failures in SwiftyShell surface as ``ShellError``. Never test stderr strings or exit codes to decide what went wrong — match on the specific enum case instead. This keeps call sites readable and makes them resilient to message changes in the underlying tools.
+The built-in executors translate command resolution, process execution, timeout, cancellation, decoding, and output-limit failures into ``ShellError``. Match those cases instead of parsing diagnostic text. A custom ``CommandExecutor``, a ``Workflow`` operation or transform, and a custom `require` error may throw another `Error`, so retain a general fallback when those extension points are involved.
 
 ```swift
 do {
@@ -124,7 +124,7 @@ try await Command("swift", arguments: "test", "--filter", "CommandTests")
 
 #### `outputLimitExceeded`
 
-The accumulated captured output exceeded the configured limit. Like `timeout`, the partial output captured so far is included for both single commands and pipelines. Because a byte limit can split a UTF-8 scalar, truncated partial output uses lossy UTF-8 decoding and may end with the replacement character. Increase the limit via ``Command/outputLimit(_:)`` or redirect output to a file with ``OutputDestination/file(path:append:)``.
+Captured output exceeded the configured limit. For a single command, stdout and stderr share one limit. In a pipeline, each stage has its own limit: intermediate stdout is piped rather than captured, while each stage's captured stderr and the final stage's captured stdout count against that stage. The error includes captured partial output up to the cap. Because a byte limit can split a UTF-8 scalar, truncated partial output uses lossy UTF-8 decoding and may end with the replacement character. Increase the limit via ``Command/outputLimit(_:)`` or redirect output to a file with ``OutputDestination/file(path:append:)``.
 
 ```swift
 // Redirect verbose output to a file instead of capturing it
@@ -146,7 +146,7 @@ The captured output could not be decoded as UTF-8. This happens with binary outp
 
 The Swift `Task` enclosing the `run()` call was canceled. SwiftyShell rethrows the cancellation as ``ShellError/canceled(command:partialOutput:)`` and attaches partial output captured so far.
 
-On Unix platforms, SwiftyShell tears down the subprocess and descendants in its dedicated process group when it must stop execution. Timeout, cancellation, and output-limit failures wait for process completion and reaping before returning. The process-group leader remains owned until signaling completes, preventing its PID and group ID from being recycled during teardown.
+For `run()`, SwiftyShell tears down each subprocess and descendants in its dedicated process group when it must stop execution. Timeout, cancellation, and output-limit failures wait for process completion and reaping before returning. The process-group leader remains owned until signaling completes, preventing its PID and group ID from being recycled during teardown. This is separate from ``TeardownStrategy``, which controls caller-requested teardown for a process started with `spawn`.
 
 ```swift
 let task = Task {

@@ -1,15 +1,15 @@
 # ``SwiftyShell``
 
-Type-safe shell support for Swift.
+Swift-typed shell support.
 
 ## Overview
 
 SwiftyShell's primary API is a family of typed wrappers — ``Git``, ``Grep``, ``Rg``,
 ``Brew``, ``Fzf``, ``Swift``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
-``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Helm``, ``Python``, ``Ls``, ``Cp``,
+``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Helm``, ``Python``, ``Curl``, ``Ls``, ``Cp``,
 ``Mkdir``, ``Chmod``, ``Rm``, ``Mv``, ``Pwd``, ``Jq``, ``Rsync``, ``Tar``, ``Zip``,
-``Unzip`` — that model shell tools as Swift values. The compiler enforces which flags exist,
-which arguments are required, and what the result looks like. ``Command`` is
+``Unzip`` — that model shell tools as Swift values. Typed families make their modeled options
+discoverable and provide structured results where available. ``Command`` is
 the fluent escape hatch for tools that don't have a typed wrapper yet; it
 shares the same builder style so code does not change shape when you fall back
 to it.
@@ -47,6 +47,8 @@ try await Brew(context: context).install("ripgrep", "fzf").run()
 // Escape hatch: run anything not yet modelled
 let output = try await Command("echo", arguments: "hello").run(in: context)
 ```
+
+Arguments are forwarded as distinct argv entries without shell parsing, but SwiftyShell is not a sandbox. Validate untrusted values according to the invoked tool, especially strings passed to interpreters, expressions, executable overrides, environment variables, and writable paths. See <doc:GettingStarted> for secure usage guidance.
 
 ## Topics
 
@@ -165,6 +167,12 @@ let output = try await Command("echo", arguments: "hello").run(in: context)
 - ``Docker``
 - ``DockerSubcommand``
 - ``DockerBuildProgress``
+
+### HTTP Transfers
+
+- <doc:HTTPTransfers>
+- ``Curl``
+- ``CurlHTTPMethod``
 
 ### Scripting CLIs
 

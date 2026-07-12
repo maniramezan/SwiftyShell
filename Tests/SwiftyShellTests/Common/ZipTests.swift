@@ -48,6 +48,10 @@ struct ZipCommandTests {
         #expect(command.arguments == ["-u", "-r", "/tmp/out.zip", "file.txt"])
     }
 
+    @Test func stripExtraFieldsUsesNoExtraFlag() {
+        #expect(subject.stripExtraFields().command().arguments == ["-X"])
+    }
+
     @Test func emitsPasswordAndSplitSize() {
         let command =
             subject

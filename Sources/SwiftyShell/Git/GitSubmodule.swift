@@ -624,7 +624,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// }
     /// ```
     ///
-    /// - Returns: A single-use ``Workflow`` producing parsed ``GitSubmoduleStatusEntry`` values.
+    /// - Returns: A ``Workflow`` producing parsed ``GitSubmoduleStatusEntry`` values.
     public func statusEntries() -> Workflow<[GitSubmoduleStatusEntry]> {
         let git = state.git
         let command = self.status().command()

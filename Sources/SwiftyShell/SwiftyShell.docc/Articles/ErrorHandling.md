@@ -124,7 +124,7 @@ try await Command("swift", arguments: "test", "--filter", "CommandTests")
 
 #### `outputLimitExceeded`
 
-Captured output exceeded the configured limit. For a single command, stdout and stderr share one limit. In a pipeline, each stage has its own limit: intermediate stdout is piped rather than captured, while each stage's captured stderr and the final stage's captured stdout count against that stage. The error includes captured partial output up to the cap. Increase the limit via ``Command/outputLimit(_:)`` or redirect output to a file with ``OutputDestination/file(path:append:)``.
+Captured output exceeded the configured limit. For a single command, stdout and stderr share one limit. In a pipeline, each stage has its own limit: intermediate stdout is piped rather than captured, while each stage's captured stderr and the final stage's captured stdout count against that stage. The error includes captured partial output up to the cap. Because a byte limit can split a UTF-8 scalar, truncated partial output uses lossy UTF-8 decoding and may end with the replacement character. Increase the limit via ``Command/outputLimit(_:)`` or redirect output to a file with ``OutputDestination/file(path:append:)``.
 
 ```swift
 // Redirect verbose output to a file instead of capturing it
@@ -146,7 +146,7 @@ The captured output could not be decoded as UTF-8. This happens with binary outp
 
 The Swift `Task` enclosing the `run()` call was canceled. SwiftyShell rethrows the cancellation as ``ShellError/canceled(command:partialOutput:)`` and attaches partial output captured so far.
 
-For `run()`, SwiftyShell immediately sends `SIGKILL` directly to each registered process on timeout or cancellation. This is separate from ``TeardownStrategy``, which controls caller-requested teardown for a process started with `spawn`.
+For `run()`, SwiftyShell tears down each subprocess and descendants in its dedicated process group when it must stop execution. Timeout, cancellation, and output-limit failures wait for process completion and reaping before returning. The process-group leader remains owned until signaling completes, preventing its PID and group ID from being recycled during teardown. This is separate from ``TeardownStrategy``, which controls caller-requested teardown for a process started with `spawn`.
 
 ```swift
 let task = Task {

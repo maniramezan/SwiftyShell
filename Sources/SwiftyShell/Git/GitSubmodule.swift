@@ -627,10 +627,10 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Returns: A ``Workflow`` producing parsed ``GitSubmoduleStatusEntry`` values.
     public func statusEntries() -> Workflow<[GitSubmoduleStatusEntry]> {
         let git = state.git
-        let command = self.status().command()
+        let command = self.status().settingStdoutDestination(.capture).command()
         return Workflow {
             let output = try await command.run(in: git.context)
-            return GitParsers.parseSubmoduleStatusEntries(output.stdout)
+            return try GitParsers.parse(output.stdout, from: command, using: GitParsers.parseSubmoduleStatusEntries)
         }
     }
 

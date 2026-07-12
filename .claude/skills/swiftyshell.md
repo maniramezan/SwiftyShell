@@ -29,39 +29,41 @@ Before writing any code, follow this decision tree:
    → Use `Brew`
 7. Is this a Swift toolchain or SwiftPM operation (`swift build`, `swift test`, `swift run`, `swift package`, ...)?
    → Use `Swift`
-8. Is this a GitHub CLI operation (`gh pr`, `gh repo`, `gh workflow`, `gh api`, `gh copilot`, `gh skill`, ...)?
+8. Is this a Cargo operation (`cargo build`, `cargo test`, `cargo run`, `cargo fmt`, `cargo clippy`, ...)?
+   → Use `Cargo`
+9. Is this a GitHub CLI operation (`gh pr`, `gh repo`, `gh workflow`, `gh api`, `gh copilot`, `gh skill`, ...)?
    → Use `Gh`
-9. Is this a Docker CLI operation (`docker buildx`, `docker compose`, `docker debug`, `docker mcp`, `docker scout`, ...)?
+10. Is this a Docker CLI operation (`docker buildx`, `docker compose`, `docker debug`, `docker mcp`, `docker scout`, ...)?
    → Use `Docker`
-10. Is this a Makefile operation (`make check`, `make test`, `make -j8`, ...)?
+11. Is this a Makefile operation (`make check`, `make test`, `make -j8`, ...)?
     → Use `Make`
-11. Is this a Node.js runtime operation (`node --eval`, `node --check`, running a `.js` file, ...)?
+12. Is this a Node.js runtime operation (`node --eval`, `node --check`, running a `.js` file, ...)?
     → Use `Node`
-12. Is this an npm operation (`npm ci`, `npm run build`, `npm exec`, ...)?
+13. Is this an npm operation (`npm ci`, `npm run build`, `npm exec`, ...)?
     → Use `Npm`
-13. Is this a Yarn operation (`yarn install`, `yarn run build`, `yarn dlx`, ...)?
+14. Is this a Yarn operation (`yarn install`, `yarn run build`, `yarn dlx`, ...)?
     → Use `Yarn`
-14. Is this a pnpm operation (`pnpm install`, `pnpm run build`, `pnpm exec`, ...)?
+15. Is this a pnpm operation (`pnpm install`, `pnpm run build`, `pnpm exec`, ...)?
     → Use `Pnpm`
-15. Is this a Bun operation (`bun run`, `bun test`, `bun build`, ...)?
+16. Is this a Bun operation (`bun run`, `bun test`, `bun build`, ...)?
     → Use `Bun`
-16. Is this a Terraform operation (`terraform init`, `terraform plan`, `terraform apply`, ...)?
+17. Is this a Terraform operation (`terraform init`, `terraform plan`, `terraform apply`, ...)?
     → Use `Terraform`
-17. Is this a Kubernetes CLI operation (`kubectl get`, `kubectl apply`, `kubectl logs`, ...)?
+18. Is this a Kubernetes CLI operation (`kubectl get`, `kubectl apply`, `kubectl logs`, ...)?
     → Use `Kubectl`
-18. Is this a Helm operation (`helm template`, `helm lint`, `helm upgrade`, ...)?
+19. Is this a Helm operation (`helm template`, `helm lint`, `helm upgrade`, ...)?
     → Use `Helm` and its operation-specific builder
-19. Is this a command-line HTTP transfer, artifact download/upload, shell pipeline stage, CI recipe, or vendor-provided `curl` command?
+20. Is this a command-line HTTP transfer, artifact download/upload, shell pipeline stage, CI recipe, or vendor-provided `curl` command?
     → Use `Curl`; for ordinary in-process Swift API clients prefer `URLSession`; put sensitive headers in a permission-restricted file and use `headerFile(_:)`
-20. Is this a Python interpreter operation (`python3 -m`, `python3 -c`, running a `.py` file, ...)?
+21. Is this a Python interpreter operation (`python3 -m`, `python3 -c`, running a `.py` file, ...)?
     → Use `Python`
-21. Does the operation need typed output, structured results, or conditional follow-up?
+22. Does the operation need typed output, structured results, or conditional follow-up?
     → Use the appropriate typed client
-22. Are two or more commands chained by pipe?
+23. Are two or more commands chained by pipe?
     → Use `.pipe(to:)` to build a `Pipeline`
-23. Does the command write output to a file?
+24. Does the command write output to a file?
     → Use `.stdout(.file(path:append:))` on the command
-24. Is this any other command?
+25. Is this any other command?
        → Use `Command`
 
 ### API Reference
@@ -235,6 +237,7 @@ public enum ShellError: Error, LocalizedError {
     case exitFailure(command: String, output: ShellOutput)
     case timeout(command: String, duration: TimeInterval, partialOutput: ShellOutput)
     case decodingError(command: String, stream: StreamKind)
+    case parsingError(command: String, reason: String)
     case outputLimitExceeded(command: String, limit: Int, partialOutput: ShellOutput)
     case canceled(command: String, partialOutput: ShellOutput)
     case spawnError(command: String, reason: String)
@@ -801,6 +804,83 @@ public struct Swift: RunnableCommandFamily {
     public func run() async throws -> ShellOutput
 }
 ```
+
+#### Cargo
+
+```swift
+public enum CargoSubcommand: Sendable, Equatable, Hashable {
+    case version
+    case build
+    case test
+    case check
+    case run
+    case format
+    case clippy
+    case package
+    case custom(String)
+}
+
+public enum CargoTarget: Sendable, Equatable, Hashable {
+    case library
+    case binary(String)
+    case binaries
+    case example(String)
+    case examples
+    case test(String)
+    case tests
+    case benchmark(String)
+    case benchmarks
+    case all
+}
+
+public struct Cargo: RunnableCommandFamily {
+    public init(context: ShellContext = .init())
+    public func subcommand(_ value: CargoSubcommand) -> Self
+    public func subcommand(_ value: String) -> Self
+    public func build() -> Self
+    public func test(_ filter: String? = nil) -> Self
+    public func check() -> Self
+    public func runBinary(_ binary: String? = nil) -> Self
+    public func format() -> Self
+    public func clippy() -> Self
+    public func package() -> Self
+    public func version() -> Self
+    public func manifestPath(_ path: String) -> Self
+    public func package(_ name: String) -> Self
+    public func packages(_ names: [String]) -> Self
+    public func workspace(_ enabled: Bool = true) -> Self
+    public func features(_ names: [String]) -> Self
+    public func features(_ names: String...) -> Self
+    public func allFeatures(_ enabled: Bool = true) -> Self
+    public func noDefaultFeatures(_ enabled: Bool = true) -> Self
+    public func target(_ value: CargoTarget) -> Self
+    public func library() -> Self
+    public func binary(_ name: String) -> Self
+    public func binaries() -> Self
+    public func example(_ name: String) -> Self
+    public func examples() -> Self
+    public func testTarget(_ name: String) -> Self
+    public func testTargets() -> Self
+    public func benchmark(_ name: String) -> Self
+    public func benchmarks() -> Self
+    public func allTargets() -> Self
+    public func release(_ enabled: Bool = true) -> Self
+    public func argument(_ value: String) -> Self
+    public func arguments(_ values: [String]) -> Self
+    public func programArgument(_ value: String) -> Self
+    public func programArguments(_ values: [String]) -> Self
+    public func testArgument(_ value: String) -> Self
+    public func testArguments(_ values: [String]) -> Self
+    public func toolArgument(_ value: String) -> Self
+    public func toolArguments(_ values: [String]) -> Self
+    public func command() -> Command
+    public func run() async throws -> ShellOutput
+}
+```
+
+``Cargo`` inserts `--` before program, test-harness, rustfmt, and Clippy
+arguments. Do not include the separator in values passed to the dedicated
+forwarding methods.
 
 #### GitHub CLI
 
@@ -2030,7 +2110,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 Declared in `Package.swift`:
 
-- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Curl`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`, `Find`. One trait per family directory; for `Common/`, one trait per file.
+- **Per-family** — `Git`, `Brew`, `Grep`, `Fzf`, `Rg`, `Swift`, `Cargo`, `Gh`, `Docker`, `Make`, `Node`, `Npm`, `Yarn`, `Pnpm`, `Bun`, `Terraform`, `Kubectl`, `Helm`, `Python`, `Curl`, `Ls`, `Cp`, `Mkdir`, `Chmod`, `Rm`, `Mv`, `Pwd`, `Jq`, `Rsync`, `Tar`, `Zip`, `Unzip`, `Find`. One trait per family directory; for `Common/`, one trait per file.
 - **Umbrellas** — `CommonUtilities` (every `Common/*` family), `All` (every command family).
 
 Consumers select families with `traits:` on `.package(...)`:
@@ -2043,7 +2123,7 @@ Consumers select families with `traits:` on `.package(...)`:
 
 The contract is enforced by `Scripts/validate-traits.swift` and CI:
 
-1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Helm/`, `Python/`, `Curl/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
+1. Every `.swift` file under a gated source directory (`Git/`, `Brew/`, `Grep/`, `Fzf/`, `Rg/`, `Swift/`, `Cargo/`, `Gh/`, `Docker/`, `Make/`, `Node/`, `Npm/`, `Yarn/`, `Pnpm/`, `Bun/`, `Terraform/`, `Kubectl/`, `Helm/`, `Python/`, `Curl/`, and each file in `Common/`) is wrapped top-to-bottom in `#if <Trait> ... #endif`.
 2. Every test file targeting a gated family is wrapped the same way. Cross-family tests use combined guards (`#if Git && Grep`).
 3. Every family directory (or `Common/*.swift` file) has a matching `.trait(name:)` entry in `Package.swift`.
 4. The `All` umbrella's `enabledTraits` transitively enables every per-family trait. The `CommonUtilities` umbrella enables every `Common/*` trait.

@@ -5,7 +5,7 @@ Swift-typed shell support.
 ## Overview
 
 SwiftyShell's primary API is a family of typed wrappers — ``Git``, ``Grep``, ``Rg``,
-``Brew``, ``Fzf``, ``Swift``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
+``Brew``, ``Fzf``, ``Swift``, ``Cargo``, ``Gh``, ``Docker``, ``Make``, ``Node``, ``Npm``,
 ``Yarn``, ``Pnpm``, ``Bun``, ``Terraform``, ``Kubectl``, ``Helm``, ``Python``, ``Curl``, ``Ls``, ``Cp``,
 ``Mkdir``, ``Chmod``, ``Rm``, ``Mv``, ``Pwd``, ``Jq``, ``Rsync``, ``Tar``, ``Zip``,
 ``Unzip``, ``Find`` — that model shell tools as Swift values. Typed families make their modeled options
@@ -156,6 +156,12 @@ Arguments are forwarded as distinct argv entries without shell parsing, but Swif
 - ``Swift``
 - ``SwiftSubcommand``
 - ``SwiftBuildConfiguration``
+
+### Rust Toolchain
+
+- ``Cargo``
+- ``CargoSubcommand``
+- ``CargoTarget``
 
 ### GitHub CLI
 

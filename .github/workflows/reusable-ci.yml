@@ -35,7 +35,7 @@ jobs:
     name: Validate Trait Wiring
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
       - name: Validate trait wiring
         run: swift -warnings-as-errors Scripts/validate-traits.swift
@@ -47,7 +47,7 @@ jobs:
     name: Validate DocC Coverage
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
       - name: Validate authored DocC coverage
         run: swift -warnings-as-errors Scripts/validate-docc-coverage.swift
@@ -56,10 +56,10 @@ jobs:
     name: swift-format lint
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
       - name: Cache Homebrew downloads
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/Library/Caches/Homebrew
           key: ${{ runner.os }}-brew-swift-format
@@ -80,10 +80,10 @@ jobs:
     name: Build DocC
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
       - name: Cache SPM dependencies
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             .build
@@ -154,7 +154,7 @@ jobs:
     needs: [validate-traits, validate-docc-coverage, lint]
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
       - name: Build Example
         run: swift build --package-path Example -c release -Xswiftc -warnings-as-errors
@@ -169,10 +169,10 @@ jobs:
       matrix:
         traits: ${{ fromJSON(inputs.trait_matrix) }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
       - name: Cache SPM dependencies
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             .build
@@ -223,7 +223,7 @@ jobs:
       matrix:
         traits: ${{ fromJSON(inputs.trait_matrix) }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
       - name: Install zip, unzip, fzf, ripgrep, and rsync
         run: |
@@ -231,7 +231,7 @@ jobs:
           apt-get install -y --no-install-recommends zip unzip fzf ripgrep rsync
 
       - name: Cache SPM dependencies
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             .build
@@ -264,10 +264,10 @@ jobs:
     needs: [validate-traits, validate-docc-coverage, lint]
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
       - name: Cache SPM dependencies
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             .build

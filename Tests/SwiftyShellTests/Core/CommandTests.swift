@@ -296,6 +296,17 @@ struct CommandTests {
         try await waitForProcessExit(processIdentifier: childPID)
     }
 
+    @Test func runReturnsWhenCommandExitsWithoutWaitingForBackgroundDescendants() async throws {
+        // The background subshell keeps stdout open past the timeout. `run()` must return when
+        // `sh` exits instead of waiting for that pipe to close, so the later "late" line is lost.
+        let output = try await Command("/bin/sh", arguments: "-c", "echo early; (sleep 5; echo late) &")
+            .timeout(3)
+            .run(in: ShellContext())
+
+        #expect(output.stdout == "early\n")
+        #expect(output.exitCode == 0)
+    }
+
     @Test func negativeOutputLimitIsRejected() async throws {
         do {
             _ = try await Command("echo", arguments: "hello")

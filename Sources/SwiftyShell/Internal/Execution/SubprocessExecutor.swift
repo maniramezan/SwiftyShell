@@ -372,7 +372,7 @@ private struct SingleCommandRunner {
 
         do {
             // Throwing out of the body (or cancelling this task) makes swift-subprocess run the
-            // configuration's teardown sequence, killing the process group before it reaps.
+            // configuration's teardown sequence, killing the process group.
             let outcome = try await Subprocess.run(
                 resolved.configuration,
                 input: .none,
@@ -753,7 +753,7 @@ private func routeSpawnStream(
     }
 }
 
-/// Routes each buffer from an ``SubprocessOutputSequence`` to the appropriate destination:
+/// Routes each buffer from a `SubprocessOutputSequence` to the appropriate destination:
 /// captured in memory, written to a file handle, or discarded.
 private func routeStream(
     _ sequence: SubprocessOutputSequence,
@@ -981,9 +981,8 @@ private struct PipelineRunner {
                         // been cancelled. On Linux, when the outer timeout fires,
                         // waitForPipeline cancels processTask, and each stage's cancelled run()
                         // tears down its process group. Downstream stages that are SIGKILLed
-                        // (exit 137) return a
-                        // PipelineStageResult before the CancellationError propagates through
-                        // the stage task. Checking Task.isCancelled here prevents those
+                        // (exit 137) return a PipelineStageResult before the CancellationError
+                        // propagates through the stage task. Checking Task.isCancelled here prevents those
                         // signal-induced exits from masking the ShellError.timeout that
                         // waitForPipeline already threw.
                         if stageResult.exitCode != 0, firstFailure == nil, !Task.isCancelled {
@@ -1330,18 +1329,23 @@ private func durationFromSeconds(_ seconds: TimeInterval) -> Duration {
 }
 
 /// Stops `run()` and pipeline stages immediately: `SIGKILL` to the whole process group, so any
-/// descendants the command started die with it. swift-subprocess appends a final `.kill` that
-/// inherits `toProcessGroup` from this step.
+/// descendants the command started die with it.
+///
+/// swift-subprocess appends a final `.kill` (inheriting `toProcessGroup`) that runs only if this
+/// step's wait elapses with the leader still alive. The wait is non-zero so that final kill does
+/// not fire as a matter of course: teardown ends the wait as soon as the leader exits, so the
+/// non-zero value adds no latency, and it avoids a second group signal racing the leader's reap.
 private let forcedTeardownSequence: [TeardownStep] = [
-    .send(signal: .kill, toProcessGroup: true, allowedDurationToNextStep: .zero)
+    .send(signal: .kill, toProcessGroup: true, allowedDurationToNextStep: .seconds(1))
 ]
 
 /// Makes every subprocess the leader of its own process group, so a group-targeted teardown
 /// reaches only that command's process tree and never SwiftyShell's own group.
 ///
 /// swift-subprocess runs `teardownSequence` itself whenever the task awaiting `run` is cancelled
-/// or the body closure throws, and it does so before reaping the leader, so the group's
-/// PID/PGID cannot be recycled mid-teardown.
+/// or the body closure throws. On the body-throws path it tears down before reaping the leader;
+/// on the cancellation path teardown runs concurrently with the reap, so the first group signal
+/// is sent while the leader is still alive but a later step is not guaranteed to be.
 private func subprocessPlatformOptions(teardownSequence: [TeardownStep]) -> PlatformOptions {
     var options = PlatformOptions()
     options.processGroupID = 0

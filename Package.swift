@@ -79,13 +79,15 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-system", from: "1.6.4"),
         // swift-subprocess 1.0.0 ships a swift-tools-version 6.2 manifest, which is what sets
         // this package's Swift 6.2 floor (see ARCHITECTURE.md's platform table).
-        // swift-subprocess's `SubprocessFoundation` trait is enabled by default in that
-        // package, providing Foundation extensions (e.g. Data-based input/output). SwiftyShell
-        // relies on this trait implicitly — OutputCaptureStore and pipeline stage results use
-        // Foundation's Data. If swift-subprocess ever changes its default trait set, this
-        // dependency should be updated to explicitly enable `SubprocessFoundation` via the
-        // `traits:` parameter on `.product(name:package:)`.
-        .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "1.0.0"),
+        // SwiftyShell needs swift-subprocess's `SubprocessFoundation` trait: it provides
+        // `Data(buffer:)`, which the executor uses to turn output buffers into Foundation `Data`.
+        // It is a default trait today, but it is enabled explicitly so a change to that
+        // package's default trait set cannot silently break the build.
+        .package(
+            url: "https://github.com/swiftlang/swift-subprocess.git",
+            from: "1.0.0",
+            traits: [.defaults, "SubprocessFoundation"]
+        ),
     ],
     targets: [
         .target(

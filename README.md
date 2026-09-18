@@ -134,7 +134,7 @@ When the tool you need isn't listed, `Command("tool", arguments: "arg").run(in: 
 
 `SubprocessExecutor` is the default production executor and is backed by Apple's `swift-subprocess` package. It runs each `Command` as a subprocess, connects `Pipeline` stages with OS pipes, and preserves captured partial output on timeouts, output-limit failures, and Swift task cancellation.
 
-Timeouts are user-controlled through `ShellContext(defaultTimeout:)` or `Command.timeout(_:)`. Timeout, cancellation, and output-limit teardown immediately sends `SIGKILL` to each registered process. The configurable graceful teardown sequence applies to processes started with `spawn`, not `run()`.
+Timeouts are user-controlled through `ShellContext(defaultTimeout:)` or `Command.timeout(_:)`. Timeout, cancellation, and output-limit teardown immediately sends `SIGKILL` to each running command's process group, so descendants the command started are killed with it. The configurable graceful teardown sequence applies to processes started with `spawn`, not `run()`.
 
 ```swift
 do {

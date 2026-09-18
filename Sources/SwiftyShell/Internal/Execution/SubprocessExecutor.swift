@@ -7,6 +7,11 @@ import System
 import SystemPackage
 #endif
 
+/// The one `Execution` specialization SwiftyShell spawns when it drives both output streams
+/// itself: a writable stdin plus `.sequence` stdout and stderr. `Subprocess.Execution` is generic
+/// over its three IO methods, so anything that stores an execution needs the concrete type.
+private typealias StreamingExecution = Execution<CustomWriteInput, SequenceOutput, SequenceOutput>
+
 /// The default ``CommandExecutor`` that runs commands using Swift's `Subprocess` package.
 ///
 /// `SubprocessExecutor` is what ``ShellContext/init(executor:searchPaths:environment:workingDirectory:defaultTimeout:defaultOutputLimit:)``
@@ -135,7 +140,7 @@ private struct ResolvedCommand: Sendable {
 
     var configuration: Configuration {
         Configuration(
-            .path(FilePath(executablePath)),
+            executable: .path(FilePath(executablePath)),
             arguments: Arguments(arguments),
             environment: .custom(Dictionary(uniqueKeysWithValues: environment.map { ($0.key.key, $0.value) })),
             workingDirectory: workingDirectory.map { FilePath($0) },
@@ -207,24 +212,29 @@ private enum EarlyTerminationReason: Sendable {
 }
 
 private actor ExecutionRegistry {
-    private var executions: [Execution] = []
+    /// Teardown thunks rather than executions: each pipeline stage runs with its own IO methods,
+    /// so their `Execution` specializations differ and cannot share one array.
+    private var teardowns: [@Sendable () async -> Void] = []
     private var shouldTeardown = false
 
-    func register(_ execution: Execution) async {
+    func register<Input: InputProtocol, Output: OutputProtocol, Error: OutputProtocol>(
+        _ execution: Execution<Input, Output, Error>
+    ) async {
+        let teardown: @Sendable () async -> Void = { await execution.swiftyShellTeardown() }
         if shouldTeardown {
-            await execution.swiftyShellTeardown()
+            await teardown()
         } else {
-            executions.append(execution)
+            teardowns.append(teardown)
         }
     }
 
     func teardownAll() async {
         shouldTeardown = true
-        let executions = executions
+        let teardowns = teardowns
         await withTaskGroup(of: Void.self) { group in
-            for execution in executions {
+            for teardown in teardowns {
                 group.addTask {
-                    await execution.swiftyShellTeardown()
+                    await teardown()
                 }
             }
         }
@@ -378,13 +388,14 @@ private struct SingleCommandRunner {
         do {
             let outcome = try await Subprocess.run(
                 resolved.configuration,
-                preferredBufferSize: nil
-            ) {
-                execution,
-                inputWriter,
-                outputSequence,
-                errorSequence in
+                input: .inputWriter,
+                output: .sequence,
+                error: .sequence
+            ) { execution in
                 await registry.register(execution)
+                let inputWriter = execution.standardInputWriter
+                let outputSequence = execution.standardOutput
+                let errorSequence = execution.standardError
                 try await runWithProcessGroupTeardownOnCancellation(execution: execution) {
                     try await inputWriter.finish()
                     try await withThrowingTaskGroup(of: SingleCommandTaskResult.self) { group in
@@ -521,8 +532,13 @@ private enum SingleCommandRunEvent: Sendable {
     case canceled
 }
 
-private func runWithProcessGroupTeardownOnCancellation<Value: Sendable>(
-    execution: Execution,
+private func runWithProcessGroupTeardownOnCancellation<
+    Value: Sendable,
+    Input: InputProtocol,
+    Output: OutputProtocol,
+    Error: OutputProtocol
+>(
+    execution: Execution<Input, Output, Error>,
     operation: @escaping @Sendable () async throws -> Value
 ) async throws -> Value {
     try await withTaskCancellationHandler {
@@ -596,10 +612,14 @@ private struct SpawnedCommandRunner: Sendable {
 
             let outcome = try await Subprocess.run(
                 resolved.configuration,
-                preferredBufferSize: nil
-            ) { execution, inputWriter, outputSequence, errorSequence in
+                input: .inputWriter,
+                output: .sequence,
+                error: .sequence
+            ) { execution in
                 await state.setExecution(execution)
-                try await inputWriter.finish()
+                let outputSequence = execution.standardOutput
+                let errorSequence = execution.standardError
+                try await execution.standardInputWriter.finish()
                 try await withThrowingTaskGroup(of: SpawnedCommandTaskResult.self) { group in
                     group.addTask {
                         try await routeSpawnStream(
@@ -696,8 +716,8 @@ private actor SubprocessSpawnedProcessState {
     private let teardown: TeardownStrategy
     private var task: Task<ShellOutput, Never>?
     private var cachedOutput: ShellOutput?
-    private var executionResult: Result<Execution, any Error>?
-    private var executionContinuations: [CheckedContinuation<Result<Execution, any Error>, Never>] = []
+    private var executionResult: Result<StreamingExecution, any Error>?
+    private var executionContinuations: [CheckedContinuation<Result<StreamingExecution, any Error>, Never>] = []
     private var didTeardown = false
 
     init(teardown: TeardownStrategy) {
@@ -708,7 +728,7 @@ private actor SubprocessSpawnedProcessState {
         self.task = task
     }
 
-    func setExecution(_ execution: Execution) {
+    func setExecution(_ execution: StreamingExecution) {
         guard executionResult == nil else { return }
         executionResult = .success(execution)
         resumeExecutionContinuations(with: .success(execution))
@@ -720,8 +740,8 @@ private actor SubprocessSpawnedProcessState {
         resumeExecutionContinuations(with: .failure(error))
     }
 
-    func waitForExecution() async throws -> Execution {
-        let result: Result<Execution, any Error>
+    func waitForExecution() async throws -> StreamingExecution {
+        let result: Result<StreamingExecution, any Error>
         if let executionResult {
             result = executionResult
         } else {
@@ -732,7 +752,7 @@ private actor SubprocessSpawnedProcessState {
         return try result.get()
     }
 
-    private func resumeExecutionContinuations(with result: Result<Execution, any Error>) {
+    private func resumeExecutionContinuations(with result: Result<StreamingExecution, any Error>) {
         let continuations = executionContinuations
         executionContinuations.removeAll(keepingCapacity: false)
         for continuation in continuations {
@@ -769,7 +789,7 @@ private actor SubprocessSpawnedProcessState {
 }
 
 private func routeSpawnStream(
-    _ sequence: AsyncBufferSequence,
+    _ sequence: SubprocessOutputSequence,
     stream: StreamKind,
     destination: OutputDestination,
     fileHandle: FileHandle?,
@@ -785,10 +805,10 @@ private func routeSpawnStream(
     }
 }
 
-/// Routes each buffer from an ``AsyncBufferSequence`` to the appropriate destination:
+/// Routes each buffer from an ``SubprocessOutputSequence`` to the appropriate destination:
 /// captured in memory, written to a file handle, or discarded.
 private func routeStream(
-    _ sequence: AsyncBufferSequence,
+    _ sequence: SubprocessOutputSequence,
     stream: StreamKind,
     destination: OutputDestination,
     fileHandle: FileHandle?,
@@ -1388,10 +1408,11 @@ private func runPipelineStageWithStreamedStdout<Input: InputProtocol>(
     let outcome = try await Subprocess.run(
         command.configuration,
         input: input,
-        error: FileDescriptorOutput.fileDescriptor(stderrPipe.writeEnd, closeAfterSpawningProcess: true),
-        preferredBufferSize: nil
-    ) { execution, outputSequence in
+        output: .sequence,
+        error: FileDescriptorOutput.fileDescriptor(stderrPipe.writeEnd, closeAfterSpawningProcess: true)
+    ) { execution in
         await registry.register(execution)
+        let outputSequence = execution.standardOutput
         try await runWithProcessGroupTeardownOnCancellation(execution: execution) {
             try await withThrowingTaskGroup(of: Void.self) { group in
                 group.addTask {

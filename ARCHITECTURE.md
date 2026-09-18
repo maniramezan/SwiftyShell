@@ -182,7 +182,7 @@ let context = ShellContext(executor: MockExecutor(stdout: "main\n"))
 |---|---|
 | macOS | 15.0 |
 | Linux | Ubuntu 22.04 (glibc 2.35+) |
-| Swift | 6.1+ |
+| Swift | 6.2+ |
 
 Windows is out of scope for v1.
 

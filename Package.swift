@@ -1,4 +1,4 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -77,13 +77,15 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.4.5"),
         .package(url: "https://github.com/apple/swift-system", from: "1.6.4"),
+        // swift-subprocess 1.0.0 ships a swift-tools-version 6.2 manifest, which is what sets
+        // this package's Swift 6.2 floor (see ARCHITECTURE.md's platform table).
         // swift-subprocess's `SubprocessFoundation` trait is enabled by default in that
         // package, providing Foundation extensions (e.g. Data-based input/output). SwiftyShell
         // relies on this trait implicitly — OutputCaptureStore and pipeline stage results use
         // Foundation's Data. If swift-subprocess ever changes its default trait set, this
         // dependency should be updated to explicitly enable `SubprocessFoundation` via the
         // `traits:` parameter on `.product(name:package:)`.
-        .package(url: "https://github.com/swiftlang/swift-subprocess.git", .upToNextMinor(from: "0.4.0")),
+        .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "1.0.0"),
     ],
     targets: [
         .target(

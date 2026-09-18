@@ -191,7 +191,7 @@ Scripts/linux-test.sh
 Scripts/linux-ci.sh
 ```
 
-The helpers use the official `swift:6.1.3-noble` image, bind-mount the repository, keep SwiftPM cache data under `.build/docker-home`, and write Linux build artifacts to `.build/linux-docker` so they do not contend with the host macOS build database. The Linux build and test helpers pass `-Xswiftc -warnings-as-errors`, matching the release build/test CI jobs.
+The helpers use the official `swift:6.2.4-noble` image, bind-mount the repository, keep SwiftPM cache data under `.build/docker-home`, and write Linux build artifacts to `.build/linux-docker` so they do not contend with the host macOS build database. The Linux build and test helpers pass `-Xswiftc -warnings-as-errors`, matching the release build/test CI jobs.
 
 If you prefer shorter commands, the repository also ships a `Makefile` wrapper. Run `make help` to see the available targets.
 

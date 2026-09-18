@@ -8,8 +8,8 @@ Thank you for your interest in contributing. This document covers setup, convent
 
 - macOS 15.0+
 - Docker Desktop on macOS, or Docker Engine on Linux, if you want to run the Linux validation helpers locally
-- Linux is supported in CI with Swift 6.1.3 on Ubuntu (`swift:6.1.3-noble`); use either macOS or Linux locally
-- Swift 6.1+ (`swift --version`)
+- Linux is supported in CI with Swift 6.2.4 on Ubuntu (`swift:6.2.4-noble`); use either macOS or Linux locally
+- Swift 6.2+ (`swift --version`)
 
 ### Clone and Build
 

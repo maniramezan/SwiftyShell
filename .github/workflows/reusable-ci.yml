@@ -33,7 +33,7 @@ permissions:
 jobs:
   validate-traits:
     name: Validate Trait Wiring
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
@@ -45,7 +45,7 @@ jobs:
 
   validate-docc-coverage:
     name: Validate DocC Coverage
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
@@ -54,7 +54,7 @@ jobs:
 
   lint:
     name: swift-format lint
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
@@ -78,7 +78,7 @@ jobs:
 
   docc:
     name: Build DocC
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
@@ -152,7 +152,7 @@ jobs:
   example:
     name: Build Example
     needs: [validate-traits, validate-docc-coverage, lint]
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
@@ -163,7 +163,7 @@ jobs:
     name: macOS (traits=${{ matrix.traits }})
     needs: [validate-traits, validate-docc-coverage, lint, docc]
     if: ${{ inputs.trait_matrix != '[]' }}
-    runs-on: macos-15
+    runs-on: macos-26
     strategy:
       fail-fast: false
       matrix:
@@ -262,7 +262,7 @@ jobs:
     name: Coverage Gate
     if: ${{ inputs.enforce_coverage && inputs.trait_matrix != '[]' }}
     needs: [validate-traits, validate-docc-coverage, lint]
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 

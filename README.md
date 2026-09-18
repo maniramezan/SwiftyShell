@@ -146,7 +146,7 @@ do {
 }
 ```
 
-`run()` closes stdin and is intended for non-interactive execution. Arguments are passed as separate argv entries, but that is not a complete security boundary: validate untrusted executable names, paths, options, environment values, and any strings passed to interpreters such as `sh -c`. Prefer fixed executable paths and typed options for privileged automation.
+`run()` gives the command an empty stdin (reads hit end-of-file immediately) and is intended for non-interactive execution. Arguments are passed as separate argv entries, but that is not a complete security boundary: validate untrusted executable names, paths, options, environment values, and any strings passed to interpreters such as `sh -c`. Prefer fixed executable paths and typed options for privileged automation.
 
 For a runnable package that uses the local checkout, see [`Example/`](Example/). Run it with `swift run --package-path Example`.
 

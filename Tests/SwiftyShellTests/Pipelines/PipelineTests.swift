@@ -83,6 +83,16 @@ struct PipelineTests {
         #expect(output.stdout == "beta\n")
     }
 
+    @Test func pipelineCapturesStandardErrorFromEveryStage() async throws {
+        let output = try await Command("/bin/sh", arguments: "-c", "printf 'first-err' >&2; printf 'data'")
+            .pipe(to: Command("/bin/sh", arguments: "-c", "cat; printf 'second-err' >&2"))
+            .run(in: ShellContext())
+
+        #expect(output.stdout == "data")
+        #expect(output.stderr.contains("first-err"))
+        #expect(output.stderr.contains("second-err"))
+    }
+
     @Test func pipelineFailsOnIntermediateStage() async throws {
         do {
             _ = try await Command("/bin/sh", arguments: "-c", "printf 'broken' >&2; exit 9")

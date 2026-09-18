@@ -108,8 +108,8 @@ This does **not** validate arbitrary strings accepted by typed wrappers, make in
 ### Timeout & Cancellation
 
 - A command override replaces the context default. For a pipeline, the shortest resolved non-`nil` stage timeout governs the whole pipeline.
-- Timeout and task cancellation terminate registered processes immediately with `SIGKILL`, then throw `ShellError.timeout` or `ShellError.canceled` with captured partial output. They do not use the configurable graceful teardown strategy reserved for explicitly spawned processes.
-- `run()` does not inherit or accept interactive stdin. A single command's stdin is closed; the first pipeline stage receives no input, and later stages receive the preceding stage's stdout.
+- Timeout and task cancellation terminate each running process group immediately with `SIGKILL`, then throw `ShellError.timeout` or `ShellError.canceled` with captured partial output. They do not use the configurable graceful teardown strategy reserved for explicitly spawned processes.
+- `run()` does not inherit or accept interactive stdin. A single command gets an empty stdin (`/dev/null`, so reads hit end-of-file); the first pipeline stage receives no input, and later stages receive the preceding stage's stdout.
 
 ### Deferred Workflow Semantics
 

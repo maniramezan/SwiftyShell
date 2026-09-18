@@ -7,6 +7,13 @@ import System
 import SystemPackage
 #endif
 
+/// The `Execution` specialization for a command whose stdout and stderr SwiftyShell streams
+/// itself. SwiftyShell never writes to a child's stdin, so it leaves stdin to swift-subprocess
+/// (`.none`, an empty `/dev/null`) instead of opening a writer only to close it. The spawned-process
+/// state stores executions, and `Subprocess.Execution` is generic over its IO methods, so it needs
+/// this concrete type.
+private typealias StreamingExecution = Execution<NoInput, SequenceOutput, SequenceOutput>
+
 /// The default ``CommandExecutor`` that runs commands using Swift's `Subprocess` package.
 ///
 /// `SubprocessExecutor` is what ``ShellContext/init(executor:searchPaths:environment:workingDirectory:defaultTimeout:defaultOutputLimit:)``
@@ -133,13 +140,18 @@ private struct ResolvedCommand: Sendable {
         self.displayCommand = command.displayString(using: executablePath)
     }
 
+    /// The configuration for `run()` and pipeline stages, which stop by killing the process group.
     var configuration: Configuration {
+        configuration(teardownSequence: forcedTeardownSequence)
+    }
+
+    func configuration(teardownSequence: [TeardownStep]) -> Configuration {
         Configuration(
-            .path(FilePath(executablePath)),
+            executable: .path(FilePath(executablePath)),
             arguments: Arguments(arguments),
             environment: .custom(Dictionary(uniqueKeysWithValues: environment.map { ($0.key.key, $0.value) })),
             workingDirectory: workingDirectory.map { FilePath($0) },
-            platformOptions: subprocessPlatformOptions()
+            platformOptions: subprocessPlatformOptions(teardownSequence: teardownSequence)
         )
     }
 
@@ -150,7 +162,7 @@ private struct ResolvedCommand: Sendable {
     ) throws -> String {
         if executable.contains("/") {
             let path = absolutePath(executable, relativeTo: workingDirectory)
-            guard FileManager.default.isExecutableFile(atPath: path) else {
+            guard isExecutableFile(atPath: path) else {
                 throw ShellError.commandNotFound(executable)
             }
             return path
@@ -158,12 +170,25 @@ private struct ResolvedCommand: Sendable {
 
         for directory in searchPaths {
             let candidate = URL(fileURLWithPath: directory).appendingPathComponent(executable).path
-            if FileManager.default.isExecutableFile(atPath: candidate) {
+            if isExecutableFile(atPath: candidate) {
                 return candidate
             }
         }
 
         throw ShellError.commandNotFound(executable)
+    }
+
+    /// Whether `path` is a file that can be spawned.
+    ///
+    /// Directories carry the execute bit, so `isExecutableFile(atPath:)` alone accepts them; a
+    /// search-path directory that happens to share the command's name would then shadow the real
+    /// executable further down the path. swift-subprocess 1.0.0 excludes directories from its own
+    /// lookup for the same reason.
+    private static func isExecutableFile(atPath path: String) -> Bool {
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
+            && !isDirectory.boolValue
+            && FileManager.default.isExecutableFile(atPath: path)
     }
 
     private static func resolveOutputDestination(
@@ -204,31 +229,6 @@ private struct CaptureLimitExceeded: Error, Sendable {}
 
 private enum EarlyTerminationReason: Sendable {
     case outputLimitExceeded(command: String, limit: Int)
-}
-
-private actor ExecutionRegistry {
-    private var executions: [Execution] = []
-    private var shouldTeardown = false
-
-    func register(_ execution: Execution) async {
-        if shouldTeardown {
-            await execution.swiftyShellTeardown()
-        } else {
-            executions.append(execution)
-        }
-    }
-
-    func teardownAll() async {
-        shouldTeardown = true
-        let executions = executions
-        await withTaskGroup(of: Void.self) { group in
-            for execution in executions {
-                group.addTask {
-                    await execution.swiftyShellTeardown()
-                }
-            }
-        }
-    }
 }
 
 private actor RunEventNotifier<Event: Sendable> {
@@ -319,11 +319,10 @@ private struct SingleCommandRunner {
 
     func run() async throws -> ShellOutput {
         let store = OutputCaptureStore(limit: resolved.outputLimit)
-        let registry = ExecutionRegistry()
         let eventNotifier = RunEventNotifier<SingleCommandRunEvent>()
         let processTask = Task {
             do {
-                let output = try await runSubprocess(store: store, registry: registry, eventNotifier: eventNotifier)
+                let output = try await runSubprocess(store: store, eventNotifier: eventNotifier)
                 await eventNotifier.notify(.completed(.success(output)))
                 return output
             } catch {
@@ -344,19 +343,16 @@ private struct SingleCommandRunner {
                 try await waitForSubprocess(
                     processTask: processTask,
                     store: store,
-                    registry: registry,
                     eventNotifier: eventNotifier
                 )
             } onCancel: {
                 processTask.cancel()
                 Task {
                     await eventNotifier.notify(.canceled)
-                    await registry.teardownAll()
                 }
             }
         } catch is CancellationError {
             processTask.cancel()
-            await registry.teardownAll()
             _ = await processTask.result
             let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
@@ -365,7 +361,6 @@ private struct SingleCommandRunner {
 
     private func runSubprocess(
         store: OutputCaptureStore,
-        registry: ExecutionRegistry,
         eventNotifier: RunEventNotifier<SingleCommandRunEvent>
     ) async throws -> ShellOutput {
         let stdoutHandle = try openFileHandleIfNeeded(for: resolved.stdoutDestination)
@@ -376,60 +371,57 @@ private struct SingleCommandRunner {
         }
 
         do {
+            // Throwing out of the body (or cancelling this task) makes swift-subprocess run the
+            // configuration's teardown sequence, killing the process group.
             let outcome = try await Subprocess.run(
                 resolved.configuration,
-                preferredBufferSize: nil
-            ) {
-                execution,
-                inputWriter,
-                outputSequence,
-                errorSequence in
-                await registry.register(execution)
-                try await runWithProcessGroupTeardownOnCancellation(execution: execution) {
-                    try await inputWriter.finish()
-                    try await withThrowingTaskGroup(of: SingleCommandTaskResult.self) { group in
-                        group.addTask {
-                            try await routeStream(
-                                outputSequence,
-                                stream: .stdout,
-                                destination: resolved.stdoutDestination,
-                                fileHandle: stdoutHandle,
-                                store: store
-                            )
-                            return .streamComplete
-                        }
-                        group.addTask {
-                            try await routeStream(
-                                errorSequence,
-                                stream: .stderr,
-                                destination: resolved.stderrDestination,
-                                fileHandle: stderrHandle,
-                                store: store
-                            )
-                            return .streamComplete
-                        }
-                        var completedStreams = 0
-                        do {
-                            while let result = try await group.next() {
-                                switch result {
-                                case .streamComplete:
-                                    completedStreams += 1
-                                    if completedStreams == 2 {
-                                        group.cancelAll()
-                                        return
-                                    }
+                input: .none,
+                output: .sequence,
+                error: .sequence
+            ) { execution in
+                let outputSequence = execution.standardOutput
+                let errorSequence = execution.standardError
+                try await withThrowingTaskGroup(of: SingleCommandTaskResult.self) { group in
+                    group.addTask {
+                        try await routeStream(
+                            outputSequence,
+                            stream: .stdout,
+                            destination: resolved.stdoutDestination,
+                            fileHandle: stdoutHandle,
+                            store: store
+                        )
+                        return .streamComplete
+                    }
+                    group.addTask {
+                        try await routeStream(
+                            errorSequence,
+                            stream: .stderr,
+                            destination: resolved.stderrDestination,
+                            fileHandle: stderrHandle,
+                            store: store
+                        )
+                        return .streamComplete
+                    }
+                    var completedStreams = 0
+                    do {
+                        while let result = try await group.next() {
+                            switch result {
+                            case .streamComplete:
+                                completedStreams += 1
+                                if completedStreams == 2 {
+                                    group.cancelAll()
+                                    return
                                 }
                             }
-                        } catch is CaptureLimitExceeded {
-                            await eventNotifier.notify(
-                                .earlyTerminated(
-                                    .outputLimitExceeded(command: resolved.displayCommand, limit: resolved.outputLimit)
-                                )
-                            )
-                            await execution.swiftyShellTeardown()
-                            group.cancelAll()
-                            throw CaptureLimitExceeded()
                         }
+                    } catch is CaptureLimitExceeded {
+                        await eventNotifier.notify(
+                            .earlyTerminated(
+                                .outputLimitExceeded(command: resolved.displayCommand, limit: resolved.outputLimit)
+                            )
+                        )
+                        group.cancelAll()
+                        throw CaptureLimitExceeded()
                     }
                 }
             }
@@ -472,7 +464,6 @@ private struct SingleCommandRunner {
     private func waitForSubprocess(
         processTask: Task<ShellOutput, any Error>,
         store: OutputCaptureStore,
-        registry: ExecutionRegistry,
         eventNotifier: RunEventNotifier<SingleCommandRunEvent>
     ) async throws -> ShellOutput {
         switch await eventNotifier.wait() {
@@ -482,7 +473,6 @@ private struct SingleCommandRunner {
             return try await processTask.value
         case .timedOut:
             processTask.cancel()
-            await registry.teardownAll()
             _ = await processTask.result
             let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.timeout(
@@ -492,7 +482,6 @@ private struct SingleCommandRunner {
             )
         case let .earlyTerminated(reason):
             processTask.cancel()
-            await registry.teardownAll()
             _ = await processTask.result
             switch reason {
             case let .outputLimitExceeded(command, limit):
@@ -501,7 +490,6 @@ private struct SingleCommandRunner {
             }
         case .canceled:
             processTask.cancel()
-            await registry.teardownAll()
             _ = await processTask.result
             let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
@@ -519,30 +507,6 @@ private enum SingleCommandRunEvent: Sendable {
     case timedOut
     case earlyTerminated(EarlyTerminationReason)
     case canceled
-}
-
-private func runWithProcessGroupTeardownOnCancellation<Value: Sendable>(
-    execution: Execution,
-    operation: @escaping @Sendable () async throws -> Value
-) async throws -> Value {
-    try await withTaskCancellationHandler {
-        try await operation()
-    } onCancel: {
-        Task {
-            await execution.swiftyShellTeardown()
-        }
-    }
-}
-
-private extension Execution {
-    /// Kills the subprocess and every descendant that remains in its process group.
-    ///
-    /// Every subprocess is its own process-group leader. Callers await `Subprocess.run` after
-    /// teardown, keeping that leader owned and unreaped until the group signal has been sent;
-    /// this prevents its PID/PGID from being recycled during teardown.
-    func swiftyShellTeardown() async {
-        try? send(signal: .kill, toProcessGroup: true)
-    }
 }
 
 private enum SingleCommandTaskResult: Sendable {
@@ -594,12 +558,17 @@ private struct SpawnedCommandRunner: Sendable {
                 stderrContinuation.finish()
             }
 
+            // The spawned configuration carries the caller's `TeardownStrategy` as its teardown
+            // sequence, so swift-subprocess applies it itself if the body throws.
             let outcome = try await Subprocess.run(
-                resolved.configuration,
-                preferredBufferSize: nil
-            ) { execution, inputWriter, outputSequence, errorSequence in
+                resolved.configuration(teardownSequence: teardown.subprocessSteps),
+                input: .none,
+                output: .sequence,
+                error: .sequence
+            ) { execution in
                 await state.setExecution(execution)
-                try await inputWriter.finish()
+                let outputSequence = execution.standardOutput
+                let errorSequence = execution.standardError
                 try await withThrowingTaskGroup(of: SpawnedCommandTaskResult.self) { group in
                     group.addTask {
                         try await routeSpawnStream(
@@ -636,7 +605,6 @@ private struct SpawnedCommandRunner: Sendable {
                             }
                         }
                     } catch is CaptureLimitExceeded {
-                        await execution.teardown(using: teardown.subprocessSteps)
                         group.cancelAll()
                         throw CaptureLimitExceeded()
                     }
@@ -696,8 +664,8 @@ private actor SubprocessSpawnedProcessState {
     private let teardown: TeardownStrategy
     private var task: Task<ShellOutput, Never>?
     private var cachedOutput: ShellOutput?
-    private var executionResult: Result<Execution, any Error>?
-    private var executionContinuations: [CheckedContinuation<Result<Execution, any Error>, Never>] = []
+    private var executionResult: Result<StreamingExecution, any Error>?
+    private var executionContinuations: [CheckedContinuation<Result<StreamingExecution, any Error>, Never>] = []
     private var didTeardown = false
 
     init(teardown: TeardownStrategy) {
@@ -708,7 +676,7 @@ private actor SubprocessSpawnedProcessState {
         self.task = task
     }
 
-    func setExecution(_ execution: Execution) {
+    func setExecution(_ execution: StreamingExecution) {
         guard executionResult == nil else { return }
         executionResult = .success(execution)
         resumeExecutionContinuations(with: .success(execution))
@@ -720,8 +688,8 @@ private actor SubprocessSpawnedProcessState {
         resumeExecutionContinuations(with: .failure(error))
     }
 
-    func waitForExecution() async throws -> Execution {
-        let result: Result<Execution, any Error>
+    func waitForExecution() async throws -> StreamingExecution {
+        let result: Result<StreamingExecution, any Error>
         if let executionResult {
             result = executionResult
         } else {
@@ -732,7 +700,7 @@ private actor SubprocessSpawnedProcessState {
         return try result.get()
     }
 
-    private func resumeExecutionContinuations(with result: Result<Execution, any Error>) {
+    private func resumeExecutionContinuations(with result: Result<StreamingExecution, any Error>) {
         let continuations = executionContinuations
         executionContinuations.removeAll(keepingCapacity: false)
         for continuation in continuations {
@@ -769,7 +737,7 @@ private actor SubprocessSpawnedProcessState {
 }
 
 private func routeSpawnStream(
-    _ sequence: AsyncBufferSequence,
+    _ sequence: SubprocessOutputSequence,
     stream: StreamKind,
     destination: OutputDestination,
     fileHandle: FileHandle?,
@@ -777,7 +745,7 @@ private func routeSpawnStream(
     continuation: AsyncStream<String>.Continuation
 ) async throws {
     for try await buffer in sequence {
-        let data = buffer.withUnsafeBytes { Data($0) }
+        let data = Data(buffer: buffer)
         if !data.isEmpty {
             continuation.yield(String(decoding: data, as: UTF8.self))
         }
@@ -785,81 +753,18 @@ private func routeSpawnStream(
     }
 }
 
-/// Routes each buffer from an ``AsyncBufferSequence`` to the appropriate destination:
+/// Routes each buffer from a `SubprocessOutputSequence` to the appropriate destination:
 /// captured in memory, written to a file handle, or discarded.
 private func routeStream(
-    _ sequence: AsyncBufferSequence,
+    _ sequence: SubprocessOutputSequence,
     stream: StreamKind,
     destination: OutputDestination,
     fileHandle: FileHandle?,
     store: OutputCaptureStore
 ) async throws {
     for try await buffer in sequence {
-        let data = buffer.withUnsafeBytes { Data($0) }
+        let data = Data(buffer: buffer)
         try routeData(data, stream: stream, destination: destination, fileHandle: fileHandle, store: store)
-    }
-}
-
-private func routeFileDescriptor(
-    _ fileDescriptor: FileDescriptor,
-    stream: StreamKind,
-    destination: OutputDestination,
-    fileHandle: FileHandle?,
-    store: OutputCaptureStore
-) async throws {
-    let closure = FileDescriptorClosure(fileDescriptor: fileDescriptor)
-
-    try await withTaskCancellationHandler {
-        try await withCheckedThrowingContinuation { continuation in
-            let fileDescriptor = fileDescriptor
-            DispatchQueue.global(qos: .utility).async {
-                do {
-                    defer { closure.closeIfNeeded() }
-                    var buffer = [UInt8](repeating: 0, count: 65_536)
-
-                    while true {
-                        let count = try buffer.withUnsafeMutableBytes { rawBuffer in
-                            try fileDescriptor.read(into: rawBuffer)
-                        }
-                        if count == 0 {
-                            continuation.resume()
-                            return
-                        }
-                        try routeData(
-                            Data(buffer.prefix(count)),
-                            stream: stream,
-                            destination: destination,
-                            fileHandle: fileHandle,
-                            store: store
-                        )
-                    }
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    } onCancel: {
-        DispatchQueue.global(qos: .utility).async {
-            closure.closeIfNeeded()
-        }
-    }
-}
-
-private final class FileDescriptorClosure: @unchecked Sendable {
-    private let lock = NSLock()
-    private var fileDescriptor: FileDescriptor?
-
-    init(fileDescriptor: FileDescriptor) {
-        self.fileDescriptor = fileDescriptor
-    }
-
-    func closeIfNeeded() {
-        lock.lock()
-        let fileDescriptor = self.fileDescriptor
-        self.fileDescriptor = nil
-        lock.unlock()
-
-        try? fileDescriptor?.close()
     }
 }
 
@@ -889,8 +794,7 @@ private func routeData(
 ///
 /// Routing tasks for stdout and stderr run concurrently, so without coordination their writes to
 /// ``FileHandle/standardOutput``/``FileHandle/standardError`` could interleave mid-buffer and
-/// corrupt each other. A single shared lock guards every live write, mirroring the locking pattern
-/// used by ``FileDescriptorClosure``.
+/// corrupt each other. A single shared lock guards every live write.
 private final class TeeSink: @unchecked Sendable {
     static let shared = TeeSink()
 
@@ -937,7 +841,6 @@ private struct PipelineRunner {
 
         let stores = resolved.map { OutputCaptureStore(limit: $0.outputLimit) }
         let finalCommand = resolved[resolved.count - 1]
-        let registry = ExecutionRegistry()
         let eventNotifier = RunEventNotifier<PipelineRunEvent>()
         let processTask = Task {
             do {
@@ -945,7 +848,6 @@ private struct PipelineRunner {
                     stageInputs: stageInputs,
                     stageOutputs: stageOutputs,
                     stores: stores,
-                    registry: registry,
                     eventNotifier: eventNotifier
                 )
                 await eventNotifier.notify(.completed(.success(output)))
@@ -968,7 +870,6 @@ private struct PipelineRunner {
                 try await waitForPipeline(
                     processTask: processTask,
                     stores: stores,
-                    registry: registry,
                     eventNotifier: eventNotifier,
                     finalCommand: finalCommand
                 )
@@ -976,12 +877,10 @@ private struct PipelineRunner {
                 processTask.cancel()
                 Task {
                     await eventNotifier.notify(.canceled)
-                    await registry.teardownAll()
                 }
             }
         } catch is CancellationError {
             processTask.cancel()
-            await registry.teardownAll()
             _ = await processTask.result
             let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.canceled(
@@ -995,7 +894,6 @@ private struct PipelineRunner {
         stageInputs: [FileDescriptor?],
         stageOutputs: [FileDescriptor?],
         stores: [OutputCaptureStore],
-        registry: ExecutionRegistry,
         eventNotifier: RunEventNotifier<PipelineRunEvent>
     ) async throws -> ShellOutput {
         let finalCommand = resolved[resolved.count - 1]
@@ -1017,7 +915,6 @@ private struct PipelineRunner {
                                     input: input,
                                     pipedOutput: output,
                                     store: store,
-                                    registry: registry,
                                     eventNotifier: eventNotifier
                                 )
                             )
@@ -1082,10 +979,10 @@ private struct PipelineRunner {
                         stageResults.append(stageResult)
                         // Only treat a non-zero exit as a failure when this task has not
                         // been cancelled. On Linux, when the outer timeout fires,
-                        // waitForPipeline cancels processTask and calls registry.teardownAll().
-                        // Downstream stages that are SIGKILLed (exit 137) return a
-                        // PipelineStageResult before the CancellationError propagates through
-                        // the stage task. Checking Task.isCancelled here prevents those
+                        // waitForPipeline cancels processTask, and each stage's cancelled run()
+                        // tears down its process group. Downstream stages that are SIGKILLed
+                        // (exit 137) return a PipelineStageResult before the CancellationError
+                        // propagates through the stage task. Checking Task.isCancelled here prevents those
                         // signal-induced exits from masking the ShellError.timeout that
                         // waitForPipeline already threw.
                         if stageResult.exitCode != 0, firstFailure == nil, !Task.isCancelled {
@@ -1160,7 +1057,6 @@ private struct PipelineRunner {
     private func waitForPipeline(
         processTask: Task<ShellOutput, any Error>,
         stores: [OutputCaptureStore],
-        registry: ExecutionRegistry,
         eventNotifier: RunEventNotifier<PipelineRunEvent>,
         finalCommand: ResolvedCommand
     ) async throws -> ShellOutput {
@@ -1171,7 +1067,6 @@ private struct PipelineRunner {
             return try await processTask.value
         case let .timedOut(duration):
             processTask.cancel()
-            await registry.teardownAll()
             _ = await processTask.result
             let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.timeout(
@@ -1181,7 +1076,6 @@ private struct PipelineRunner {
             )
         case let .earlyTerminated(reason):
             processTask.cancel()
-            await registry.teardownAll()
             _ = await processTask.result
             switch reason {
             case let .outputLimitExceeded(command, limit):
@@ -1190,7 +1084,6 @@ private struct PipelineRunner {
             }
         case .canceled:
             processTask.cancel()
-            await registry.teardownAll()
             _ = await processTask.result
             let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.canceled(
@@ -1262,7 +1155,6 @@ private func runPipelineStage(
     input: FileDescriptor?,
     pipedOutput: FileDescriptor?,
     store: OutputCaptureStore,
-    registry: ExecutionRegistry,
     eventNotifier: RunEventNotifier<PipelineRunEvent>
 ) async throws -> PipelineStageResult {
     if let input {
@@ -1272,7 +1164,6 @@ private func runPipelineStage(
             input: FileDescriptorInput.fileDescriptor(input, closeAfterSpawningProcess: true),
             pipedOutput: pipedOutput,
             store: store,
-            registry: registry,
             eventNotifier: eventNotifier
         )
     } else {
@@ -1282,7 +1173,6 @@ private func runPipelineStage(
             input: NoInput.none,
             pipedOutput: pipedOutput,
             store: store,
-            registry: registry,
             eventNotifier: eventNotifier
         )
     }
@@ -1294,7 +1184,6 @@ private func runPipelineStageWithInput<Input: InputProtocol>(
     input: Input,
     pipedOutput: FileDescriptor?,
     store: OutputCaptureStore,
-    registry: ExecutionRegistry,
     eventNotifier: RunEventNotifier<PipelineRunEvent>
 ) async throws -> PipelineStageResult {
     if let pipedOutput {
@@ -1304,7 +1193,6 @@ private func runPipelineStageWithInput<Input: InputProtocol>(
             input: input,
             output: FileDescriptorOutput.fileDescriptor(pipedOutput, closeAfterSpawningProcess: true),
             store: store,
-            registry: registry,
             eventNotifier: eventNotifier
         )
     }
@@ -1317,7 +1205,6 @@ private func runPipelineStageWithInput<Input: InputProtocol>(
         input: input,
         stdoutHandle: stdoutHandle,
         store: store,
-        registry: registry,
         eventNotifier: eventNotifier
     )
 }
@@ -1328,10 +1215,8 @@ private func runPipelineStageWithPipedStdout<Input: InputProtocol, Output: Outpu
     input: Input,
     output: Output,
     store: OutputCaptureStore,
-    registry: ExecutionRegistry,
     eventNotifier: RunEventNotifier<PipelineRunEvent>
 ) async throws -> PipelineStageResult where Output.OutputType == Void {
-    let stderrPipe = try FileDescriptor.pipe()
     let stderrHandle = try openFileHandleIfNeeded(for: command.stderrDestination)
     defer {
         try? stderrHandle?.close()
@@ -1341,25 +1226,21 @@ private func runPipelineStageWithPipedStdout<Input: InputProtocol, Output: Outpu
         command.configuration,
         input: input,
         output: output,
-        error: FileDescriptorOutput.fileDescriptor(stderrPipe.writeEnd, closeAfterSpawningProcess: true)
+        error: .sequence
     ) { execution in
-        await registry.register(execution)
-        try await runWithProcessGroupTeardownOnCancellation(execution: execution) {
-            do {
-                try await routeFileDescriptor(
-                    stderrPipe.readEnd,
-                    stream: .stderr,
-                    destination: command.stderrDestination,
-                    fileHandle: stderrHandle,
-                    store: store
-                )
-            } catch is CaptureLimitExceeded {
-                await eventNotifier.notify(
-                    .earlyTerminated(.outputLimitExceeded(command: command.displayCommand, limit: command.outputLimit))
-                )
-                await execution.swiftyShellTeardown()
-                throw CaptureLimitExceeded()
-            }
+        do {
+            try await routeStream(
+                execution.standardError,
+                stream: .stderr,
+                destination: command.stderrDestination,
+                fileHandle: stderrHandle,
+                store: store
+            )
+        } catch is CaptureLimitExceeded {
+            await eventNotifier.notify(
+                .earlyTerminated(.outputLimitExceeded(command: command.displayCommand, limit: command.outputLimit))
+            )
+            throw CaptureLimitExceeded()
         }
     }
 
@@ -1376,10 +1257,8 @@ private func runPipelineStageWithStreamedStdout<Input: InputProtocol>(
     input: Input,
     stdoutHandle: FileHandle?,
     store: OutputCaptureStore,
-    registry: ExecutionRegistry,
     eventNotifier: RunEventNotifier<PipelineRunEvent>
 ) async throws -> PipelineStageResult {
-    let stderrPipe = try FileDescriptor.pipe()
     let stderrHandle = try openFileHandleIfNeeded(for: command.stderrDestination)
     defer {
         try? stderrHandle?.close()
@@ -1388,43 +1267,41 @@ private func runPipelineStageWithStreamedStdout<Input: InputProtocol>(
     let outcome = try await Subprocess.run(
         command.configuration,
         input: input,
-        error: FileDescriptorOutput.fileDescriptor(stderrPipe.writeEnd, closeAfterSpawningProcess: true),
-        preferredBufferSize: nil
-    ) { execution, outputSequence in
-        await registry.register(execution)
-        try await runWithProcessGroupTeardownOnCancellation(execution: execution) {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    try await routeStream(
-                        outputSequence,
-                        stream: .stdout,
-                        destination: command.stdoutDestination,
-                        fileHandle: stdoutHandle,
-                        store: store
-                    )
-                }
-                group.addTask {
-                    try await routeFileDescriptor(
-                        stderrPipe.readEnd,
-                        stream: .stderr,
-                        destination: command.stderrDestination,
-                        fileHandle: stderrHandle,
-                        store: store
-                    )
-                }
+        output: .sequence,
+        error: .sequence
+    ) { execution in
+        let outputSequence = execution.standardOutput
+        let errorSequence = execution.standardError
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await routeStream(
+                    outputSequence,
+                    stream: .stdout,
+                    destination: command.stdoutDestination,
+                    fileHandle: stdoutHandle,
+                    store: store
+                )
+            }
+            group.addTask {
+                try await routeStream(
+                    errorSequence,
+                    stream: .stderr,
+                    destination: command.stderrDestination,
+                    fileHandle: stderrHandle,
+                    store: store
+                )
+            }
 
-                do {
-                    try await group.waitForAll()
-                } catch is CaptureLimitExceeded {
-                    await eventNotifier.notify(
-                        .earlyTerminated(
-                            .outputLimitExceeded(command: command.displayCommand, limit: command.outputLimit)
-                        )
+            do {
+                try await group.waitForAll()
+            } catch is CaptureLimitExceeded {
+                await eventNotifier.notify(
+                    .earlyTerminated(
+                        .outputLimitExceeded(command: command.displayCommand, limit: command.outputLimit)
                     )
-                    await execution.swiftyShellTeardown()
-                    group.cancelAll()
-                    throw CaptureLimitExceeded()
-                }
+                )
+                group.cancelAll()
+                throw CaptureLimitExceeded()
             }
         }
     }
@@ -1451,10 +1328,28 @@ private func durationFromSeconds(_ seconds: TimeInterval) -> Duration {
     return .seconds(wholeSeconds) + .nanoseconds(fractionalNanoseconds)
 }
 
-private func subprocessPlatformOptions() -> PlatformOptions {
+/// Stops `run()` and pipeline stages immediately: `SIGKILL` to the whole process group, so any
+/// descendants the command started die with it.
+///
+/// swift-subprocess appends a final `.kill` (inheriting `toProcessGroup`) that runs only if this
+/// step's wait elapses with the leader still alive. The wait is non-zero so that final kill does
+/// not fire as a matter of course: teardown ends the wait as soon as the leader exits, so the
+/// non-zero value adds no latency, and it avoids a second group signal racing the leader's reap.
+private let forcedTeardownSequence: [TeardownStep] = [
+    .send(signal: .kill, toProcessGroup: true, allowedDurationToNextStep: .seconds(1))
+]
+
+/// Makes every subprocess the leader of its own process group, so a group-targeted teardown
+/// reaches only that command's process tree and never SwiftyShell's own group.
+///
+/// swift-subprocess runs `teardownSequence` itself whenever the task awaiting `run` is cancelled
+/// or the body closure throws. On the body-throws path it tears down before reaping the leader;
+/// on the cancellation path teardown runs concurrently with the reap, so the first group signal
+/// is sent while the leader is still alive but a later step is not guaranteed to be.
+private func subprocessPlatformOptions(teardownSequence: [TeardownStep]) -> PlatformOptions {
     var options = PlatformOptions()
     options.processGroupID = 0
-    options.teardownSequence = []
+    options.teardownSequence = teardownSequence
     return options
 }
 

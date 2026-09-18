@@ -8,8 +8,8 @@ Thank you for your interest in contributing. This document covers setup, convent
 
 - macOS 15.0+
 - Docker Desktop on macOS, or Docker Engine on Linux, if you want to run the Linux validation helpers locally
-- Linux is supported in CI with Swift 6.1.3 on Ubuntu (`swift:6.1.3-noble`); use either macOS or Linux locally
-- Swift 6.1+ (`swift --version`)
+- Linux is supported in CI with Swift 6.2.4 on Ubuntu (`swift:6.2.4-noble`); use either macOS or Linux locally
+- Swift 6.2+ (`swift --version`)
 
 ### Clone and Build
 
@@ -132,7 +132,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
    swift test  --enable-all-traits -Xswiftc -warnings-as-errors
    ```
 
-`Core/` and `Internal/` files are **never** gated. CI runs `validate-traits` first and then a build/test matrix across `""`, each per-family trait, `CommonUtilities`, and `All` on macOS 15 and Linux. A new family that bypasses the wiring will fail validation before any build job runs. The pull-request template (`.github/PULL_REQUEST_TEMPLATE.md`) has a checklist that mirrors these steps.
+`Core/` and `Internal/` files are **never** gated. CI runs `validate-traits` first and then a build/test matrix across `""`, each per-family trait, `CommonUtilities`, and `All` on macOS 26 and Linux. A new family that bypasses the wiring will fail validation before any build job runs. The pull-request template (`.github/PULL_REQUEST_TEMPLATE.md`) has a checklist that mirrors these steps.
 
 ## Testing
 

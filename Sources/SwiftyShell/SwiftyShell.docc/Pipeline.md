@@ -4,7 +4,7 @@ A sequence of commands connected by OS pipes.
 
 ## Overview
 
-Build a ``Pipeline`` with ``Command/pipe(to:)``. SwiftyShell starts every stage concurrently, closes stdin for the first stage, and connects each stage's stdout to the next stage's stdin without asking a shell to parse a pipeline string.
+Build a ``Pipeline`` with ``Command/pipe(to:)``. SwiftyShell starts every stage concurrently, gives the first stage an empty stdin, and connects each stage's stdout to the next stage's stdin without asking a shell to parse a pipeline string.
 
 ```swift
 let output = try await Command("printf", arguments: "alpha\nbeta\n")

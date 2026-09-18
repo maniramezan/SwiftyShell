@@ -296,6 +296,17 @@ struct CommandTests {
         try await waitForProcessExit(processIdentifier: childPID)
     }
 
+    @Test func runReturnsWhenCommandExitsWithoutWaitingForBackgroundDescendants() async throws {
+        // The background subshell keeps stdout open past the timeout. `run()` must return when
+        // `sh` exits instead of waiting for that pipe to close, so the later "late" line is lost.
+        let output = try await Command("/bin/sh", arguments: "-c", "echo early; (sleep 5; echo late) &")
+            .timeout(3)
+            .run(in: ShellContext())
+
+        #expect(output.stdout == "early\n")
+        #expect(output.exitCode == 0)
+    }
+
     @Test func negativeOutputLimitIsRejected() async throws {
         do {
             _ = try await Command("echo", arguments: "hello")
@@ -475,6 +486,48 @@ struct CommandTests {
                 return
             }
         }
+    }
+
+    @Test func directoryPathIsNotAnExecutable() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("swiftyshell-dir-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        do {
+            _ = try await Command(directory.path).run(in: ShellContext())
+            Issue.record("Expected commandNotFound")
+        } catch let error as ShellError {
+            guard case .commandNotFound = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+        }
+    }
+
+    @Test func searchPathSkipsDirectoryNamedLikeTheCommand() async throws {
+        let shadowingRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("swiftyshell-shadow-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: shadowingRoot.appendingPathComponent("echo", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: shadowingRoot) }
+
+        let context = ShellContext(searchPaths: [shadowingRoot.path, "/bin"])
+        let output = try await Command("echo", arguments: "resolved").run(in: context)
+
+        #expect(output.stdout == "resolved\n")
+    }
+
+    @Test func runGivesTheCommandAnEmptyStandardInput() async throws {
+        // `cat` with no arguments reads stdin until EOF; it would hang if stdin were left open.
+        let output = try await Command("cat")
+            .timeout(10)
+            .run(in: ShellContext())
+
+        #expect(output.stdout.isEmpty)
+        #expect(output.exitCode == 0)
     }
 
     @Test func discardStdoutProducesEmptyOutput() async throws {

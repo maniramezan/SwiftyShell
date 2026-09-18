@@ -134,7 +134,7 @@ When the tool you need isn't listed, `Command("tool", arguments: "arg").run(in: 
 
 `SubprocessExecutor` is the default production executor and is backed by Apple's `swift-subprocess` package. It runs each `Command` as a subprocess, connects `Pipeline` stages with OS pipes, and preserves captured partial output on timeouts, output-limit failures, and Swift task cancellation.
 
-Timeouts are user-controlled through `ShellContext(defaultTimeout:)` or `Command.timeout(_:)`. Timeout, cancellation, and output-limit teardown immediately sends `SIGKILL` to each registered process. The configurable graceful teardown sequence applies to processes started with `spawn`, not `run()`.
+Timeouts are user-controlled through `ShellContext(defaultTimeout:)` or `Command.timeout(_:)`. Timeout, cancellation, and output-limit teardown immediately sends `SIGKILL` to each running command's process group, so descendants the command started are killed with it. The configurable graceful teardown sequence applies to processes started with `spawn`, not `run()`.
 
 ```swift
 do {
@@ -146,7 +146,7 @@ do {
 }
 ```
 
-`run()` closes stdin and is intended for non-interactive execution. Arguments are passed as separate argv entries, but that is not a complete security boundary: validate untrusted executable names, paths, options, environment values, and any strings passed to interpreters such as `sh -c`. Prefer fixed executable paths and typed options for privileged automation.
+`run()` gives the command an empty stdin (reads hit end-of-file immediately) and is intended for non-interactive execution. Arguments are passed as separate argv entries, but that is not a complete security boundary: validate untrusted executable names, paths, options, environment values, and any strings passed to interpreters such as `sh -c`. Prefer fixed executable paths and typed options for privileged automation.
 
 For a runnable package that uses the local checkout, see [`Example/`](Example/). Run it with `swift run --package-path Example`.
 
@@ -191,7 +191,7 @@ Scripts/linux-test.sh
 Scripts/linux-ci.sh
 ```
 
-The helpers use the official `swift:6.1.3-noble` image, bind-mount the repository, keep SwiftPM cache data under `.build/docker-home`, and write Linux build artifacts to `.build/linux-docker` so they do not contend with the host macOS build database. The Linux build and test helpers pass `-Xswiftc -warnings-as-errors`, matching the release build/test CI jobs.
+The helpers use the official `swift:6.2.4-noble` image, bind-mount the repository, keep SwiftPM cache data under `.build/docker-home`, and write Linux build artifacts to `.build/linux-docker` so they do not contend with the host macOS build database. The Linux build and test helpers pass `-Xswiftc -warnings-as-errors`, matching the release build/test CI jobs.
 
 If you prefer shorter commands, the repository also ships a `Makefile` wrapper. Run `make help` to see the available targets.
 

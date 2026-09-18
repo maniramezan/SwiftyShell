@@ -4,7 +4,7 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "${script_dir}/.." && pwd)"
 
-image="${SWIFTYSHELL_LINUX_IMAGE:-swift:6.1.3-noble}"
+image="${SWIFTYSHELL_LINUX_IMAGE:-swift:6.2.4-noble}"
 platform="${SWIFTYSHELL_LINUX_PLATFORM:-}"
 workspace="/workspace"
 container_home="/swift-home"

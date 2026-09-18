@@ -204,7 +204,7 @@ Built-in execution failures surface as `ShellError`. Workflow closures, transfor
 
 `SubprocessExecutor` (in `Internal/Execution/`) is `public` because `ShellContext.init` defaults to it. The `Internal/` folder label is organizational — it does not imply the type is hidden from callers.
 
-The production executor uses the `swift-subprocess` package for process lifecycle management. Keep SwiftyShell's public error semantics stable when changing it: map built-in execution failures into `ShellError`, preserve captured partial output on timeout/output-limit/cancellation paths, and keep `MockExecutor` behavior aligned with production where practical. `run()` closes stdin and immediately kills registered processes on forced teardown; graceful `TeardownStrategy` steps apply to explicitly spawned processes.
+The production executor uses the `swift-subprocess` package for process lifecycle management. Keep SwiftyShell's public error semantics stable when changing it: map built-in execution failures into `ShellError`, preserve captured partial output on timeout/output-limit/cancellation paths, and keep `MockExecutor` behavior aligned with production where practical. `run()` leaves stdin to swift-subprocess (`input: .none`) and gets forced teardown from swift-subprocess itself: each configuration's `teardownSequence` sends `SIGKILL` to the command's process group, and swift-subprocess runs it whenever the awaiting task is cancelled or the body closure throws. Don't reintroduce SwiftyShell-side process bookkeeping for this. `run()` returns once the command's process exits: swift-subprocess then stops waiting for the output pipes to close, so a background descendant's later output is not captured (see ARCHITECTURE.md, Timeout & Cancellation). Spawned processes carry their `TeardownStrategy` as the teardown sequence.
 
 ### Workflows
 
@@ -251,7 +251,7 @@ SwiftyShell uses [SwiftPM Package Traits](https://github.com/swiftlang/swift-evo
 
 If the new command family has real execution tests that depend on an external CLI binary not guaranteed by the GitHub Actions runner image, update `.github/workflows/reusable-ci.yml` in the same change to install that tool for every affected matrix entry (the family trait itself, `All`, and coverage runs that use `--enable-all-traits`). Keep the Linux package install and macOS Homebrew install paths in sync.
 
-The pull-request template (`.github/PULL_REQUEST_TEMPLATE.md`) has a checklist that mirrors these steps. CI runs `validate-traits` first and then a build/test matrix across `""`, each per-family trait, `CommonUtilities`, and `All` on macOS 15 and Linux. A new family that bypasses the wiring will fail validation before any build runs.
+The pull-request template (`.github/PULL_REQUEST_TEMPLATE.md`) has a checklist that mirrors these steps. CI runs `validate-traits` first and then a build/test matrix across `""`, each per-family trait, `CommonUtilities`, and `All` on macOS 26 and Linux. A new family that bypasses the wiring will fail validation before any build runs.
 
 ## Architecture Reference
 

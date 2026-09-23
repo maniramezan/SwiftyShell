@@ -468,7 +468,35 @@ struct CommandTests {
 
     @Test func displayStringQuotesArgumentsWithSpaces() {
         let command = Command("echo", arguments: "hello world", "foo")
-        #expect(command.displayString() == #"echo "hello world" foo"#)
+        #expect(command.displayString() == "echo 'hello world' foo")
+    }
+
+    @Test(
+        arguments: [
+            ("plain", "plain"),
+            ("--flag=a,b:c/d.e_f@g%h+i", "--flag=a,b:c/d.e_f@g%h+i"),
+            ("", "''"),
+            ("two words", "'two words'"),
+            ("$HOME", "'$HOME'"),
+            ("a;rm -rf /", "'a;rm -rf /'"),
+            ("*.swift", "'*.swift'"),
+            ("it's", #"'it'\''s'"#),
+            ("line\nbreak", "'line\nbreak'"),
+            ("héllo", "'héllo'"),
+        ]
+    )
+    func displayStringQuotesUnsafeComponents(argument: String, expected: String) {
+        #expect(Command("tool", arguments: argument).displayString() == "tool \(expected)")
+    }
+
+    @Test func displayStringRoundTripsThroughPOSIXShell() async throws {
+        let arguments = ["", "two words", "$HOME", "it's", "a;b|c&d", "*", "`id`", "tab\there", "é"]
+        let display = Command("printf").args(["%s\\n"] + arguments).displayString()
+
+        // Re-parse the display string with a real shell; it must yield the same argv.
+        let output = try await Command("/bin/sh", arguments: "-c", display).run()
+
+        #expect(output.stdout == arguments.map { $0 + "\n" }.joined())
     }
 
     @Test func displayStringUsesResolvedExecutable() {

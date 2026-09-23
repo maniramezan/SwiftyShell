@@ -517,13 +517,17 @@ private enum SpawnedCommandTaskResult: Sendable {
     case streamComplete
 }
 
+/// Keeps the most recent chunks of a live spawned-process stream that the caller has not read yet.
+private let liveStreamBufferingPolicy = AsyncStream<String>.Continuation.BufferingPolicy.bufferingNewest(1024)
+
 private struct SpawnedCommandRunner: Sendable {
     let resolved: ResolvedCommand
     let teardown: TeardownStrategy
 
     func spawn() async throws -> any SpawnedProcess {
-        let stdoutStream = AsyncStream.makeStream(of: String.self)
-        let stderrStream = AsyncStream.makeStream(of: String.self)
+        // Bounded so an unread stream cannot grow without limit over a long-lived process.
+        let stdoutStream = AsyncStream.makeStream(of: String.self, bufferingPolicy: liveStreamBufferingPolicy)
+        let stderrStream = AsyncStream.makeStream(of: String.self, bufferingPolicy: liveStreamBufferingPolicy)
         let state = SubprocessSpawnedProcessState(teardown: teardown)
         let task = Task<ShellOutput, Never> {
             await runSpawnedProcess(
@@ -744,10 +748,16 @@ private func routeSpawnStream(
     store: OutputCaptureStore,
     continuation: AsyncStream<String>.Continuation
 ) async throws {
+    var decoder = UTF8ChunkDecoder()
+    defer {
+        if let text = decoder.finish() {
+            continuation.yield(text)
+        }
+    }
     for try await buffer in sequence {
         let data = Data(buffer: buffer)
-        if !data.isEmpty {
-            continuation.yield(String(decoding: data, as: UTF8.self))
+        if let text = decoder.decode(data) {
+            continuation.yield(text)
         }
         try routeData(data, stream: stream, destination: destination, fileHandle: fileHandle, store: store)
     }

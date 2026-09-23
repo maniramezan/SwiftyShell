@@ -145,6 +145,22 @@ struct SpawnTests {
         #expect(output.exitCode == 143)
     }
 
+    @Test(arguments: [TeardownStrategy.graceful, .immediate, .interruptThenTerminate])
+    func teardownStopsDescendantProcesses(strategy: TeardownStrategy) async throws {
+        let process = try await Command("/bin/sh", arguments: "-c", "sleep 300 & echo $!; wait")
+            .spawn(teardown: strategy)
+
+        var reported = ""
+        for await chunk in process.standardOutput {
+            reported += chunk
+            if reported.hasSuffix("\n") { break }
+        }
+        let descendant = try #require(Int32(reported.trimmingCharacters(in: .whitespacesAndNewlines)))
+
+        _ = await process.teardownAndWait()
+        try await waitForProcessExit(processIdentifier: descendant, timeoutNanoseconds: 3_000_000_000)
+    }
+
     @Test func droppingSpawnedProcessHandleTriggersBestEffortTeardown() async throws {
         let processIdentifier: Int32
 

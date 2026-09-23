@@ -27,6 +27,10 @@ public struct ProcessTeardownStep: Sendable, Hashable {
 /// safety cleanup path when a spawned-process handle is released before the
 /// process exits. The subprocess backend appends a final kill step after the
 /// configured graceful steps, so every strategy eventually guarantees cleanup.
+///
+/// With the built-in executor, every step signals the spawned process's whole
+/// process group, so descendants started by wrappers such as `sh -c` or
+/// `npm run` are stopped along with the process itself.
 public struct TeardownStrategy: Sendable, Hashable {
     /// The graceful steps to run before the backend's final kill step.
     public let steps: [ProcessTeardownStep]

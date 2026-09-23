@@ -335,18 +335,11 @@ struct CommandTests {
         }
     }
 
-    @Test func decodingErrorIncludesCommandName() async throws {
-        do {
-            _ = try await Command("/bin/sh", arguments: "-c", "printf '\\377'").run(in: ShellContext())
-            Issue.record("Expected decodingError")
-        } catch let error as ShellError {
-            guard case let .decodingError(command, stream) = error else {
-                Issue.record("Unexpected error: \(error)")
-                return
-            }
-            #expect(command.contains("/bin/sh"))
-            #expect(stream == .stdout)
-        }
+    @Test func invalidUTF8OutputIsReturnedAsBytes() async throws {
+        let output = try await Command("/bin/sh", arguments: "-c", "printf '\\377'").run(in: ShellContext())
+
+        #expect(output.stdoutData == Data([0xFF]))
+        #expect(output.stdout == "\u{FFFD}")
     }
 
     @Test func cancellationPreservesPartialOutput() async throws {

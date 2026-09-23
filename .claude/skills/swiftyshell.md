@@ -220,11 +220,16 @@ public enum OutputDestination: Sendable, Equatable {
 #### ShellOutput
 
 ```swift
-public struct ShellOutput: Sendable {
-    public var stdout: String
+public struct ShellOutput: Sendable, Equatable {
+    public var stdoutData: Data      // raw captured bytes; binary output is preserved
+    public var stderrData: Data
+    public var stdout: String        // lossy UTF-8 view of stdoutData (decoded on each access)
     public var stderr: String
     public var exitCode: Int32
     public var isSuccess: Bool
+
+    public init(stdout: String = "", stderr: String = "", exitCode: Int32)
+    public init(stdoutData: Data, stderrData: Data = Data(), exitCode: Int32)
 }
 ```
 
@@ -1948,7 +1953,7 @@ let status = try await Git(context: context).status().run()
 | `exitFailure` | Non-zero exit code | Inspect `output.stderr`; retry or abort |
 | `timeout` | Command exceeded time limit | Inspect `partialOutput`, increase timeout |
 | `outputLimitExceeded` | Output exceeded configured limit | Raise `outputLimit(_:)` or redirect to file |
-| `decodingError` | Output is not valid UTF-8 | Redirect output to file and read as `Data` |
+| `decodingError` | A typed workflow parsed stdout that is not valid UTF-8 (plain `run()` never throws it) | Run the raw `command()` and read `stdoutData` |
 | `cancelled` | Parent Swift task was cancelled | Inspect `partialOutput`, propagate cancellation |
 | `workflowConditionFailed` | A `require` predicate returned false | Handle the specific workflow gate |
 | `spawnError` | Process could not be launched | Check executable path and permissions |

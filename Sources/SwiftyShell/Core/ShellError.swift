@@ -56,6 +56,10 @@ public enum ShellError: Error, LocalizedError, Sendable {
 
     /// A captured output stream contained bytes that could not be decoded as UTF-8.
     ///
+    /// Typed workflows that parse stdout (for example `Git` status or `Which` lookup) throw this
+    /// instead of parsing U+FFFD replacement characters. Plain `run()` calls do not throw it; they
+    /// return the raw bytes in ``ShellOutput/stdoutData``.
+    ///
     /// - Parameters:
     ///   - command: The shell-quoted display string of the command whose output failed to decode.
     ///   - stream: Which stream failed to decode (``StreamKind/stdout`` or

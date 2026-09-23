@@ -85,10 +85,10 @@ This does **not** validate arbitrary strings accepted by typed wrappers, make in
 
 ### Output Handling
 
-- Output is buffered in memory by default (stdout and stderr decoded as UTF-8).
+- Output is buffered in memory by default as raw bytes (`ShellOutput.stdoutData` / `stderrData`); `stdout` / `stderr` decode them as UTF-8 on access, replacing invalid sequences with U+FFFD.
 - Default output limit is unlimited (`0`); configurable via `ShellContext.defaultOutputLimit` or per-command/client `.outputLimit(_:)`. Pass a positive byte count to cap captured output.
 - For one command, the limit is the combined captured stdout and stderr byte count. Exceeding it terminates the command and throws `ShellError.outputLimitExceeded` with at most the configured number of captured bytes.
-- Invalid UTF-8 throws `ShellError.decodingError`.
+- `run()` never fails on non-UTF-8 output, so binary output (archives, images) can be captured. Typed workflows that parse stdout decode it strictly and throw `ShellError.decodingError` on invalid UTF-8 rather than parsing replacement characters.
 - Negative timeout or output-limit values throw `ShellError.invalidConfiguration`.
 - Redirected output (`OutputDestination.file` or `.discard`) is not also captured.
 

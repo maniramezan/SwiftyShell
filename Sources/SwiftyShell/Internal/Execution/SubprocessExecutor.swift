@@ -985,7 +985,11 @@ private struct PipelineRunner {
                         // propagates through the stage task. Checking Task.isCancelled here prevents those
                         // signal-induced exits from masking the ShellError.timeout that
                         // waitForPipeline already threw.
-                        if stageResult.exitCode != 0, firstFailure == nil, !Task.isCancelled {
+                        // A non-final stage killed by SIGPIPE only means a downstream stage
+                        // stopped reading early (`yes | head -n 1`); the shell treats that as
+                        // success, so it is not a pipeline failure here either.
+                        let isBenignBrokenPipe = stageResult.brokePipe && stageResult.index < resolved.count - 1
+                        if stageResult.exitCode != 0, !isBenignBrokenPipe, firstFailure == nil, !Task.isCancelled {
                             firstFailure = stageResult
                             group.cancelAll()
                         }
@@ -1115,6 +1119,15 @@ private struct PipelineStageResult: Sendable {
     let index: Int
     let command: ResolvedCommand
     let exitCode: Int32
+    /// Whether the stage was terminated by `SIGPIPE` after its reader went away.
+    let brokePipe: Bool
+
+    init(index: Int, command: ResolvedCommand, terminationStatus: TerminationStatus) {
+        self.index = index
+        self.command = command
+        self.exitCode = terminationStatus.swiftyShellExitCode
+        self.brokePipe = terminationStatus.isBrokenPipe
+    }
 }
 
 private enum PipelineTaskResult: Sendable {
@@ -1244,11 +1257,7 @@ private func runPipelineStageWithPipedStdout<Input: InputProtocol, Output: Outpu
         }
     }
 
-    return PipelineStageResult(
-        index: index,
-        command: command,
-        exitCode: outcome.terminationStatus.swiftyShellExitCode
-    )
+    return PipelineStageResult(index: index, command: command, terminationStatus: outcome.terminationStatus)
 }
 
 private func runPipelineStageWithStreamedStdout<Input: InputProtocol>(
@@ -1306,11 +1315,7 @@ private func runPipelineStageWithStreamedStdout<Input: InputProtocol>(
         }
     }
 
-    return PipelineStageResult(
-        index: index,
-        command: command,
-        exitCode: outcome.terminationStatus.swiftyShellExitCode
-    )
+    return PipelineStageResult(index: index, command: command, terminationStatus: outcome.terminationStatus)
 }
 
 /// Converts a `TimeInterval` (seconds, `Double`) to a Swift `Duration`.
@@ -1437,6 +1442,12 @@ private func makeFileHandle(path: String, append: Bool) throws -> FileHandle {
 }
 
 extension TerminationStatus {
+    /// Whether the process was killed by `SIGPIPE`.
+    fileprivate var isBrokenPipe: Bool {
+        guard case let .signaled(signal) = self else { return false }
+        return signal == SIGPIPE
+    }
+
     fileprivate var swiftyShellExitCode: Int32 {
         switch self {
         case let .exited(code):

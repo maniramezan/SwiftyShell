@@ -64,8 +64,9 @@ public struct Pipeline: Sendable {
     ///   to a freshly constructed ``ShellContext``.
     /// - Returns: The captured ``ShellOutput`` of the final stage.
     /// - Throws: With the built-in executor, ``ShellError`` if a stage fails to spawn, exits
-    ///   non-zero, times out, exceeds an output limit, or is canceled. Custom executors may throw
-    ///   other errors.
+    ///   non-zero, times out, exceeds an output limit, or is canceled. A non-final stage terminated
+    ///   by `SIGPIPE` is not a failure: it means a downstream stage stopped reading early, as in
+    ///   `yes | head -n 1`. Custom executors may throw other errors.
     public func run(in context: ShellContext = .init()) async throws -> ShellOutput {
         try await context.executor.execute(self, in: context)
     }

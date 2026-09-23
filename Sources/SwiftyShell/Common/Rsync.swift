@@ -44,7 +44,7 @@ public struct Rsync: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// Funnels the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     ///
     /// - Parameter update: A pure function that receives the current ``ToolConfiguration`` and
     ///   returns the next one.
@@ -255,7 +255,7 @@ public struct Rsync: RunnableCommandFamily {
 
     /// Returns a copy that sets rsync's I/O timeout (`--timeout <seconds>`).
     ///
-    /// This is separate from ``timeout(_:)``, which sets SwiftyShell's process-level timeout.
+    /// This is separate from ``timeout(_:)-(Duration)``, which sets SwiftyShell's process-level timeout.
     public func ioTimeout(_ seconds: Int) -> Self { copy(ioTimeout: seconds) }
 
     /// Returns a copy that appends a raw rsync option before operands.

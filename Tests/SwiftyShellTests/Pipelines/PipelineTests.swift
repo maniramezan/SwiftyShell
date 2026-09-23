@@ -116,7 +116,7 @@ struct PipelineTests {
 
         let task = Task {
             try await Command("/bin/sh", arguments: "-c", "printf 'start'; exec sleep 30")
-                .timeout(1)
+                .timeout(.seconds(1))
                 .pipe(
                     to: Command(
                         "/bin/sh",

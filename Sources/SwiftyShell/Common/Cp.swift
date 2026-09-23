@@ -41,7 +41,7 @@ public struct Cp: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// This is the funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``). Most callers use those
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``). Most callers use those
     /// helpers and never invoke this directly.
     ///
     /// - Parameter update: A pure function that receives the current ``ToolConfiguration`` and

@@ -92,7 +92,7 @@ public struct ShellContext: Sendable {
         searchPaths: [String] = ShellContext.defaultSearchPaths,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         workingDirectory: String? = nil,
-        defaultTimeout: TimeInterval? = nil,
+        defaultTimeout: Duration? = nil,
         defaultOutputLimit: Int = 0
     )
 
@@ -100,7 +100,7 @@ public struct ShellContext: Sendable {
     public let searchPaths: [String]
     public let environment: [String: String]
     public let workingDirectory: String?
-    public let defaultTimeout: TimeInterval?
+    public let defaultTimeout: Duration?
     public let defaultOutputLimit: Int
 }
 ```
@@ -110,6 +110,7 @@ public struct ShellContext: Sendable {
 ```swift
 public struct Command: Sendable {
     public init(_ executable: String, arguments: String...)
+    public init(_ executable: String, arguments: [String])
 
     public func executable(_ path: String) -> Self
     public func arg(_ value: String) -> Self
@@ -117,7 +118,7 @@ public struct Command: Sendable {
     public func env(_ name: String, _ value: String) -> Self
     public func env(_ values: [String: String]) -> Self
     public func workingDirectory(_ path: String) -> Self
-    public func timeout(_ seconds: TimeInterval) -> Self
+    public func timeout(_ duration: Duration) -> Self   // TimeInterval overload is deprecated
     public func outputLimit(_ bytes: Int) -> Self
     public func stdout(_ destination: OutputDestination) -> Self
     public func stderr(_ destination: OutputDestination) -> Self
@@ -235,7 +236,7 @@ public enum ShellError: Error, LocalizedError {
     case invalidConfiguration(description: String)
     case commandNotFound(String)
     case exitFailure(command: String, output: ShellOutput)
-    case timeout(command: String, duration: TimeInterval, partialOutput: ShellOutput)
+    case timeout(command: String, duration: Duration, partialOutput: ShellOutput)
     case decodingError(command: String, stream: StreamKind)
     case parsingError(command: String, reason: String)
     case outputLimitExceeded(command: String, limit: Int, partialOutput: ShellOutput)
@@ -284,7 +285,7 @@ public struct Git: Sendable {
     public func env(_ name: String, _ value: String) -> Self
     public func env(_ values: [String: String]) -> Self
     public func workingDirectory(_ path: String) -> Self
-    public func timeout(_ seconds: TimeInterval) -> Self
+    public func timeout(_ duration: Duration) -> Self   // TimeInterval overload is deprecated
     public func outputLimit(_ bytes: Int) -> Self
 
     public func status() -> GitStatusWorkflow

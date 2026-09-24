@@ -16,6 +16,28 @@ actor CommandRecorder {
 }
 
 struct UnzipCommandTests {
+    @Test func modesAreMutuallyExclusiveLastWins() {
+        #expect(Unzip().list().test().printToStdout().command().arguments == ["-p"])
+        #expect(Unzip().printToStdout().list().command().arguments == ["-l"])
+        #expect(Unzip().list().test(false).command().arguments == ["-l"])
+        #expect(Unzip().freshen().updateOnly().command().arguments == ["-u"])
+        #expect(Unzip().overwrite().neverOverwrite().command().arguments == ["-n"])
+        #expect(Unzip().neverOverwrite().overwrite().overwrite(false).command().arguments.isEmpty)
+    }
+
+    @Test func entriesAlwaysListsEvenAfterAnotherMode() async throws {
+        let mock = MockExecutor { command, _ in
+            ShellOutput(
+                stderr: "unexpected argv: \(command.arguments)",
+                exitCode: command.arguments == ["-l", "a.zip"] ? 0 : 1
+            )
+        }
+
+        let entries = try await Unzip(context: ShellContext(executor: mock)).archive("a.zip").test().entries().run()
+
+        #expect(entries.isEmpty)
+    }
+
     let subject = Unzip()
 
     @Test func buildsDefaultUnzipCommand() {

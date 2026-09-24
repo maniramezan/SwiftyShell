@@ -2032,6 +2032,7 @@ Use this section when adding or revising command families.
 5. If the command supports stdout/stderr redirection, conform to `OutputRedirectingCommandFamily`
 6. If the command can materialize a `Command`, conform to `RunnableCommandFamily`
 7. Build argv in exactly one place: `command()`
+7a. Model mutually exclusive flags (operations, modes, overwrite policies) as one internal enum rather than independent `Bool`s, so invalid argv such as `git branch --list -d -m` cannot be built; enabling one selects it and the last call wins (use the internal `toggledMode` helper), and options that belong to one operation are emitted only in that operation.
 8. Prefer semantic methods like `.source(_:)`, `.destination(_:)` over raw option strings
 9. Add tests for both command building and real execution where practical
 10. **Every `public` declaration must have a `///` doc comment** — apply documentation rules from Part 2

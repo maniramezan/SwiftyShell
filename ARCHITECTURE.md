@@ -112,7 +112,7 @@ This does **not** validate arbitrary strings accepted by typed wrappers, make in
 - A command override replaces the context default. For a pipeline, the shortest resolved non-`nil` stage timeout governs the whole pipeline.
 - Timeout and task cancellation terminate each running process group immediately with `SIGKILL`, then throw `ShellError.timeout` or `ShellError.canceled` with captured partial output. They do not use the configurable graceful teardown strategy reserved for explicitly spawned processes.
 - Spawned-process teardown sends every `TeardownStrategy` step, and the final kill, to the process group, so descendants of wrappers such as `sh -c` or `npm run` do not outlive teardown. swift-subprocess stops its sequence once the process itself exits, so after the sequence SwiftyShell also sends `SIGKILL` to whatever is left of the group (for example a background job that ignored `SIGINT`), but only when the process was still running when teardown began. `SpawnedProcess.send(_:)` still signals only the process itself.
-- `run()` does not inherit or accept interactive stdin. A single command gets an empty stdin (`/dev/null`, so reads hit end-of-file); the first pipeline stage receives no input, and later stages receive the preceding stage's stdout.
+- Commands never inherit the calling process's stdin. A command reads its `InputSource` (`Command.stdin(_:)`): empty by default (reads hit end-of-file), or fixed text, bytes, or a file. swift-subprocess writes text and bytes concurrently with output reading, so large inputs cannot deadlock against large outputs. A pipeline's first stage reads its own source; later stages receive the preceding stage's stdout. Writing to a running process's stdin interactively is still deferred.
 - `run()` finishes when the command's process exits, not when its output pipes close. Output that is already buffered is still captured, but a background descendant that outlives the command and writes afterwards is not waited for, and its later output is not captured. This keeps a command that leaves a helper running (for example `sh -c 'daemon &'`) from blocking `run()` until its timeout.
 
 ### Deferred Workflow Semantics
@@ -196,7 +196,7 @@ Windows is out of scope for v1.
 
 - Explicit unsafe raw shell-string escape hatch
 - Alternative pipeline failure modes as explicit opt-ins
-- Interactive stdin
+- Interactive stdin (writing to a running or spawned process's stdin); fixed `InputSource` values are supported
 - Additional typed command families
 - Windows support
 - Alternative packaging if command families grow substantially

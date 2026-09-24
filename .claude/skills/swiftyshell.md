@@ -120,6 +120,7 @@ public struct Command: Sendable {
     public func workingDirectory(_ path: String) -> Self
     public func timeout(_ duration: Duration) -> Self   // TimeInterval overload is deprecated
     public func outputLimit(_ bytes: Int) -> Self
+    public func stdin(_ source: InputSource) -> Self          // default .none (empty stdin)
     public func stdout(_ destination: OutputDestination) -> Self
     public func stderr(_ destination: OutputDestination) -> Self
     public func pipe(to next: Command) -> Pipeline
@@ -216,6 +217,15 @@ public extension RunnableCommandFamily {
 #### OutputDestination
 
 ```swift
+public enum InputSource: Sendable, Equatable {
+    case none                  // empty stdin (default)
+    case data(Data)
+    case string(String)        // UTF-8
+    case file(path: String)    // like shell `<`; relative to the working directory
+}
+// Typed families: `try await Jq(".name").rawOutput().run(stdin: .string(json))`
+// Pipelines: only the first stage's stdin source is used.
+
 public enum OutputDestination: Sendable, Equatable {
     case capture
     case discard
@@ -1813,7 +1823,7 @@ public struct MockSpawnedProcess: SpawnedProcess, Sendable {
 
 For pipelines, all stages run concurrently. The shortest resolved stage timeout governs the pipeline, each stage has its own captured-output limit, intermediate stdout is piped rather than captured, and captured stderr is aggregated in stage order. A non-zero stage cancels remaining stage tasks, but simultaneous failures do not guarantee a pipeline-order winner. A non-final stage killed by `SIGPIPE` (downstream stopped reading, e.g. `yes | head -n 1`) is not a failure.
 
-`SubprocessExecutor` is the default production executor and is backed by the `swift-subprocess` package. Preserve SwiftyShell's public `ShellError` semantics when changing the execution layer, including captured partial output on timeout, output-limit, and cancellation paths. `run()` hands `.discard` and `.file` destinations to the child as `.discarded` / `.fileDescriptor` outputs (only `.capture` / `.tee` streams are read by SwiftyShell, via the generic `runRouted` helpers), leaves stdin to swift-subprocess (`input: .none`) and gets forced teardown from swift-subprocess itself: each configuration's `teardownSequence` sends `SIGKILL` to the command's process group, and swift-subprocess runs it whenever the awaiting task is cancelled or the body closure throws. Don't reintroduce SwiftyShell-side process bookkeeping for this. `run()` returns once the command's process exits: swift-subprocess then stops waiting for the output pipes to close, so a background descendant's later output is not captured (see ARCHITECTURE.md, Timeout & Cancellation). Spawned processes carry their `TeardownStrategy` as the teardown sequence, with every step (and the final kill) sent to the process group.
+`SubprocessExecutor` is the default production executor and is backed by the `swift-subprocess` package. Preserve SwiftyShell's public `ShellError` semantics when changing the execution layer, including captured partial output on timeout, output-limit, and cancellation paths. `run()` hands `.discard` and `.file` destinations to the child as `.discarded` / `.fileDescriptor` outputs (only `.capture` / `.tee` streams are read by SwiftyShell, via the generic `runRouted` helpers), maps `Command.stdinSource` (`InputSource`, empty by default) to `NoInput` / `DataInput` / `FileDescriptorInput` (spawned processes use the same mapping through the type-erased `SpawnedExecution`) and gets forced teardown from swift-subprocess itself: each configuration's `teardownSequence` sends `SIGKILL` to the command's process group, and swift-subprocess runs it whenever the awaiting task is cancelled or the body closure throws. Don't reintroduce SwiftyShell-side process bookkeeping for this. `run()` returns once the command's process exits: swift-subprocess then stops waiting for the output pipes to close, so a background descendant's later output is not captured (see ARCHITECTURE.md, Timeout & Cancellation). Spawned processes carry their `TeardownStrategy` as the teardown sequence, with every step (and the final kill) sent to the process group.
 
 ### Code Generation Rules
 

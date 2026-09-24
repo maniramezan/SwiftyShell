@@ -28,9 +28,9 @@ import Foundation
 public struct Pipeline: Sendable {
     /// The ordered command stages in the pipeline.
     ///
-    /// Stages are connected stdout-to-stdin in declaration order. The first stage receives the
-    /// executor's normal stdin (typically inherited from the parent process); the last stage's
-    /// stdout is what ``run(in:)`` returns.
+    /// Stages are connected stdout-to-stdin in declaration order. The first stage reads its own
+    /// ``Command/stdinSource`` (an empty stdin by default); the last stage's stdout is what
+    /// ``run(in:)`` returns. Later stages' input sources are ignored.
     public let stages: [Command]
 
     internal init(stages: [Command]) {

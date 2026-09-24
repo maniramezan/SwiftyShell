@@ -188,6 +188,7 @@ let foreachOutput = try await Git(context: context)
 - ``workingDirectory(_:)``
 - ``env(_:_:)``
 - ``env(_:)``
+- ``unsetEnv(_:)-(String...)``
 - ``timeout(_:)-(Duration)``
 - ``outputLimit(_:)``
 

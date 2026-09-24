@@ -117,6 +117,7 @@ public struct Command: Sendable {
     public func args(_ values: [String]) -> Self
     public func env(_ name: String, _ value: String) -> Self
     public func env(_ values: [String: String]) -> Self
+    public func unsetEnv(_ names: String...) -> Self   // removes inherited vars; last env/unsetEnv call wins
     public func workingDirectory(_ path: String) -> Self
     public func timeout(_ duration: Duration) -> Self   // TimeInterval overload is deprecated
     public func outputLimit(_ bytes: Int) -> Self

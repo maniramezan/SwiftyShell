@@ -28,6 +28,9 @@ public struct ToolConfiguration: Sendable {
     /// Merged on top of ``ShellContext/environment`` at execution time.
     public let environmentOverrides: [String: String]
 
+    /// Environment variables removed from the final command's environment.
+    public let unsetEnvironmentVariables: Set<String>
+
     /// An optional working directory override; `nil` means use ``ShellContext/workingDirectory``.
     public let workingDirectoryOverride: String?
 
@@ -46,6 +49,8 @@ public struct ToolConfiguration: Sendable {
     ///     resolves the executable name from ``ShellContext/searchPaths``.
     ///   - environmentOverrides: Environment variables merged on top of the context's
     ///     environment for built commands.
+    ///   - unsetEnvironmentVariables: Environment variables removed from built commands'
+    ///     environment.
     ///   - workingDirectoryOverride: An optional working directory for built commands. When
     ///     `nil`, the context's default applies.
     ///   - timeoutOverride: An optional per-command timeout. Must not be negative.
@@ -55,6 +60,7 @@ public struct ToolConfiguration: Sendable {
         context: ShellContext = .init(),
         executableOverride: String? = nil,
         environmentOverrides: [String: String] = [:],
+        unsetEnvironmentVariables: Set<String> = [],
         workingDirectoryOverride: String? = nil,
         timeoutOverride: Duration? = nil,
         outputLimitOverride: Int? = nil
@@ -62,6 +68,7 @@ public struct ToolConfiguration: Sendable {
         self.context = context
         self.executableOverride = executableOverride
         self.environmentOverrides = environmentOverrides
+        self.unsetEnvironmentVariables = unsetEnvironmentVariables
         self.workingDirectoryOverride = workingDirectoryOverride
         self.timeoutOverride = timeoutOverride
         self.outputLimitOverride = outputLimitOverride
@@ -112,7 +119,10 @@ public struct ToolConfiguration: Sendable {
     public func env(_ name: String, _ value: String) -> Self {
         var overrides = environmentOverrides
         overrides[name] = value
-        return copy(environmentOverrides: overrides)
+        return copy(
+            environmentOverrides: overrides,
+            unsetEnvironmentVariables: unsetEnvironmentVariables.subtracting([name])
+        )
     }
 
     /// Returns a copy with multiple environment variable overrides merged in.
@@ -122,7 +132,27 @@ public struct ToolConfiguration: Sendable {
     /// - Parameter values: A dictionary of environment variable name/value pairs to merge.
     /// - Returns: A new configuration with the merged environment overrides applied.
     public func env(_ values: [String: String]) -> Self {
-        copy(environmentOverrides: environmentOverrides.merging(values) { _, new in new })
+        copy(
+            environmentOverrides: environmentOverrides.merging(values) { _, new in new },
+            unsetEnvironmentVariables: unsetEnvironmentVariables.subtracting(values.keys)
+        )
+    }
+
+    /// Returns a copy that removes environment variables from built commands' environment.
+    ///
+    /// Any override set earlier for those names is dropped; a later ``env(_:_:)`` sets them again.
+    ///
+    /// - Parameter names: The environment variable names to remove.
+    /// - Returns: A new configuration with the variables removed.
+    public func unsetEnv(_ names: [String]) -> Self {
+        var overrides = environmentOverrides
+        for name in names {
+            overrides.removeValue(forKey: name)
+        }
+        return copy(
+            environmentOverrides: overrides,
+            unsetEnvironmentVariables: unsetEnvironmentVariables.union(names)
+        )
     }
 
     /// Returns a copy that runs the final command in the given working directory.
@@ -178,6 +208,9 @@ public struct ToolConfiguration: Sendable {
         if !environmentOverrides.isEmpty {
             cmd = cmd.env(environmentOverrides)
         }
+        if !unsetEnvironmentVariables.isEmpty {
+            cmd = cmd.unsetEnv(unsetEnvironmentVariables.sorted())
+        }
         if let workingDirectoryOverride {
             cmd = cmd.workingDirectory(workingDirectoryOverride)
         }
@@ -193,6 +226,7 @@ public struct ToolConfiguration: Sendable {
     private func copy(
         executableOverride: String?? = nil,
         environmentOverrides: [String: String]? = nil,
+        unsetEnvironmentVariables: Set<String>? = nil,
         workingDirectoryOverride: String?? = nil,
         timeoutOverride: Duration?? = nil,
         outputLimitOverride: Int?? = nil
@@ -201,6 +235,7 @@ public struct ToolConfiguration: Sendable {
             context: context,
             executableOverride: executableOverride ?? self.executableOverride,
             environmentOverrides: environmentOverrides ?? self.environmentOverrides,
+            unsetEnvironmentVariables: unsetEnvironmentVariables ?? self.unsetEnvironmentVariables,
             workingDirectoryOverride: workingDirectoryOverride ?? self.workingDirectoryOverride,
             timeoutOverride: timeoutOverride ?? self.timeoutOverride,
             outputLimitOverride: outputLimitOverride ?? self.outputLimitOverride

@@ -261,33 +261,49 @@ private struct ResolvedCommand: Sendable {
 
 private struct CaptureLimitExceeded: Error, Sendable {}
 
-private enum EarlyTerminationReason: Sendable {
-    case outputLimitExceeded(command: String, limit: Int)
+/// The result of racing an operation against an optional timeout.
+private enum RaceOutcome<Value: Sendable>: Sendable {
+    case finished(Result<Value, any Error>)
+    case timedOut
 }
 
-private actor RunEventNotifier<Event: Sendable> {
-    private var continuation: CheckedContinuation<Event, Never>?
-    private var event: Event?
-
-    func wait() async -> Event {
-        if let event {
-            return event
-        }
-
-        return await withCheckedContinuation { continuation in
-            if let event {
-                continuation.resume(returning: event)
-            } else {
-                self.continuation = continuation
+/// Runs `operation` in a task group alongside a timer for `timeout`, returning whichever finishes
+/// first.
+///
+/// The loser is cancelled. When the timer wins, cancelling the operation makes swift-subprocess
+/// tear its process group down, and leaving the group waits for that operation to finish, so the
+/// processes are reaped before this returns. Cancelling the calling task cancels both children the
+/// same way.
+private func raceAgainstTimeout<Value: Sendable>(
+    _ timeout: Duration?,
+    operation: @escaping @Sendable () async throws -> Value
+) async -> RaceOutcome<Value> {
+    await withTaskGroup(of: RaceOutcome<Value>?.self) { group in
+        group.addTask {
+            do {
+                return .finished(.success(try await operation()))
+            } catch {
+                return .finished(.failure(error))
             }
         }
-    }
-
-    func notify(_ event: Event) {
-        guard self.event == nil else { return }
-        self.event = event
-        continuation?.resume(returning: event)
-        continuation = nil
+        if let timeout {
+            group.addTask {
+                do {
+                    try await Task.sleep(for: timeout)
+                    return .timedOut
+                } catch {
+                    return nil
+                }
+            }
+        }
+        for await outcome in group {
+            if let outcome {
+                group.cancelAll()
+                return outcome
+            }
+        }
+        // The operation child always produces an outcome.
+        return .finished(.failure(CancellationError()))
     }
 }
 
@@ -358,55 +374,24 @@ private func joined(_ chunks: [Data]) -> Data {
     return data
 }
 
-private struct SingleCommandRunner {
+private struct SingleCommandRunner: Sendable {
     let resolved: ResolvedCommand
 
     func run() async throws -> ShellOutput {
         let store = OutputCaptureStore(limit: resolved.outputLimit)
-        let eventNotifier = RunEventNotifier<SingleCommandRunEvent>()
-        let processTask = Task {
-            do {
-                let output = try await runSubprocess(store: store, eventNotifier: eventNotifier)
-                await eventNotifier.notify(.completed(.success(output)))
-                return output
-            } catch {
-                await eventNotifier.notify(.completed(.failure(errorDescription: String(describing: error))))
-                throw error
-            }
-        }
-        let timeoutTask = resolved.timeout.map { timeout in
-            Task {
-                try? await Task.sleep(for: timeout)
-                await eventNotifier.notify(.timedOut)
-            }
-        }
-        defer { timeoutTask?.cancel() }
-
-        do {
-            return try await withTaskCancellationHandler {
-                try await waitForSubprocess(
-                    processTask: processTask,
-                    store: store,
-                    eventNotifier: eventNotifier
-                )
-            } onCancel: {
-                processTask.cancel()
-                Task {
-                    await eventNotifier.notify(.canceled)
-                }
-            }
-        } catch is CancellationError {
-            processTask.cancel()
-            _ = await processTask.result
-            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
-            throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
+        switch await raceAgainstTimeout(resolved.timeout, operation: { try await runSubprocess(store: store) }) {
+        case let .finished(result):
+            return try result.get()
+        case .timedOut:
+            throw ShellError.timeout(
+                command: resolved.displayCommand,
+                duration: resolved.timeout ?? .zero,
+                partialOutput: makeOutput(snapshot: store.snapshot(), exitCode: -1)
+            )
         }
     }
 
-    private func runSubprocess(
-        store: OutputCaptureStore,
-        eventNotifier: RunEventNotifier<SingleCommandRunEvent>
-    ) async throws -> ShellOutput {
+    private func runSubprocess(store: OutputCaptureStore) async throws -> ShellOutput {
         do {
             let (stdinRoute, stdoutRoute, stderrRoute) = try makeRoutes(
                 stdin: resolved.stdinSource,
@@ -420,14 +405,14 @@ private struct SingleCommandRunner {
                 stdin: stdinRoute,
                 stdout: stdoutRoute,
                 stderr: stderrRoute
-            ) { outputSequence, errorSequence in
-                try await captureStreams(stdout: outputSequence, stderr: errorSequence, of: resolved, into: store) {
-                    await eventNotifier.notify(
-                        .earlyTerminated(
-                            .outputLimitExceeded(command: resolved.displayCommand, limit: resolved.outputLimit)
-                        )
-                    )
-                }
+            ) { outputSequence, errorSequence, terminate in
+                try await captureStreams(
+                    stdout: outputSequence,
+                    stderr: errorSequence,
+                    of: resolved,
+                    into: store,
+                    onLimitExceeded: terminate
+                )
             }
 
             let snapshot = store.snapshot()
@@ -460,53 +445,6 @@ private struct SingleCommandRunner {
             throw ShellError.spawnError(command: resolved.displayCommand, reason: String(describing: error))
         }
     }
-
-    private func waitForSubprocess(
-        processTask: Task<ShellOutput, any Error>,
-        store: OutputCaptureStore,
-        eventNotifier: RunEventNotifier<SingleCommandRunEvent>
-    ) async throws -> ShellOutput {
-        switch await eventNotifier.wait() {
-        case let .completed(.success(output)):
-            return output
-        case .completed(.failure):
-            return try await processTask.value
-        case .timedOut:
-            processTask.cancel()
-            _ = await processTask.result
-            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
-            throw ShellError.timeout(
-                command: resolved.displayCommand,
-                duration: resolved.timeout ?? .zero,
-                partialOutput: output
-            )
-        case let .earlyTerminated(reason):
-            processTask.cancel()
-            _ = await processTask.result
-            switch reason {
-            case let .outputLimitExceeded(command, limit):
-                let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
-                throw ShellError.outputLimitExceeded(command: command, limit: limit, partialOutput: output)
-            }
-        case .canceled:
-            processTask.cancel()
-            _ = await processTask.result
-            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
-            throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
-        }
-    }
-}
-
-private enum SingleCommandProcessCompletion: Sendable {
-    case success(ShellOutput)
-    case failure(errorDescription: String)
-}
-
-private enum SingleCommandRunEvent: Sendable {
-    case completed(SingleCommandProcessCompletion)
-    case timedOut
-    case earlyTerminated(EarlyTerminationReason)
-    case canceled
 }
 
 private enum SpawnedCommandTaskResult: Sendable {
@@ -818,14 +756,15 @@ private func routeSpawnStream(
 ///
 /// Streams the child writes elsewhere arrive as `nil` and are skipped. When a stream exceeds the
 /// output limit, `onLimitExceeded` runs from inside that stream's task, before the error unwinds the
-/// group: the group would otherwise wait for the other stream, which only ends once the process
-/// exits, and the process may be blocked writing to the stream nobody is reading any more.
+/// group, and must stop the process: the group would otherwise wait for the other stream, which
+/// only ends once the process exits, and the process may be blocked writing to the stream nobody is
+/// reading any more.
 private func captureStreams(
     stdout: SubprocessOutputSequence?,
     stderr: SubprocessOutputSequence?,
     of command: ResolvedCommand,
     into store: OutputCaptureStore,
-    onLimitExceeded: @escaping @Sendable () async -> Void
+    onLimitExceeded: @escaping @Sendable () -> Void
 ) async throws {
     try await withThrowingTaskGroup(of: Void.self) { group in
         for (sequence, stream, destination) in [
@@ -837,7 +776,7 @@ private func captureStreams(
                 do {
                     try await captureStream(sequence, stream: stream, destination: destination, into: store)
                 } catch is CaptureLimitExceeded {
-                    await onLimitExceeded()
+                    onLimitExceeded()
                     throw CaptureLimitExceeded()
                 }
             }
@@ -971,7 +910,8 @@ private func runRouted(
     stdin: StdinRoute,
     stdout: StreamRoute,
     stderr: StreamRoute,
-    body: (SubprocessOutputSequence?, SubprocessOutputSequence?) async throws -> Void
+    body: (SubprocessOutputSequence?, SubprocessOutputSequence?, _ terminate: @escaping @Sendable () -> Void)
+        async throws -> Void
 ) async throws -> TerminationStatus {
     switch stdin {
     case .none:
@@ -996,7 +936,8 @@ private func runRouted(
 }
 
 /// Runs `configuration` with each output stream wired per its route and calls `body` with the
-/// sequences of the routes SwiftyShell reads (`nil` for streams the child writes elsewhere).
+/// sequences of the routes SwiftyShell reads (`nil` for streams the child writes elsewhere) and a
+/// closure that kills the process group.
 ///
 /// swift-subprocess exposes `standardOutput` / `standardError` only when that stream's output type
 /// is `SequenceOutput`, so each route is turned into a concrete output type one stream at a time and
@@ -1006,7 +947,8 @@ private func runRouted<Input: InputProtocol>(
     input: Input,
     stdout: StreamRoute,
     stderr: StreamRoute,
-    body: (SubprocessOutputSequence?, SubprocessOutputSequence?) async throws -> Void
+    body: (SubprocessOutputSequence?, SubprocessOutputSequence?, _ terminate: @escaping @Sendable () -> Void)
+        async throws -> Void
 ) async throws -> TerminationStatus {
     switch stdout {
     case .read:
@@ -1041,7 +983,8 @@ private func runRouted<Input: InputProtocol, Output: OutputProtocol>(
     input: Input,
     output: Output,
     stderr: StreamRoute,
-    body: (SubprocessOutputSequence?, SubprocessOutputSequence?) async throws -> Void
+    body: (SubprocessOutputSequence?, SubprocessOutputSequence?, _ terminate: @escaping @Sendable () -> Void)
+        async throws -> Void
 ) async throws -> TerminationStatus {
     switch stderr {
     case .read:
@@ -1076,12 +1019,17 @@ private func runRouted<Input: InputProtocol, Output: OutputProtocol, Error: Erro
     input: Input,
     output: Output,
     error: Error,
-    body: (SubprocessOutputSequence?, SubprocessOutputSequence?) async throws -> Void
+    body: (SubprocessOutputSequence?, SubprocessOutputSequence?, _ terminate: @escaping @Sendable () -> Void)
+        async throws -> Void
 ) async throws -> TerminationStatus {
     let result = try await Subprocess.run(configuration, input: input, output: output, error: error) { execution in
         let outputSequence = (execution as Any as? Execution<Input, SequenceOutput, Error>)?.standardOutput
         let errorSequence = (execution as Any as? Execution<Input, Output, SequenceOutput>)?.standardError
-        try await body(outputSequence, errorSequence)
+        // Kills the process group; used to stop a process whose captured output hit its limit.
+        let terminate: @Sendable () -> Void = {
+            try? execution.send(signal: .kill, toProcessGroup: true)
+        }
+        try await body(outputSequence, errorSequence, terminate)
     }
     return result.terminationStatus
 }
@@ -1130,7 +1078,7 @@ private func openFileHandleIfNeeded(for destination: OutputDestination) throws -
     return try makeFileHandle(path: path, append: append)
 }
 
-private struct PipelineRunner {
+private struct PipelineRunner: Sendable {
     let resolved: [ResolvedCommand]
 
     func run() async throws -> ShellOutput {
@@ -1153,51 +1101,19 @@ private struct PipelineRunner {
 
         let stores = resolved.map { OutputCaptureStore(limit: $0.outputLimit) }
         let finalCommand = resolved[resolved.count - 1]
-        let eventNotifier = RunEventNotifier<PipelineRunEvent>()
-        let processTask = Task {
-            do {
-                let output = try await runPipelineProcess(
-                    stageInputs: stageInputs,
-                    stageOutputs: stageOutputs,
-                    stores: stores,
-                    eventNotifier: eventNotifier
-                )
-                await eventNotifier.notify(.completed(.success(output)))
-                return output
-            } catch {
-                await eventNotifier.notify(.completed(.failure(errorDescription: String(describing: error))))
-                throw error
-            }
+        // The shortest stage timeout governs the whole pipeline.
+        let timeout = resolved.compactMap(\.timeout).min()
+        let outcome = await raceAgainstTimeout(timeout) {
+            try await runPipelineProcess(stageInputs: stageInputs, stageOutputs: stageOutputs, stores: stores)
         }
-        let timeoutTask = resolved.compactMap(\.timeout).min().map { timeout in
-            Task {
-                try? await Task.sleep(for: timeout)
-                await eventNotifier.notify(.timedOut(duration: timeout))
-            }
-        }
-        defer { timeoutTask?.cancel() }
-
-        do {
-            return try await withTaskCancellationHandler {
-                try await waitForPipeline(
-                    processTask: processTask,
-                    stores: stores,
-                    eventNotifier: eventNotifier,
-                    finalCommand: finalCommand
-                )
-            } onCancel: {
-                processTask.cancel()
-                Task {
-                    await eventNotifier.notify(.canceled)
-                }
-            }
-        } catch is CancellationError {
-            processTask.cancel()
-            _ = await processTask.result
-            let snapshot = pipelineSnapshot(stores: stores)
-            throw ShellError.canceled(
+        switch outcome {
+        case let .finished(result):
+            return try result.get()
+        case .timedOut:
+            throw ShellError.timeout(
                 command: finalCommand.displayCommand,
-                partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
+                duration: timeout ?? .zero,
+                partialOutput: makeOutput(snapshot: pipelineSnapshot(stores: stores), exitCode: -1)
             )
         }
     }
@@ -1205,8 +1121,7 @@ private struct PipelineRunner {
     private func runPipelineProcess(
         stageInputs: [FileDescriptor?],
         stageOutputs: [FileDescriptor?],
-        stores: [OutputCaptureStore],
-        eventNotifier: RunEventNotifier<PipelineRunEvent>
+        stores: [OutputCaptureStore]
     ) async throws -> ShellOutput {
         let finalCommand = resolved[resolved.count - 1]
 
@@ -1226,16 +1141,10 @@ private struct PipelineRunner {
                                     command: command,
                                     input: input,
                                     pipedOutput: output,
-                                    store: store,
-                                    eventNotifier: eventNotifier
+                                    store: store
                                 )
                             )
                         } catch is CaptureLimitExceeded {
-                            await eventNotifier.notify(
-                                .earlyTerminated(
-                                    .outputLimitExceeded(command: command.displayCommand, limit: command.outputLimit)
-                                )
-                            )
                             return .captureLimitExceeded(index: index)
                         } catch is CancellationError {
                             return .canceled(index: index)
@@ -1273,9 +1182,8 @@ private struct PipelineRunner {
                     }
                 }
 
-                // Timeout is handled by the outer timeoutTask in runPipelineStages, which
-                // notifies via eventNotifier and cancels the processTask. Do not add an inner
-                // timeout task here: when a stage exits with a signal (e.g. SIGKILL / exit 137
+                // Timeout is handled by raceAgainstTimeout in runPipelineStages, which cancels
+                // this task when the timer wins. Do not add an inner timeout task here: when a stage exits with a signal (e.g. SIGKILL / exit 137
                 // on Linux) due to pipe closure after the first stage is torn down, the inner
                 // timeout task would be cancelled by group.cancelAll() before it can return
                 // .timedOut, causing the pipeline to surface exitFailure instead of timeout.
@@ -1290,13 +1198,13 @@ private struct PipelineRunner {
                     case let .stage(stageResult):
                         stageResults.append(stageResult)
                         // Only treat a non-zero exit as a failure when this task has not
-                        // been cancelled. On Linux, when the outer timeout fires,
-                        // waitForPipeline cancels processTask, and each stage's cancelled run()
+                        // been cancelled. On Linux, when the timeout fires, raceAgainstTimeout
+                        // cancels this task, and each stage's cancelled run()
                         // tears down its process group. Downstream stages that are SIGKILLed
                         // (exit 137) return a PipelineStageResult before the CancellationError
                         // propagates through the stage task. Checking Task.isCancelled here prevents those
                         // signal-induced exits from masking the ShellError.timeout that
-                        // waitForPipeline already threw.
+                        // runPipelineStages throws.
                         // A non-final stage killed by SIGPIPE only means a downstream stage
                         // stopped reading early (`yes | head -n 1`); the shell treats that as
                         // success, so it is not a pipeline failure here either.
@@ -1368,57 +1276,6 @@ private struct PipelineRunner {
             )
         }
     }
-
-    private func waitForPipeline(
-        processTask: Task<ShellOutput, any Error>,
-        stores: [OutputCaptureStore],
-        eventNotifier: RunEventNotifier<PipelineRunEvent>,
-        finalCommand: ResolvedCommand
-    ) async throws -> ShellOutput {
-        switch await eventNotifier.wait() {
-        case let .completed(.success(output)):
-            return output
-        case .completed(.failure):
-            return try await processTask.value
-        case let .timedOut(duration):
-            processTask.cancel()
-            _ = await processTask.result
-            let snapshot = pipelineSnapshot(stores: stores)
-            throw ShellError.timeout(
-                command: finalCommand.displayCommand,
-                duration: duration,
-                partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
-            )
-        case let .earlyTerminated(reason):
-            processTask.cancel()
-            _ = await processTask.result
-            switch reason {
-            case let .outputLimitExceeded(command, limit):
-                let output = makeOutput(snapshot: pipelineSnapshot(stores: stores), exitCode: -1)
-                throw ShellError.outputLimitExceeded(command: command, limit: limit, partialOutput: output)
-            }
-        case .canceled:
-            processTask.cancel()
-            _ = await processTask.result
-            let snapshot = pipelineSnapshot(stores: stores)
-            throw ShellError.canceled(
-                command: finalCommand.displayCommand,
-                partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
-            )
-        }
-    }
-}
-
-private enum PipelineProcessCompletion: Sendable {
-    case success(ShellOutput)
-    case failure(errorDescription: String)
-}
-
-private enum PipelineRunEvent: Sendable {
-    case completed(PipelineProcessCompletion)
-    case timedOut(duration: Duration)
-    case earlyTerminated(EarlyTerminationReason)
-    case canceled
 }
 
 private struct PipelinePipe: Sendable {
@@ -1478,8 +1335,7 @@ private func runPipelineStage(
     command: ResolvedCommand,
     input: FileDescriptor?,
     pipedOutput: FileDescriptor?,
-    store: OutputCaptureStore,
-    eventNotifier: RunEventNotifier<PipelineRunEvent>
+    store: OutputCaptureStore
 ) async throws -> PipelineStageResult {
     // Pipes to neighboring stages replace a stage's own stdin source and stdout destination.
     let stdinRoute: StdinRoute
@@ -1500,12 +1356,12 @@ private func runPipelineStage(
         throw error
     }
 
-    func capture(stdout: SubprocessOutputSequence?, stderr: SubprocessOutputSequence?) async throws {
-        try await captureStreams(stdout: stdout, stderr: stderr, of: command, into: store) {
-            await eventNotifier.notify(
-                .earlyTerminated(.outputLimitExceeded(command: command.displayCommand, limit: command.outputLimit))
-            )
-        }
+    func capture(
+        stdout: SubprocessOutputSequence?,
+        stderr: SubprocessOutputSequence?,
+        terminate: @escaping @Sendable () -> Void
+    ) async throws {
+        try await captureStreams(stdout: stdout, stderr: stderr, of: command, into: store, onLimitExceeded: terminate)
     }
 
     let terminationStatus = try await runRouted(

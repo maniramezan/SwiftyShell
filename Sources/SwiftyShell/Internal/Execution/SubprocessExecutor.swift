@@ -13,7 +13,31 @@ import SystemPackage
 /// (`.none`, an empty `/dev/null`) instead of opening a writer only to close it. The spawned-process
 /// state stores executions, and `Subprocess.Execution` is generic over its IO methods, so it needs
 /// this concrete type.
-private typealias StreamingExecution = Execution<NoInput, SequenceOutput, SequenceOutput>
+/// The parts of a running swift-subprocess `Execution` a spawned-process handle needs, erased from
+/// the execution's input and output types so any ``InputSource`` can be used.
+private struct SpawnedExecution: Sendable {
+    let processIdentifier: Int32
+    private let sendSignal: @Sendable (Signal, Bool) throws -> Void
+    private let runTeardown: @Sendable ([TeardownStep]) async -> Void
+
+    init<Input, Output, Error>(_ execution: Execution<Input, Output, Error>) {
+        self.processIdentifier = Int32(execution.processIdentifier.value)
+        self.sendSignal = { signal, toProcessGroup in
+            try execution.send(signal: signal, toProcessGroup: toProcessGroup)
+        }
+        self.runTeardown = { steps in
+            await execution.teardown(using: steps)
+        }
+    }
+
+    func send(_ signal: Signal, toProcessGroup: Bool = false) throws {
+        try sendSignal(signal, toProcessGroup)
+    }
+
+    func teardown(using steps: [TeardownStep]) async {
+        await runTeardown(steps)
+    }
+}
 
 /// The default ``CommandExecutor`` that runs commands using Swift's `Subprocess` package.
 ///
@@ -101,6 +125,7 @@ private struct ResolvedCommand: Sendable {
     let workingDirectory: String?
     let timeout: Duration?
     let outputLimit: Int
+    let stdinSource: InputSource
     let stdoutDestination: OutputDestination
     let stderrDestination: OutputDestination
     let displayCommand: String
@@ -128,6 +153,11 @@ private struct ResolvedCommand: Sendable {
         self.outputLimit = rawLimit == 0 ? Int.max : rawLimit
         if let timeout, timeout < .zero {
             throw ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")
+        }
+        if case let .file(path) = command.stdinSource {
+            self.stdinSource = .file(path: Self.absolutePath(path, relativeTo: resolvedWorkingDirectory))
+        } else {
+            self.stdinSource = command.stdinSource
         }
         self.stdoutDestination = Self.resolveOutputDestination(
             command.stdoutDestination,
@@ -375,7 +405,8 @@ private struct SingleCommandRunner {
         eventNotifier: RunEventNotifier<SingleCommandRunEvent>
     ) async throws -> ShellOutput {
         do {
-            let (stdoutRoute, stderrRoute) = try makeRoutes(
+            let (stdinRoute, stdoutRoute, stderrRoute) = try makeRoutes(
+                stdin: resolved.stdinSource,
                 stdout: resolved.stdoutDestination,
                 stderr: resolved.stderrDestination
             )
@@ -383,7 +414,7 @@ private struct SingleCommandRunner {
             // configuration's teardown sequence, killing the process group.
             let terminationStatus = try await runRouted(
                 resolved.configuration,
-                input: NoInput.none,
+                stdin: stdinRoute,
                 stdout: stdoutRoute,
                 stderr: stderrRoute
             ) { outputSequence, errorSequence in
@@ -503,7 +534,7 @@ private struct SpawnedCommandRunner: Sendable {
         await state.attachTask(task)
         let execution = try await state.waitForExecution()
         return SubprocessSpawnedProcess(
-            processIdentifier: Int32(execution.processIdentifier.value),
+            processIdentifier: execution.processIdentifier,
             standardOutput: stdoutStream.stream,
             standardError: stderrStream.stream,
             state: state
@@ -526,60 +557,28 @@ private struct SpawnedCommandRunner: Sendable {
                 stderrContinuation.finish()
             }
 
-            // The spawned configuration carries the caller's `TeardownStrategy` as its teardown
-            // sequence, so swift-subprocess applies it itself if the body throws.
-            let outcome = try await Subprocess.run(
-                resolved.configuration(teardownSequence: teardown.subprocessSteps),
-                input: .none,
-                output: .sequence,
-                error: .sequence
-            ) { execution in
-                await state.setExecution(execution)
-                let outputSequence = execution.standardOutput
-                let errorSequence = execution.standardError
-                try await withThrowingTaskGroup(of: SpawnedCommandTaskResult.self) { group in
-                    group.addTask {
-                        try await routeSpawnStream(
-                            outputSequence,
-                            stream: .stdout,
-                            destination: resolved.stdoutDestination,
-                            fileHandle: stdoutHandle,
-                            store: store,
-                            continuation: stdoutContinuation
-                        )
-                        return .streamComplete
-                    }
-                    group.addTask {
-                        try await routeSpawnStream(
-                            errorSequence,
-                            stream: .stderr,
-                            destination: resolved.stderrDestination,
-                            fileHandle: stderrHandle,
-                            store: store,
-                            continuation: stderrContinuation
-                        )
-                        return .streamComplete
-                    }
-                    var completedStreams = 0
-                    do {
-                        while let result = try await group.next() {
-                            switch result {
-                            case .streamComplete:
-                                completedStreams += 1
-                                if completedStreams == 2 {
-                                    group.cancelAll()
-                                    return
-                                }
-                            }
-                        }
-                    } catch is CaptureLimitExceeded {
-                        group.cancelAll()
-                        throw CaptureLimitExceeded()
-                    }
-                }
+            let streams = SpawnedStreams(
+                stdoutHandle: stdoutHandle,
+                stderrHandle: stderrHandle,
+                store: store,
+                stdoutContinuation: stdoutContinuation,
+                stderrContinuation: stderrContinuation
+            )
+            let terminationStatus: TerminationStatus
+            switch try makeStdinRoute(for: resolved.stdinSource) {
+            case .none:
+                terminationStatus = try await runSubprocess(input: NoInput.none, state: state, streams: streams)
+            case let .data(data):
+                terminationStatus = try await runSubprocess(input: DataInput.data(data), state: state, streams: streams)
+            case let .descriptor(fileDescriptor):
+                terminationStatus = try await runSubprocess(
+                    input: FileDescriptorInput.fileDescriptor(fileDescriptor, closeAfterSpawningProcess: true),
+                    state: state,
+                    streams: streams
+                )
             }
 
-            return makeOutput(snapshot: store.snapshot(), exitCode: outcome.terminationStatus.swiftyShellExitCode)
+            return makeOutput(snapshot: store.snapshot(), exitCode: terminationStatus.swiftyShellExitCode)
         } catch is CaptureLimitExceeded {
             return makeOutput(snapshot: store.snapshot(), exitCode: -1)
         } catch {
@@ -587,6 +586,76 @@ private struct SpawnedCommandRunner: Sendable {
             return makeOutput(snapshot: store.snapshot(), exitCode: -1)
         }
     }
+
+    /// Runs the spawned process with `input` as its stdin, streaming both outputs live.
+    private func runSubprocess<Input: InputProtocol>(
+        input: Input,
+        state: SubprocessSpawnedProcessState,
+        streams: SpawnedStreams
+    ) async throws -> TerminationStatus {
+        // The spawned configuration carries the caller's `TeardownStrategy` as its teardown
+        // sequence, so swift-subprocess applies it itself if the body throws.
+        let outcome = try await Subprocess.run(
+            resolved.configuration(teardownSequence: teardown.subprocessSteps),
+            input: input,
+            output: .sequence,
+            error: .sequence
+        ) { execution in
+            await state.setExecution(SpawnedExecution(execution))
+            let outputSequence = execution.standardOutput
+            let errorSequence = execution.standardError
+            try await withThrowingTaskGroup(of: SpawnedCommandTaskResult.self) { group in
+                group.addTask {
+                    try await routeSpawnStream(
+                        outputSequence,
+                        stream: .stdout,
+                        destination: resolved.stdoutDestination,
+                        fileHandle: streams.stdoutHandle,
+                        store: streams.store,
+                        continuation: streams.stdoutContinuation
+                    )
+                    return .streamComplete
+                }
+                group.addTask {
+                    try await routeSpawnStream(
+                        errorSequence,
+                        stream: .stderr,
+                        destination: resolved.stderrDestination,
+                        fileHandle: streams.stderrHandle,
+                        store: streams.store,
+                        continuation: streams.stderrContinuation
+                    )
+                    return .streamComplete
+                }
+                var completedStreams = 0
+                do {
+                    while let result = try await group.next() {
+                        switch result {
+                        case .streamComplete:
+                            completedStreams += 1
+                            if completedStreams == 2 {
+                                group.cancelAll()
+                                return
+                            }
+                        }
+                    }
+                } catch is CaptureLimitExceeded {
+                    group.cancelAll()
+                    throw CaptureLimitExceeded()
+                }
+            }
+        }
+        return outcome.terminationStatus
+    }
+}
+
+/// Where a spawned process's output goes while it runs.
+private struct SpawnedStreams: Sendable {
+    let stdoutHandle: FileHandle?
+    let stderrHandle: FileHandle?
+    let store: OutputCaptureStore
+    let stdoutContinuation: AsyncStream<String>.Continuation
+    let stderrContinuation: AsyncStream<String>.Continuation
 }
 
 private final class SubprocessSpawnedProcess: SpawnedProcess, @unchecked Sendable {
@@ -632,8 +701,8 @@ private actor SubprocessSpawnedProcessState {
     private let teardown: TeardownStrategy
     private var task: Task<ShellOutput, Never>?
     private var cachedOutput: ShellOutput?
-    private var executionResult: Result<StreamingExecution, any Error>?
-    private var executionContinuations: [CheckedContinuation<Result<StreamingExecution, any Error>, Never>] = []
+    private var executionResult: Result<SpawnedExecution, any Error>?
+    private var executionContinuations: [CheckedContinuation<Result<SpawnedExecution, any Error>, Never>] = []
     private var didTeardown = false
     private var hasExited = false
 
@@ -645,7 +714,7 @@ private actor SubprocessSpawnedProcessState {
         self.task = task
     }
 
-    func setExecution(_ execution: StreamingExecution) {
+    func setExecution(_ execution: SpawnedExecution) {
         guard executionResult == nil else { return }
         executionResult = .success(execution)
         resumeExecutionContinuations(with: .success(execution))
@@ -657,8 +726,8 @@ private actor SubprocessSpawnedProcessState {
         resumeExecutionContinuations(with: .failure(error))
     }
 
-    func waitForExecution() async throws -> StreamingExecution {
-        let result: Result<StreamingExecution, any Error>
+    func waitForExecution() async throws -> SpawnedExecution {
+        let result: Result<SpawnedExecution, any Error>
         if let executionResult {
             result = executionResult
         } else {
@@ -669,7 +738,7 @@ private actor SubprocessSpawnedProcessState {
         return try result.get()
     }
 
-    private func resumeExecutionContinuations(with result: Result<StreamingExecution, any Error>) {
+    private func resumeExecutionContinuations(with result: Result<SpawnedExecution, any Error>) {
         let continuations = executionContinuations
         executionContinuations.removeAll(keepingCapacity: false)
         for continuation in continuations {
@@ -679,7 +748,7 @@ private actor SubprocessSpawnedProcessState {
 
     func send(_ signal: ProcessSignal) async throws {
         let execution = try await waitForExecution()
-        try execution.sendSwiftyShell(signal)
+        try execution.send(signal.subprocessSignal)
     }
 
     func teardownAndWait() async -> ShellOutput {
@@ -696,7 +765,7 @@ private actor SubprocessSpawnedProcessState {
                 // ID cannot be reused while any member is alive; only if every member exited during
                 // the teardown await could the ID be free, and it would have to be reused by an
                 // unrelated group within that instant for this kill to reach it.
-                try? execution.send(signal: .kill, toProcessGroup: true)
+                try? execution.send(.kill, toProcessGroup: true)
             }
         }
         return await output()
@@ -843,6 +912,84 @@ private func openOutputFile(path: String, append: Bool) throws -> FileDescriptor
         options: append ? [.create, .append] : [.create, .truncate],
         permissions: [.ownerReadWrite, .groupReadWrite, .otherReadWrite]
     )
+}
+
+/// How a child's stdin is wired.
+private enum StdinRoute {
+    /// An empty stdin.
+    case none
+    /// Bytes swift-subprocess writes to the child's stdin, then closes it.
+    case data(Data)
+    /// A descriptor the child reads directly; swift-subprocess closes it here once spawned.
+    case descriptor(FileDescriptor)
+
+    /// Closes a descriptor that was opened but never handed to swift-subprocess.
+    func closeUnused() {
+        if case let .descriptor(fileDescriptor) = self {
+            try? fileDescriptor.close()
+        }
+    }
+}
+
+private func makeStdinRoute(for source: InputSource) throws -> StdinRoute {
+    switch source {
+    case .none:
+        return .none
+    case let .data(data):
+        return .data(data)
+    case let .string(text):
+        return .data(Data(text.utf8))
+    case let .file(path):
+        return .descriptor(try FileDescriptor.open(FilePath(path), .readOnly))
+    }
+}
+
+/// Opens the stdin and output routes for one process, closing anything already opened if a later
+/// route fails.
+private func makeRoutes(
+    stdin: InputSource,
+    stdout: OutputDestination,
+    stderr: OutputDestination
+) throws -> (stdin: StdinRoute, stdout: StreamRoute, stderr: StreamRoute) {
+    let stdinRoute = try makeStdinRoute(for: stdin)
+    do {
+        let (stdoutRoute, stderrRoute) = try makeRoutes(stdout: stdout, stderr: stderr)
+        return (stdinRoute, stdoutRoute, stderrRoute)
+    } catch {
+        stdinRoute.closeUnused()
+        throw error
+    }
+}
+
+/// Runs `configuration` with stdin and each output stream wired per their routes; see
+/// ``runRouted(_:input:stdout:stderr:body:)``.
+private func runRouted(
+    _ configuration: Configuration,
+    stdin: StdinRoute,
+    stdout: StreamRoute,
+    stderr: StreamRoute,
+    body: (SubprocessOutputSequence?, SubprocessOutputSequence?) async throws -> Void
+) async throws -> TerminationStatus {
+    switch stdin {
+    case .none:
+        return try await runRouted(configuration, input: NoInput.none, stdout: stdout, stderr: stderr, body: body)
+    case let .data(data):
+        return try await runRouted(
+            configuration,
+            input: DataInput.data(data),
+            stdout: stdout,
+            stderr: stderr,
+            body: body
+        )
+    case let .descriptor(fileDescriptor):
+        return try await runRouted(
+            configuration,
+            input: FileDescriptorInput.fileDescriptor(fileDescriptor, closeAfterSpawningProcess: true),
+            stdout: stdout,
+            stderr: stderr,
+            body: body
+        )
+    }
 }
 
 /// Runs `configuration` with each output stream wired per its route and calls `body` with the
@@ -1331,26 +1478,22 @@ private func runPipelineStage(
     store: OutputCaptureStore,
     eventNotifier: RunEventNotifier<PipelineRunEvent>
 ) async throws -> PipelineStageResult {
-    // An intermediate stage's stdout is the pipe to the next stage; its own destination is ignored.
+    // Pipes to neighboring stages replace a stage's own stdin source and stdout destination.
+    let stdinRoute: StdinRoute
     let stdoutRoute: StreamRoute
     let stderrRoute: StreamRoute
     do {
-        if let pipedOutput {
-            stdoutRoute = .descriptor(pipedOutput)
-            do {
-                stderrRoute = try makeRoute(for: command.stderrDestination)
-            } catch {
-                stdoutRoute.closeUnused()
-                throw error
-            }
-        } else {
-            (stdoutRoute, stderrRoute) = try makeRoutes(
-                stdout: command.stdoutDestination,
-                stderr: command.stderrDestination
-            )
-        }
+        let routes = try makeRoutes(
+            stdin: input == nil ? command.stdinSource : .none,
+            stdout: pipedOutput == nil ? command.stdoutDestination : .discard,
+            stderr: command.stderrDestination
+        )
+        stdinRoute = input.map { .descriptor($0) } ?? routes.stdin
+        stdoutRoute = pipedOutput.map { .descriptor($0) } ?? routes.stdout
+        stderrRoute = routes.stderr
     } catch {
         try? input?.close()
+        try? pipedOutput?.close()
         throw error
     }
 
@@ -1362,24 +1505,13 @@ private func runPipelineStage(
         }
     }
 
-    let terminationStatus: TerminationStatus
-    if let input {
-        terminationStatus = try await runRouted(
-            command.configuration,
-            input: FileDescriptorInput.fileDescriptor(input, closeAfterSpawningProcess: true),
-            stdout: stdoutRoute,
-            stderr: stderrRoute,
-            body: capture
-        )
-    } else {
-        terminationStatus = try await runRouted(
-            command.configuration,
-            input: NoInput.none,
-            stdout: stdoutRoute,
-            stderr: stderrRoute,
-            body: capture
-        )
-    }
+    let terminationStatus = try await runRouted(
+        command.configuration,
+        stdin: stdinRoute,
+        stdout: stdoutRoute,
+        stderr: stderrRoute,
+        body: capture
+    )
     return PipelineStageResult(index: index, command: command, terminationStatus: terminationStatus)
 }
 
@@ -1432,12 +1564,6 @@ private extension ProcessSignal {
         case .quit:
             .quit
         }
-    }
-}
-
-private extension Execution {
-    func sendSwiftyShell(_ signal: ProcessSignal) throws {
-        try send(signal: signal.subprocessSignal, toProcessGroup: false)
     }
 }
 

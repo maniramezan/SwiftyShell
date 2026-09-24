@@ -13,6 +13,13 @@ extension ShellContext {
         var environment = ProcessInfo.processInfo.environment
         environment["GIT_CONFIG_GLOBAL"] = "/dev/null"
         environment["GIT_CONFIG_NOSYSTEM"] = "1"
+        // Ignoring the global config also drops any `safe.directory` entry, and git refuses to use a
+        // repository whose directory appears owned by another user (as temp directories do in some
+        // containers and bind mounts). Environment-supplied config counts as command-line config,
+        // which git honors for `safe.directory`.
+        environment["GIT_CONFIG_COUNT"] = "1"
+        environment["GIT_CONFIG_KEY_0"] = "safe.directory"
+        environment["GIT_CONFIG_VALUE_0"] = "*"
         return ShellContext(environment: environment)
     }
 }

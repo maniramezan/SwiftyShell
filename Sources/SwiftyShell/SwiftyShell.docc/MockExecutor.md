@@ -42,7 +42,8 @@ ran without writing its own recorder:
 
 Use stubs to answer different commands differently. Stubs are checked in order,
 so list specific ones first. A command that matches no stub throws
-``ShellError/commandNotFound(_:)`` unless you pass a `fallback`, which keeps
+``ShellError/commandNotFound(_:)`` (with the executable name, as a missing
+binary does) unless you pass a `fallback`, which keeps
 unexpected commands from passing silently:
 
 ```swift
@@ -69,7 +70,8 @@ Pipelines follow the production executor's semantics: every stage's
 configuration is validated first, every stage is invoked, the result has the
 final stage's stdout and every stage's stderr in order, and the first failing
 stage in pipeline order is reported through
-``ShellError/exitFailure(command:output:)``. The mock does not feed one
+``ShellError/exitFailure(command:output:)``. As in production, a non-final
+stage that reports `128 + SIGPIPE` is not a failure. The mock does not feed one
 stage's stdout into the next.
 
 To exercise error paths, return a non-zero exit code — typed families and raw

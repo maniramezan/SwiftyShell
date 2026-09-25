@@ -91,8 +91,8 @@ struct MockExecutorTests {
         await #expect {
             try await Command("npm", arguments: "ci").run(in: ShellContext(executor: mock))
         } throws: { error in
-            guard case let .commandNotFound(command) = error as? ShellError else { return false }
-            return command == "npm ci"
+            guard case let .commandNotFound(executable) = error as? ShellError else { return false }
+            return executable == "npm"
         }
     }
 
@@ -135,6 +135,31 @@ struct MockExecutorTests {
                 .run(in: ShellContext(executor: mock))
         }
         #expect(mock.recordedCommands.isEmpty)
+    }
+
+    @Test func pipelineToleratesUpstreamBrokenPipeLikeProduction() async throws {
+        let mock = MockExecutor { command, _ in
+            command.executableName == "yes"
+                ? ShellOutput(exitCode: 128 + SIGPIPE) : ShellOutput(stdout: "y\n", exitCode: 0)
+        }
+
+        let output = try await Command("yes").pipe(to: Command("head", arguments: "-n", "1"))
+            .run(in: ShellContext(executor: mock))
+
+        #expect(output.stdout == "y\n")
+    }
+
+    @Test func pipelineFailsWhenFinalStageReportsBrokenPipe() async throws {
+        let mock = MockExecutor { command, _ in
+            ShellOutput(exitCode: command.executableName == "last" ? 128 + SIGPIPE : 0)
+        }
+
+        await #expect {
+            try await Command("first").pipe(to: Command("last")).run(in: ShellContext(executor: mock))
+        } throws: { error in
+            guard case let .exitFailure(command, output) = error as? ShellError else { return false }
+            return command == "last" && output.exitCode == 128 + SIGPIPE
+        }
     }
 
     @Test func pipelineReportsFirstFailingStageInPipelineOrder() async throws {

@@ -103,7 +103,7 @@ public struct MockExecutor: CommandExecutor {
     /// - Parameters:
     ///   - stubs: Stubs checked in order; the first match supplies the output.
     ///   - fallback: The output for commands that match no stub. When `nil` (the default), an
-    ///     unmatched command throws ``ShellError/commandNotFound(_:)`` with its display string, so
+    ///     unmatched command throws ``ShellError/commandNotFound(_:)`` with its executable name, so
     ///     unexpected commands fail the test loudly.
     public init(stubs: [Stub], fallback: ShellOutput? = nil) {
         self.init { command, _ in
@@ -111,7 +111,7 @@ public struct MockExecutor: CommandExecutor {
                 return stub.output
             }
             guard let fallback else {
-                throw ShellError.commandNotFound(command.displayString())
+                throw ShellError.commandNotFound(command.executableName)
             }
             return fallback
         }
@@ -158,8 +158,9 @@ public struct MockExecutor: CommandExecutor {
     /// concurrently). The result carries the final stage's stdout and the stderr of every stage
     /// concatenated in stage order. When a stage returns a non-zero exit code, the first such
     /// stage in pipeline order is reported through ``ShellError/exitFailure(command:output:)``
-    /// with that stage's exit code and the combined output. The mock does not feed one stage's
-    /// stdout into the next stage.
+    /// with that stage's exit code and the combined output. As in production, a non-final stage
+    /// that reports `128 + SIGPIPE` (a downstream stage stopped reading) is not a failure. The
+    /// mock does not feed one stage's stdout into the next stage.
     ///
     /// - Parameters:
     ///   - pipeline: The pipeline to run.
@@ -180,7 +181,13 @@ public struct MockExecutor: CommandExecutor {
 
         let stdout = outputs.last?.stdout ?? ""
         let stderr = outputs.map(\.stderr).joined()
-        if let failure = zip(pipeline.stages, outputs).first(where: { $0.1.exitCode != 0 }) {
+        let finalIndex = outputs.count - 1
+        let failure = zip(pipeline.stages, outputs).enumerated().first { index, stageAndOutput in
+            let exitCode = stageAndOutput.1.exitCode
+            let isBenignBrokenPipe = index < finalIndex && exitCode == 128 + SIGPIPE
+            return exitCode != 0 && !isBenignBrokenPipe
+        }.map(\.element)
+        if let failure {
             throw ShellError.exitFailure(
                 command: failure.0.displayString(),
                 output: ShellOutput(stdout: stdout, stderr: stderr, exitCode: failure.1.exitCode)

@@ -78,4 +78,20 @@ struct KubectlCommandTests {
         #expect(command?.arguments == ["version"])
     }
 }
+
+/// Every Boolean flag setter adds exactly its flag when enabled and removes it when disabled.
+struct KubectlFlagSetterTests {
+    @Test func eachFlagSetterTogglesItsFlag() {
+        let base = Kubectl()
+        let setters: [(flag: String, set: (Kubectl, Bool) -> Kubectl)] = [
+            ("--all-namespaces", { $0.allNamespaces($1) })
+        ]
+        for (flag, set) in setters {
+            #expect(!base.command().arguments.contains(flag), "\(flag) present before enabling")
+            let enabled = set(base, true)
+            #expect(enabled.command().arguments.contains(flag), "\(flag) missing after enabling")
+            #expect(!set(enabled, false).command().arguments.contains(flag), "\(flag) kept after disabling")
+        }
+    }
+}
 #endif

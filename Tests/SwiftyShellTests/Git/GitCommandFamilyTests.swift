@@ -906,4 +906,46 @@ private func initializeRepository(at url: URL, context: ShellContext) async thro
         in: context
     )
 }
+
+/// Every Git subcommand builder honors shared tool configuration and stream routing without
+/// changing its argv, and leaves the value it was derived from untouched.
+struct GitSubcommandConfigurationTests {
+    @Test func everySubcommandAppliesSharedOverridesAndRouting() async throws {
+        let mock = MockExecutor(stdout: "ok")
+        let git = Git(context: ShellContext(executor: mock))
+        let builders: [any RunnableCommandFamily] = [
+            git.branch().list(), git.stash().list(), git.worktree().list(), git.diff().staged(),
+            git.log().maxCount(1), git.gitConfig().list(), git.merge().branch("main"),
+            git.commit().message("m"), git.rebase().onto("main"), git.submodule().status(),
+        ]
+        for builder in builders {
+            let original = builder.command()
+            let updated = builder.env("SET", "1").unsetEnv("REMOVE").workingDirectory("/repo")
+                .executable("/opt/git").timeout(.seconds(2)).outputLimit(1024).stdout(.tee).stderr(.discard)
+            let command = updated.command()
+            #expect(command.arguments == original.arguments)
+            #expect(command.executableOverride == "/opt/git")
+            #expect(command.workingDirectoryOverride == "/repo")
+            #expect(command.environmentOverrides == ["SET": "1"])
+            #expect(command.unsetEnvironmentVariables == ["REMOVE"])
+            #expect(command.timeoutOverride == .seconds(2))
+            #expect(command.outputLimitOverride == 1024)
+            #expect(command.stdoutDestination == .tee)
+            #expect(command.stderrDestination == .discard)
+            #expect(builder.command().arguments == original.arguments)
+            #expect(try await updated.run().stdout == "ok")
+        }
+    }
+
+    @Test func remainingOperationsBuildTheirArgv() {
+        #expect(Git().rebase().continue().command().arguments == ["rebase", "--continue"])
+        #expect(Git().rebase().abort().command().arguments == ["rebase", "--abort"])
+        #expect(
+            Git().gitConfig().local().unset("user.name").command().arguments == [
+                "config", "--local", "--unset", "user.name",
+            ]
+        )
+        #expect(Git().diff().paths(["a", "b"]).command().arguments.suffix(3) == ["--", "a", "b"])
+    }
+}
 #endif

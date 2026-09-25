@@ -207,4 +207,29 @@ struct DockerCommandTests {
         #expect(await recorder.workingDirectory == "/context")
     }
 }
+
+/// Every Boolean flag setter adds exactly its flag when enabled and removes it when disabled.
+struct DockerFlagSetterTests {
+    @Test func eachFlagSetterTogglesItsFlag() {
+        let base = Docker().subcommand("build")
+        let setters: [(flag: String, set: (Docker, Bool) -> Docker)] = [
+            ("--debug", { $0.debugMode($1) }),
+            ("--tls", { $0.tls($1) }),
+            ("--tlsverify", { $0.tlsVerify($1) }),
+            ("--push", { $0.push($1) }),
+            ("--load", { $0.load($1) }),
+            ("--pull", { $0.pull($1) }),
+            ("--rm", { $0.removeWhenDone($1) }),
+            ("--detach", { $0.detach($1) }),
+            ("--interactive", { $0.interactive($1) }),
+            ("--tty", { $0.tty($1) }),
+        ]
+        for (flag, set) in setters {
+            #expect(!base.command().arguments.contains(flag), "\(flag) present before enabling")
+            let enabled = set(base, true)
+            #expect(enabled.command().arguments.contains(flag), "\(flag) missing after enabling")
+            #expect(!set(enabled, false).command().arguments.contains(flag), "\(flag) kept after disabling")
+        }
+    }
+}
 #endif

@@ -3,6 +3,37 @@ import Testing
 @testable import SwiftyShell
 
 struct HelmCommandTests {
+    @Test func allOperationsPreserveCopiesAndSharedOverrides() async throws {
+        let mock = MockExecutor(stdout: "ok")
+        let context = ShellContext(executor: mock)
+        let helm = Helm(context: context)
+        let operations: [any RunnableCommandFamily] = [
+            helm.template(chart: "chart"), helm.lint(chart: "chart"),
+            helm.install(release: "api", chart: "chart"), helm.upgrade(release: "api", chart: "chart"),
+            helm.uninstall("api"), helm.list(), helm.status(release: "api"),
+        ]
+        for operation in operations {
+            let original = operation.command()
+            let updated = operation.env("SET", "1").unsetEnv("REMOVE")
+                .workingDirectory("/charts").executable("/opt/helm")
+                .timeout(.seconds(2)).outputLimit(1024).stdout(.tee).stderr(.discard)
+            let command = updated.command()
+            #expect(command.arguments == original.arguments)
+            #expect(command.executableOverride == "/opt/helm")
+            #expect(command.workingDirectoryOverride == "/charts")
+            #expect(command.environmentOverrides == ["SET": "1"])
+            #expect(command.unsetEnvironmentVariables == ["REMOVE"])
+            #expect(command.timeoutOverride == .seconds(2))
+            #expect(command.outputLimitOverride == 1024)
+            #expect(command.stdoutDestination == .tee)
+            #expect(command.stderrDestination == .discard)
+            #expect(operation.command().arguments == original.arguments)
+            #expect(try await updated.run().stdout == "ok")
+            let process = try await updated.spawn()
+            #expect(await process.waitForExit().stdout == "ok")
+        }
+    }
+
     @Test func exclusiveModesPreserveOtherSelections() {
         let base = Helm().upgrade(release: "api", chart: "chart").reuseValues()
         #expect(base.resetValues().command().arguments == ["upgrade", "--reset-values", "api", "chart"])

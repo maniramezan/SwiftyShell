@@ -2,12 +2,18 @@ import Foundation
 import Testing
 @testable import SwiftyShell
 
-private func waitForFile(at path: String) async throws {
-    for _ in 0..<100 {
+/// Polls for a marker file written by a test subprocess.
+///
+/// The deadline is generous because process startup can take seconds on loaded CI runners
+/// (notably the coverage job); the wait returns as soon as the file appears.
+private func waitForFile(at path: String, timeout: Duration = .seconds(10)) async throws {
+    let clock = ContinuousClock()
+    let deadline = clock.now + timeout
+    while clock.now < deadline {
         if FileManager.default.fileExists(atPath: path) {
             return
         }
-        try await Task.sleep(nanoseconds: 10_000_000)
+        try await Task.sleep(for: .milliseconds(10))
     }
     Issue.record("Timed out waiting for marker file at \(path)")
 }
@@ -115,8 +121,10 @@ struct PipelineTests {
         defer { try? FileManager.default.removeItem(atPath: marker) }
 
         let task = Task {
+            // The timeout clock starts when `run` is called, so it must cover process startup on a
+            // slow runner; a 1-second timeout could fire before `start` was written.
             try await Command("/bin/sh", arguments: "-c", "printf 'start'; exec sleep 30")
-                .timeout(1)
+                .timeout(3)
                 .pipe(
                     to: Command(
                         "/bin/sh",

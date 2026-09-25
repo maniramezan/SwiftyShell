@@ -104,6 +104,39 @@ struct SpawnTests {
         #expect(output == ShellOutput(stdout: "spawned", stderr: "err", exitCode: 0))
     }
 
+    @Test func realSpawnStreamDoesNotSplitMultiByteCharacters() async throws {
+        let text = String(repeating: "€", count: 200_000)
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("swiftyshell-utf8-\(UUID().uuidString).txt").path
+        try Data(text.utf8).write(to: URL(fileURLWithPath: path))
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        let process = try await Command("cat", arguments: path).spawn()
+        var streamed = ""
+        for await chunk in process.standardOutput {
+            streamed += chunk
+        }
+        let output = await process.waitForExit()
+
+        #expect(streamed == text)
+        #expect(output.stdout == text)
+    }
+
+    @Test func realSpawnStreamsDiscardedOutputWithoutRetainingIt() async throws {
+        let process = try await Command("/bin/sh", arguments: "-c", "printf live")
+            .stdout(.discard)
+            .spawn()
+
+        var streamed = ""
+        for await chunk in process.standardOutput {
+            streamed += chunk
+        }
+        let output = await process.waitForExit()
+
+        #expect(streamed == "live")
+        #expect(output.stdout.isEmpty)
+    }
+
     @Test func realSpawnCanBeInterrupted() async throws {
         let process = try await Command("/bin/sh", arguments: "-c", "while true; do sleep 1; done")
             .spawn(teardown: .interruptThenTerminate)

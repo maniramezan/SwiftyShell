@@ -14,9 +14,15 @@ public protocol SpawnedProcess: Sendable {
     var processIdentifier: Int32 { get }
 
     /// Real-time stdout chunks as UTF-8 text.
+    ///
+    /// Chunks have arbitrary sizes and are not split on line boundaries, but a chunk never ends
+    /// inside a multi-byte UTF-8 character. The built-in executor keeps the 1,024 most recent unread
+    /// chunks and drops older ones, so an unread stream cannot grow without limit.
     var standardOutput: AsyncStream<String> { get }
 
     /// Real-time stderr chunks as UTF-8 text.
+    ///
+    /// Chunking and buffering behave like ``standardOutput``.
     var standardError: AsyncStream<String> { get }
 
     /// Sends a signal to the running process.

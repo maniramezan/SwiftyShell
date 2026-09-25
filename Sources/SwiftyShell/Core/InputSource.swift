@@ -29,8 +29,9 @@ import Foundation
 ///     .run(in: context)
 /// ```
 ///
-/// In a ``Pipeline``, only the first stage's input source is used; every later stage reads the
-/// previous stage's stdout.
+/// In a ``Pipeline``, only the first stage may set an input source; every later stage reads the
+/// previous stage's stdout, and setting one there fails with
+/// ``ShellError/invalidConfiguration(description:)``.
 public enum InputSource: Sendable, Equatable {
     /// An empty stdin: the command reads end of file immediately. This is the default.
     case none

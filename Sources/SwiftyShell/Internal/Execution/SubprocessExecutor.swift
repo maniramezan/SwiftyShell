@@ -724,8 +724,12 @@ private actor SubprocessSpawnedProcessState {
                 // swift-subprocess stops tearing down as soon as the process itself exits, so a
                 // descendant that ignored an earlier step's signal (for example a background job,
                 // which starts with SIGINT ignored) would survive. Kill whatever is left of the
-                // group. Its ID cannot be reused while any member is still alive, and the process
-                // was running when teardown began, so this cannot reach an unrelated group.
+                // group. This is sent unconditionally: the process may already have been reaped
+                // (swift-subprocess stops waiting on the output pipes once it exits) while
+                // descendants live on, so `hasExited` cannot tell whether anything remains. A group
+                // ID cannot be reused while any member is alive; only if every member exited during
+                // the teardown await could the ID be free, and it would have to be reused by an
+                // unrelated group within that instant for this kill to reach it.
                 try? execution.send(signal: .kill, toProcessGroup: true)
             }
         }

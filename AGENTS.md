@@ -171,7 +171,7 @@ The repository ships a `.swift-format` config at the repo root that encodes the 
 ### Public API Design
 
 - All public types are value types (`struct`) conforming to `Sendable`
-- Fluent builder pattern: every mutating method returns a new `Self` copy
+- Fluent builder pattern: every mutating method returns a new `Self` copy via `modified(self) { $0.state.x = … }`; state is a private struct of `var`s with defaults (no hand-written memberwise `init`/`copy(...)`, whose double-optional `nil` silently meant "keep")
 - Model mutually exclusive flags (operations, modes, overwrite policies) as one internal enum rather than independent `Bool`s, so invalid argv such as `git branch --list -d -m` cannot be built; enabling one selects it and the last call wins (use the internal `toggledMode` helper), and options that belong to one operation are emitted only in that operation.
 - `init(context: ShellContext = .init())` is the standard entry point for typed clients
 - Every typed client exposes `executable(_:)`, `env(_:_:)`, `workingDirectory(_:)`, `timeout(_:)`, `outputLimit(_:)`, `command() -> Command`, and `run() async throws`; clients conforming to `RunnableCommandFamily` also inherit `spawn(teardown:) async throws`

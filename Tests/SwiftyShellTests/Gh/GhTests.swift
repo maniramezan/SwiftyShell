@@ -184,4 +184,45 @@ struct GhCommandTests {
         #expect(await recorder.workingDirectory == "/context")
     }
 }
+
+/// Every Boolean flag setter adds exactly its flag when enabled and removes it when disabled.
+struct GhFlagSetterTests {
+    @Test func eachFlagSetterTogglesItsFlag() {
+        let base = Gh().issue("list")
+        let setters: [(flag: String, set: (Gh, Bool) -> Gh)] = [
+            ("--web", { $0.web($1) }),
+            ("--confirm", { $0.confirm($1) }),
+            ("--silent", { $0.silent($1) }),
+        ]
+        for (flag, set) in setters {
+            #expect(!base.command().arguments.contains(flag), "\(flag) present before enabling")
+            let enabled = set(base, true)
+            #expect(enabled.command().arguments.contains(flag), "\(flag) missing after enabling")
+            #expect(!set(enabled, false).command().arguments.contains(flag), "\(flag) kept after disabling")
+        }
+    }
+}
+
+struct GhCommandGroupTests {
+    @Test func commandGroupsBuildTheirArgv() {
+        let cases: [(Gh, [String])] = [
+            (Gh().alias("list"), ["alias", "list"]), (Gh().attestation("verify"), ["attestation", "verify"]),
+            (Gh().auth("status"), ["auth", "status"]), (Gh().browse("README.md"), ["browse", "README.md"]),
+            (Gh().cache("list"), ["cache", "list"]), (Gh().completion("zsh"), ["completion", "zsh"]),
+            (Gh().config("get"), ["config", "get"]), (Gh().gist("list"), ["gist", "list"]),
+            (Gh().gpgKey("list"), ["gpg-key", "list"]), (Gh().issue("list"), ["issue", "list"]),
+            (Gh().label("list"), ["label", "list"]), (Gh().licenses(), ["licenses"]),
+            (Gh().org("list"), ["org", "list"]), (Gh().project("list"), ["project", "list"]),
+            (Gh().release("list"), ["release", "list"]), (Gh().ruleset("list"), ["ruleset", "list"]),
+            (Gh().runCommand("list"), ["run", "list"]), (Gh().search("repos"), ["search", "repos"]),
+            (Gh().secret("list"), ["secret", "list"]), (Gh().status(), ["status"]),
+            (Gh().variable("list"), ["variable", "list"]),
+            (Gh().issue("list").json("number", "title"), ["issue", "list", "--json", "number,title"]),
+            (Gh().subcommand("repo", "view").positionalArguments(["cli/cli"]), ["repo", "view", "cli/cli"]),
+        ]
+        for (gh, expected) in cases {
+            #expect(gh.command().arguments == expected)
+        }
+    }
+}
 #endif

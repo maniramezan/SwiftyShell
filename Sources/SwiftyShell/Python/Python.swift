@@ -13,7 +13,7 @@ import Foundation
 ///     .run()
 /// ```
 public struct Python: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -27,54 +27,76 @@ public struct Python: RunnableCommandFamily {
 
     /// Returns a copy with updated shared tool configuration.
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that prints Python version information with `--version`.
-    public func version() -> Self { copy(mode: .version, programArguments: []) }
+    public func version() -> Self {
+        modified(self) {
+            $0.state.mode = .version
+            $0.state.arguments = []
+        }
+    }
 
     /// Returns a copy that runs a module with `-m <name>`.
-    public func module(_ name: String) -> Self { copy(mode: .module(name), programArguments: []) }
+    public func module(_ name: String) -> Self {
+        modified(self) {
+            $0.state.mode = .module(name)
+            $0.state.arguments = []
+        }
+    }
 
     /// Returns a copy that runs code with `-c <code>`.
-    public func commandString(_ code: String) -> Self { copy(mode: .command(code), programArguments: []) }
+    public func commandString(_ code: String) -> Self {
+        modified(self) {
+            $0.state.mode = .command(code)
+            $0.state.arguments = []
+        }
+    }
 
     /// Returns a copy that runs a Python script path.
-    public func script(_ path: String) -> Self { copy(mode: .script(path), programArguments: []) }
+    public func script(_ path: String) -> Self {
+        modified(self) {
+            $0.state.mode = .script(path)
+            $0.state.arguments = []
+        }
+    }
 
     /// Returns a copy that passes `-I` for isolated mode.
-    public func isolated(_ enabled: Bool = true) -> Self { copy(isolatedEnabled: enabled) }
+    public func isolated(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isolatedEnabled = enabled } }
 
     /// Returns a copy that passes `-u` for unbuffered binary stdout and stderr.
-    public func unbuffered(_ enabled: Bool = true) -> Self { copy(unbufferedEnabled: enabled) }
+    public func unbuffered(_ enabled: Bool = true) -> Self { modified(self) { $0.state.unbufferedEnabled = enabled } }
 
     /// Returns a copy that passes `-B` to avoid writing `.pyc` files.
-    public func dontWriteBytecode(_ enabled: Bool = true) -> Self { copy(dontWriteBytecodeEnabled: enabled) }
+    public func dontWriteBytecode(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.dontWriteBytecodeEnabled = enabled }
+    }
 
     /// Returns a copy that appends `-O` optimization flags.
-    public func optimize(_ level: Int = 1) -> Self { copy(optimizationLevel: level) }
+    public func optimize(_ level: Int = 1) -> Self { modified(self) { $0.state.optimizationLevel = level } }
 
     /// Returns a copy that appends a raw interpreter option before the mode.
-    public func option(_ value: String) -> Self { copy(extraOptions: state.extraOptions + [value]) }
+    public func option(_ value: String) -> Self { modified(self) { $0.state.extraOptions += [value] } }
 
     /// Returns a copy that appends raw interpreter options before the mode.
-    public func options(_ values: [String]) -> Self { copy(extraOptions: state.extraOptions + values) }
+    public func options(_ values: [String]) -> Self { modified(self) { $0.state.extraOptions += values } }
 
     /// Returns a copy that appends an argument for the selected module, command, or script.
-    public func argument(_ value: String) -> Self { copy(programArguments: state.arguments + [value]) }
+    public func argument(_ value: String) -> Self { modified(self) { $0.state.arguments += [value] } }
 
     /// Returns a copy that appends arguments for the selected module, command, or script.
-    public func arguments(_ values: [String]) -> Self { copy(programArguments: state.arguments + values) }
+    public func arguments(_ values: [String]) -> Self { modified(self) { $0.state.arguments += values } }
 
     /// Builds the raw `python3` command represented by the current builder state.
     public func command() -> Command {
@@ -94,34 +116,6 @@ public struct Python: RunnableCommandFamily {
         let base = Command("python3").args(arguments).stdout(state.stdoutDestination).stderr(state.stderrDestination)
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        mode: Mode? = nil,
-        isolatedEnabled: Bool? = nil,
-        unbufferedEnabled: Bool? = nil,
-        dontWriteBytecodeEnabled: Bool? = nil,
-        optimizationLevel: Int? = nil,
-        extraOptions: [String]? = nil,
-        programArguments: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                mode: mode ?? state.mode,
-                isolatedEnabled: isolatedEnabled ?? state.isolatedEnabled,
-                unbufferedEnabled: unbufferedEnabled ?? state.unbufferedEnabled,
-                dontWriteBytecodeEnabled: dontWriteBytecodeEnabled ?? state.dontWriteBytecodeEnabled,
-                optimizationLevel: optimizationLevel ?? state.optimizationLevel,
-                extraOptions: extraOptions ?? state.extraOptions,
-                arguments: programArguments ?? state.arguments
-            )
-        )
-    }
 }
 
 private enum Mode: Sendable {
@@ -132,39 +126,15 @@ private enum Mode: Sendable {
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let mode: Mode
-    let isolatedEnabled: Bool
-    let unbufferedEnabled: Bool
-    let dontWriteBytecodeEnabled: Bool
-    let optimizationLevel: Int
-    let extraOptions: [String]
-    let arguments: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        mode: Mode = .version,
-        isolatedEnabled: Bool = false,
-        unbufferedEnabled: Bool = false,
-        dontWriteBytecodeEnabled: Bool = false,
-        optimizationLevel: Int = 0,
-        extraOptions: [String] = [],
-        arguments: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.mode = mode
-        self.isolatedEnabled = isolatedEnabled
-        self.unbufferedEnabled = unbufferedEnabled
-        self.dontWriteBytecodeEnabled = dontWriteBytecodeEnabled
-        self.optimizationLevel = optimizationLevel
-        self.extraOptions = extraOptions
-        self.arguments = arguments
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var mode: Mode = .version
+    var isolatedEnabled: Bool = false
+    var unbufferedEnabled: Bool = false
+    var dontWriteBytecodeEnabled: Bool = false
+    var optimizationLevel: Int = 0
+    var extraOptions: [String] = []
+    var arguments: [String] = []
 }
 #endif

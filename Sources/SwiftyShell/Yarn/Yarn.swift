@@ -36,7 +36,7 @@ public enum YarnSubcommand: String, Sendable, Equatable, Hashable {
 ///     .run()
 /// ```
 public struct Yarn: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -50,24 +50,34 @@ public struct Yarn: RunnableCommandFamily {
 
     /// Returns a copy with updated shared tool configuration.
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that selects a Yarn subcommand.
-    public func subcommand(_ value: YarnSubcommand) -> Self { copy(subcommand: value.rawValue, scriptName: nil) }
+    public func subcommand(_ value: YarnSubcommand) -> Self {
+        modified(self) {
+            $0.state.subcommand = value.rawValue
+            $0.state.scriptName = nil
+        }
+    }
 
     /// Returns a copy that selects a raw Yarn subcommand.
-    public func subcommand(_ value: String) -> Self { copy(subcommand: value, scriptName: nil) }
+    public func subcommand(_ value: String) -> Self {
+        modified(self) {
+            $0.state.subcommand = value
+            $0.state.scriptName = nil
+        }
+    }
 
     /// Returns a copy configured for `yarn install`.
     public func install() -> Self { subcommand(.install) }
@@ -76,14 +86,24 @@ public struct Yarn: RunnableCommandFamily {
     public func add(_ packages: String...) -> Self { add(packages) }
 
     /// Returns a copy configured for `yarn add <packages>`.
-    public func add(_ packages: [String]) -> Self { copy(subcommand: "add", scriptName: nil, positionals: packages) }
+    public func add(_ packages: [String]) -> Self {
+        modified(self) {
+            $0.state.subcommand = "add"
+            $0.state.scriptName = nil
+            $0.state.positionals = packages
+        }
+    }
 
     /// Returns a copy configured for `yarn remove <packages>`.
     public func remove(_ packages: String...) -> Self { remove(packages) }
 
     /// Returns a copy configured for `yarn remove <packages>`.
     public func remove(_ packages: [String]) -> Self {
-        copy(subcommand: "remove", scriptName: nil, positionals: packages)
+        modified(self) {
+            $0.state.subcommand = "remove"
+            $0.state.scriptName = nil
+            $0.state.positionals = packages
+        }
     }
 
     /// Returns a copy configured for `yarn test`.
@@ -91,43 +111,57 @@ public struct Yarn: RunnableCommandFamily {
 
     /// Returns a copy configured for `yarn exec <binary>`.
     public func exec(_ binary: String? = nil) -> Self {
-        copy(subcommand: "exec", scriptName: nil, positionals: binary.map { [$0] } ?? [])
+        modified(self) {
+            $0.state.subcommand = "exec"
+            $0.state.scriptName = nil
+            $0.state.positionals = binary.map { [$0] } ?? []
+        }
     }
 
     /// Returns a copy configured for `yarn dlx <package>`.
     public func dlx(_ package: String? = nil) -> Self {
-        copy(subcommand: "dlx", scriptName: nil, positionals: package.map { [$0] } ?? [])
+        modified(self) {
+            $0.state.subcommand = "dlx"
+            $0.state.scriptName = nil
+            $0.state.positionals = package.map { [$0] } ?? []
+        }
     }
 
     /// Returns a copy configured for `yarn run <name>`.
-    public func runScript(_ name: String) -> Self { copy(subcommand: "run", scriptName: name, positionals: []) }
+    public func runScript(_ name: String) -> Self {
+        modified(self) {
+            $0.state.subcommand = "run"
+            $0.state.scriptName = name
+            $0.state.positionals = []
+        }
+    }
 
     /// Returns a copy that passes `--cwd <path>`.
-    public func cwd(_ path: String) -> Self { copy(cwdPath: path) }
+    public func cwd(_ path: String) -> Self { modified(self) { $0.state.cwdPath = path } }
 
     /// Returns a copy that passes `--immutable`.
-    public func immutable(_ enabled: Bool = true) -> Self { copy(isImmutable: enabled) }
+    public func immutable(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isImmutable = enabled } }
 
     /// Returns a copy that passes `--production`.
-    public func production(_ enabled: Bool = true) -> Self { copy(isProduction: enabled) }
+    public func production(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isProduction = enabled } }
 
     /// Returns a copy that passes `--silent`.
-    public func silent(_ enabled: Bool = true) -> Self { copy(isSilent: enabled) }
+    public func silent(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isSilent = enabled } }
 
     /// Returns a copy that passes `--json`.
-    public func json(_ enabled: Bool = true) -> Self { copy(outputsJSON: enabled) }
+    public func json(_ enabled: Bool = true) -> Self { modified(self) { $0.state.outputsJSON = enabled } }
 
     /// Returns a copy that appends a raw option before positional arguments.
-    public func argument(_ value: String) -> Self { copy(extraArguments: state.extraArguments + [value]) }
+    public func argument(_ value: String) -> Self { modified(self) { $0.state.extraArguments += [value] } }
 
     /// Returns a copy that appends raw options before positional arguments.
-    public func arguments(_ values: [String]) -> Self { copy(extraArguments: state.extraArguments + values) }
+    public func arguments(_ values: [String]) -> Self { modified(self) { $0.state.extraArguments += values } }
 
     /// Returns a copy that appends a positional package, binary, or script argument.
-    public func positionalArgument(_ value: String) -> Self { copy(positionals: state.positionals + [value]) }
+    public func positionalArgument(_ value: String) -> Self { modified(self) { $0.state.positionals += [value] } }
 
     /// Returns a copy that appends positional package, binary, or script arguments.
-    public func positionalArguments(_ values: [String]) -> Self { copy(positionals: state.positionals + values) }
+    public func positionalArguments(_ values: [String]) -> Self { modified(self) { $0.state.positionals += values } }
 
     /// Builds the raw `yarn` command represented by the current builder state.
     public func command() -> Command {
@@ -144,80 +178,20 @@ public struct Yarn: RunnableCommandFamily {
         let base = Command("yarn").args(arguments).stdout(state.stdoutDestination).stderr(state.stderrDestination)
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        subcommand: String? = nil,
-        scriptName: String?? = nil,
-        cwdPath: String?? = nil,
-        isImmutable: Bool? = nil,
-        isProduction: Bool? = nil,
-        isSilent: Bool? = nil,
-        outputsJSON: Bool? = nil,
-        extraArguments: [String]? = nil,
-        positionals: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                subcommand: subcommand ?? state.subcommand,
-                scriptName: scriptName ?? state.scriptName,
-                cwdPath: cwdPath ?? state.cwdPath,
-                isImmutable: isImmutable ?? state.isImmutable,
-                isProduction: isProduction ?? state.isProduction,
-                isSilent: isSilent ?? state.isSilent,
-                outputsJSON: outputsJSON ?? state.outputsJSON,
-                extraArguments: extraArguments ?? state.extraArguments,
-                positionals: positionals ?? state.positionals
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let subcommand: String
-    let scriptName: String?
-    let cwdPath: String?
-    let isImmutable: Bool
-    let isProduction: Bool
-    let isSilent: Bool
-    let outputsJSON: Bool
-    let extraArguments: [String]
-    let positionals: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        subcommand: String = "--version",
-        scriptName: String? = nil,
-        cwdPath: String? = nil,
-        isImmutable: Bool = false,
-        isProduction: Bool = false,
-        isSilent: Bool = false,
-        outputsJSON: Bool = false,
-        extraArguments: [String] = [],
-        positionals: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.subcommand = subcommand
-        self.scriptName = scriptName
-        self.cwdPath = cwdPath
-        self.isImmutable = isImmutable
-        self.isProduction = isProduction
-        self.isSilent = isSilent
-        self.outputsJSON = outputsJSON
-        self.extraArguments = extraArguments
-        self.positionals = positionals
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var subcommand: String = "--version"
+    var scriptName: String? = nil
+    var cwdPath: String? = nil
+    var isImmutable: Bool = false
+    var isProduction: Bool = false
+    var isSilent: Bool = false
+    var outputsJSON: Bool = false
+    var extraArguments: [String] = []
+    var positionals: [String] = []
 }
 #endif

@@ -21,7 +21,7 @@ import Foundation
 /// Build a ``Command`` with ``command()`` to compose fzf into pipelines or pass to
 /// other SwiftyShell APIs.
 public struct Fzf: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -56,7 +56,7 @@ public struct Fzf: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `fzf` command's stdout to the given destination.
@@ -66,7 +66,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Fzf`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `fzf` command's stderr to the given destination.
@@ -77,7 +77,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Fzf`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     // MARK: - Search options
@@ -90,7 +90,7 @@ public struct Fzf: RunnableCommandFamily {
     ///   Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func extended(_ enabled: Bool = true) -> Self {
-        copy(extended: enabled)
+        modified(self) { $0.state.extended = enabled }
     }
 
     /// Returns a copy that enables exact matching instead of fuzzy matching.
@@ -100,7 +100,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--exact`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func exact(_ enabled: Bool = true) -> Self {
-        copy(exact: enabled)
+        modified(self) { $0.state.exact = enabled }
     }
 
     /// Returns a copy that performs case-insensitive matching.
@@ -111,7 +111,7 @@ public struct Fzf: RunnableCommandFamily {
     ///   Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func ignoreCase(_ enabled: Bool = true) -> Self {
-        copy(ignoreCase: enabled)
+        modified(self) { $0.state.ignoreCase = enabled }
     }
 
     /// Returns a copy that performs case-sensitive matching.
@@ -122,7 +122,7 @@ public struct Fzf: RunnableCommandFamily {
     ///   Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func caseSensitive(_ enabled: Bool = true) -> Self {
-        copy(caseSensitive: enabled)
+        modified(self) { $0.state.caseSensitive = enabled }
     }
 
     /// Returns a copy that disables normalization of latin script letters.
@@ -132,7 +132,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--literal`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func literal(_ enabled: Bool = true) -> Self {
-        copy(literal: enabled)
+        modified(self) { $0.state.literal = enabled }
     }
 
     /// Returns a copy that uses the given scoring scheme.
@@ -142,7 +142,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter scheme: The ``FzfScheme`` to use.
     /// - Returns: A new ``Fzf`` value with the scheme applied.
     public func scheme(_ scheme: FzfScheme) -> Self {
-        copy(scheme: scheme)
+        modified(self) { $0.state.scheme = scheme }
     }
 
     /// Returns a copy that uses the given fuzzy matching algorithm.
@@ -153,7 +153,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter algo: The ``FzfAlgo`` to use.
     /// - Returns: A new ``Fzf`` value with the algorithm applied.
     public func algo(_ algo: FzfAlgo) -> Self {
-        copy(algo: algo)
+        modified(self) { $0.state.algo = algo }
     }
 
     /// Returns a copy that limits the search scope to the given field indices.
@@ -163,7 +163,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: A comma-separated list of field index expressions.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func nth(_ value: String) -> Self {
-        copy(nth: value)
+        modified(self) { $0.state.nth = value }
     }
 
     /// Returns a copy that transforms the presentation of each line using field expressions.
@@ -174,7 +174,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: A comma-separated list of field index expressions or a template.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func withNth(_ value: String) -> Self {
-        copy(withNth: value)
+        modified(self) { $0.state.withNth = value }
     }
 
     /// Returns a copy that defines which fields to print on accept.
@@ -184,7 +184,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: A comma-separated list of field index expressions or a template.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func acceptNth(_ value: String) -> Self {
-        copy(acceptNth: value)
+        modified(self) { $0.state.acceptNth = value }
     }
 
     /// Returns a copy that disables sorting of results.
@@ -194,7 +194,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--no-sort`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func noSort(_ enabled: Bool = true) -> Self {
-        copy(noSort: enabled)
+        modified(self) { $0.state.noSort = enabled }
     }
 
     /// Returns a copy that uses the given field delimiter regex.
@@ -204,7 +204,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The delimiter string or regex.
     /// - Returns: A new ``Fzf`` value with the delimiter applied.
     public func delimiter(_ value: String) -> Self {
-        copy(delimiter: value)
+        modified(self) { $0.state.delimiter = value }
     }
 
     /// Returns a copy that limits the number of items kept in memory.
@@ -214,7 +214,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter count: Maximum number of items to keep in memory.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func tail(_ count: Int) -> Self {
-        copy(tail: count)
+        modified(self) { $0.state.tail = count }
     }
 
     /// Returns a copy that disables search, making fzf a simple selector.
@@ -224,7 +224,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--disabled`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func disabled(_ enabled: Bool = true) -> Self {
-        copy(disabled: enabled)
+        modified(self) { $0.state.disabled = enabled }
     }
 
     /// Returns a copy that uses the given tiebreak criteria.
@@ -235,7 +235,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: Comma-separated list of sort criteria.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func tiebreak(_ value: String) -> Self {
-        copy(tiebreak: value)
+        modified(self) { $0.state.tiebreak = value }
     }
 
     // MARK: - Input/Output
@@ -247,7 +247,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--read0`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func read0(_ enabled: Bool = true) -> Self {
-        copy(read0: enabled)
+        modified(self) { $0.state.read0 = enabled }
     }
 
     /// Returns a copy that prints output delimited by NUL characters instead of newlines.
@@ -257,7 +257,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--print0`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func print0(_ enabled: Bool = true) -> Self {
-        copy(print0: enabled)
+        modified(self) { $0.state.print0 = enabled }
     }
 
     /// Returns a copy that enables processing of ANSI color codes in input.
@@ -267,7 +267,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--ansi`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func ansi(_ enabled: Bool = true) -> Self {
-        copy(ansi: enabled)
+        modified(self) { $0.state.ansi = enabled }
     }
 
     /// Returns a copy that enables synchronous search for multi-staged filtering.
@@ -277,7 +277,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--sync`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func sync(_ enabled: Bool = true) -> Self {
-        copy(sync: enabled)
+        modified(self) { $0.state.sync = enabled }
     }
 
     // MARK: - Display mode
@@ -290,7 +290,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The height specification string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func height(_ value: String) -> Self {
-        copy(height: value)
+        modified(self) { $0.state.height = value }
     }
 
     /// Returns a copy that sets the minimum height when `--height` is a percentage.
@@ -300,7 +300,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The minimum height specification string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func minHeight(_ value: String) -> Self {
-        copy(minHeight: value)
+        modified(self) { $0.state.minHeight = value }
     }
 
     /// Returns a copy that starts fzf in a tmux popup or Zellij floating pane.
@@ -311,7 +311,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The popup position and size specification, or `nil` for defaults.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func popup(_ value: String? = nil) -> Self {
-        copy(popup: .some(value))
+        modified(self) { $0.state.popup = value }
     }
 
     // MARK: - Layout
@@ -323,7 +323,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter layout: The ``FzfLayout`` to use.
     /// - Returns: A new ``Fzf`` value with the layout applied.
     public func layout(_ layout: FzfLayout) -> Self {
-        copy(layout: layout)
+        modified(self) { $0.state.layout = layout }
     }
 
     /// Returns a copy that uses reverse layout (display from the top).
@@ -333,7 +333,7 @@ public struct Fzf: RunnableCommandFamily {
     ///
     /// - Returns: A new ``Fzf`` value with reverse layout applied.
     public func reverse() -> Self {
-        copy(layout: .reverse)
+        modified(self) { $0.state.layout = .reverse }
     }
 
     /// Returns a copy with the given margin around the finder.
@@ -344,7 +344,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The margin specification string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func margin(_ value: String) -> Self {
-        copy(margin: value)
+        modified(self) { $0.state.margin = value }
     }
 
     /// Returns a copy with the given padding inside the border.
@@ -354,7 +354,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The padding specification string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func padding(_ value: String) -> Self {
-        copy(padding: value)
+        modified(self) { $0.state.padding = value }
     }
 
     /// Returns a copy that draws a border around the finder with the given style.
@@ -365,7 +365,7 @@ public struct Fzf: RunnableCommandFamily {
     ///   (`rounded`).
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func border(_ style: FzfBorderStyle? = nil) -> Self {
-        copy(border: .some(style))
+        modified(self) { $0.state.border = style }
     }
 
     /// Returns a copy with a label printed on the border.
@@ -375,7 +375,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The label text.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func borderLabel(_ value: String) -> Self {
-        copy(borderLabel: value)
+        modified(self) { $0.state.borderLabel = value }
     }
 
     /// Returns a copy with the border label positioned at the given column.
@@ -385,7 +385,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The position specification.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func borderLabelPos(_ value: String) -> Self {
-        copy(borderLabelPos: value)
+        modified(self) { $0.state.borderLabelPos = value }
     }
 
     // MARK: - List section
@@ -398,7 +398,7 @@ public struct Fzf: RunnableCommandFamily {
     ///   Pass `nil` for unlimited multi-select.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func multi(_ max: Int? = nil) -> Self {
-        copy(multi: .some(max))
+        modified(self) { $0.state.multi = max }
     }
 
     /// Returns a copy that highlights the whole current line.
@@ -408,7 +408,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func highlightLine(_ enabled: Bool = true) -> Self {
-        copy(highlightLine: enabled)
+        modified(self) { $0.state.highlightLine = enabled }
     }
 
     /// Returns a copy that enables cyclic scroll.
@@ -418,7 +418,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func cycle(_ enabled: Bool = true) -> Self {
-        copy(cycle: enabled)
+        modified(self) { $0.state.cycle = enabled }
     }
 
     /// Returns a copy that enables line wrap with the given mode.
@@ -428,7 +428,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter mode: The ``FzfWrapMode`` to use. Pass `nil` for default (`char`).
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func wrap(_ mode: FzfWrapMode? = nil) -> Self {
-        copy(wrap: .some(mode))
+        modified(self) { $0.state.wrap = mode }
     }
 
     /// Returns a copy with the given indicator for wrapped lines.
@@ -438,7 +438,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The indicator string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func wrapSign(_ value: String) -> Self {
-        copy(wrapSign: value)
+        modified(self) { $0.state.wrapSign = value }
     }
 
     /// Returns a copy that disables multi-line display for `--read0` items.
@@ -448,7 +448,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func noMultiLine(_ enabled: Bool = true) -> Self {
-        copy(noMultiLine: enabled)
+        modified(self) { $0.state.noMultiLine = enabled }
     }
 
     /// Returns a copy that enables raw mode, showing non-matching items dimmed.
@@ -458,7 +458,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func raw(_ enabled: Bool = true) -> Self {
-        copy(raw: enabled)
+        modified(self) { $0.state.raw = enabled }
     }
 
     /// Returns a copy that tracks the current selection when the result list updates.
@@ -468,7 +468,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func track(_ enabled: Bool = true) -> Self {
-        copy(track: enabled)
+        modified(self) { $0.state.track = enabled }
     }
 
     /// Returns a copy that reverses the order of the input.
@@ -478,7 +478,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func tac(_ enabled: Bool = true) -> Self {
-        copy(tac: enabled)
+        modified(self) { $0.state.tac = enabled }
     }
 
     /// Returns a copy that renders empty lines between each item.
@@ -488,7 +488,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter count: Number of gap lines, or `nil` for the default.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func gap(_ count: Int? = nil) -> Self {
-        copy(gap: .some(count))
+        modified(self) { $0.state.gap = count }
     }
 
     /// Returns a copy that keeps the right end of the line visible when it's too long.
@@ -498,7 +498,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func keepRight(_ enabled: Bool = true) -> Self {
-        copy(keepRight: enabled)
+        modified(self) { $0.state.keepRight = enabled }
     }
 
     /// Returns a copy that sets the scroll offset from the top/bottom.
@@ -508,7 +508,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter lines: Number of screen lines to keep above or below.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func scrollOff(_ lines: Int) -> Self {
-        copy(scrollOff: lines)
+        modified(self) { $0.state.scrollOff = lines }
     }
 
     /// Returns a copy that disables horizontal scroll.
@@ -518,7 +518,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to disable hscroll; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func noHscroll(_ enabled: Bool = true) -> Self {
-        copy(noHscroll: enabled)
+        modified(self) { $0.state.noHscroll = enabled }
     }
 
     /// Returns a copy that sets the horizontal scroll offset.
@@ -528,7 +528,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter cols: Number of screen columns to keep to the right of the highlight.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func hscrollOff(_ cols: Int) -> Self {
-        copy(hscrollOff: cols)
+        modified(self) { $0.state.hscrollOff = cols }
     }
 
     /// Returns a copy with the given label characters for jump mode.
@@ -538,7 +538,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The label characters.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func jumpLabels(_ value: String) -> Self {
-        copy(jumpLabels: value)
+        modified(self) { $0.state.jumpLabels = value }
     }
 
     /// Returns a copy with the given pointer string for the current line.
@@ -548,7 +548,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The pointer string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func pointer(_ value: String) -> Self {
-        copy(pointer: value)
+        modified(self) { $0.state.pointer = value }
     }
 
     /// Returns a copy with the given multi-select marker string.
@@ -558,7 +558,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The marker string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func marker(_ value: String) -> Self {
-        copy(marker: value)
+        modified(self) { $0.state.marker = value }
     }
 
     /// Returns a copy with the given ellipsis string for truncated lines.
@@ -568,7 +568,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The ellipsis string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func ellipsis(_ value: String) -> Self {
-        copy(ellipsis: value)
+        modified(self) { $0.state.ellipsis = value }
     }
 
     /// Returns a copy with the given tab stop width.
@@ -578,7 +578,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter spaces: Number of spaces per tab character.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func tabstop(_ spaces: Int) -> Self {
-        copy(tabstop: spaces)
+        modified(self) { $0.state.tabstop = spaces }
     }
 
     /// Returns a copy with the given scrollbar characters.
@@ -588,7 +588,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The scrollbar character(s), or `nil` to hide.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func scrollbar(_ value: String?) -> Self {
-        copy(scrollbar: .some(value))
+        modified(self) { $0.state.scrollbar = value }
     }
 
     /// Returns a copy that draws a border around the list section.
@@ -598,7 +598,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter style: The ``FzfBorderStyle`` to use, or `nil` for the default.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func listBorder(_ style: FzfBorderStyle? = nil) -> Self {
-        copy(listBorder: .some(style))
+        modified(self) { $0.state.listBorder = style }
     }
 
     /// Returns a copy with a label printed on the list border.
@@ -608,7 +608,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The label text.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func listLabel(_ value: String) -> Self {
-        copy(listLabel: value)
+        modified(self) { $0.state.listLabel = value }
     }
 
     // MARK: - Input section
@@ -620,7 +620,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to hide input; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func noInput(_ enabled: Bool = true) -> Self {
-        copy(noInput: enabled)
+        modified(self) { $0.state.noInput = enabled }
     }
 
     /// Returns a copy with the given input prompt string.
@@ -630,7 +630,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The prompt string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func prompt(_ value: String) -> Self {
-        copy(prompt: value)
+        modified(self) { $0.state.prompt = value }
     }
 
     /// Returns a copy that uses the given info line display style.
@@ -640,7 +640,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter style: The ``FzfInfoStyle`` to use.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func info(_ style: FzfInfoStyle) -> Self {
-        copy(info: style)
+        modified(self) { $0.state.info = style }
     }
 
     /// Returns a copy that hides the info line.
@@ -653,7 +653,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func noInfo(_ enabled: Bool = true) -> Self {
         if enabled {
-            return copy(info: .hidden)
+            return modified(self) { $0.state.info = .hidden }
         }
         return self
     }
@@ -665,7 +665,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The separator string, or `nil` to remove it.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func separator(_ value: String?) -> Self {
-        copy(separator: .some(value))
+        modified(self) { $0.state.separator = value }
     }
 
     /// Returns a copy with ghost text displayed when the input is empty.
@@ -675,7 +675,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The ghost text string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func ghost(_ value: String) -> Self {
-        copy(ghost: value)
+        modified(self) { $0.state.ghost = value }
     }
 
     /// Returns a copy that makes word-wise movements respect path separators.
@@ -685,7 +685,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func filepathWord(_ enabled: Bool = true) -> Self {
-        copy(filepathWord: enabled)
+        modified(self) { $0.state.filepathWord = enabled }
     }
 
     /// Returns a copy that draws a border around the input section.
@@ -695,7 +695,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter style: The ``FzfBorderStyle`` to use, or `nil` for the default.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func inputBorder(_ style: FzfBorderStyle? = nil) -> Self {
-        copy(inputBorder: .some(style))
+        modified(self) { $0.state.inputBorder = style }
     }
 
     /// Returns a copy with a label printed on the input border.
@@ -705,7 +705,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The label text.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func inputLabel(_ value: String) -> Self {
-        copy(inputLabel: value)
+        modified(self) { $0.state.inputLabel = value }
     }
 
     // MARK: - Preview
@@ -717,7 +717,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter command: The preview command template.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func preview(_ command: String) -> Self {
-        copy(preview: command)
+        modified(self) { $0.state.preview = command }
     }
 
     /// Returns a copy that configures the preview window layout and behavior.
@@ -728,7 +728,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The preview window specification string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func previewWindow(_ value: String) -> Self {
-        copy(previewWindow: value)
+        modified(self) { $0.state.previewWindow = value }
     }
 
     /// Returns a copy that sets the preview window border style.
@@ -738,7 +738,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter style: The ``FzfBorderStyle`` to use, or `nil` for the default.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func previewBorder(_ style: FzfBorderStyle? = nil) -> Self {
-        copy(previewBorder: .some(style))
+        modified(self) { $0.state.previewBorder = style }
     }
 
     /// Returns a copy with a label printed on the preview window border.
@@ -748,7 +748,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The label text.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func previewLabel(_ value: String) -> Self {
-        copy(previewLabel: value)
+        modified(self) { $0.state.previewLabel = value }
     }
 
     /// Returns a copy with the preview label positioned at the given column.
@@ -758,7 +758,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The position specification.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func previewLabelPos(_ value: String) -> Self {
-        copy(previewLabelPos: value)
+        modified(self) { $0.state.previewLabelPos = value }
     }
 
     // MARK: - Header / Footer
@@ -770,7 +770,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The header text.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func header(_ value: String) -> Self {
-        copy(header: value)
+        modified(self) { $0.state.header = value }
     }
 
     /// Returns a copy that treats the first N input lines as the sticky header.
@@ -780,7 +780,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter count: Number of header lines.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func headerLines(_ count: Int) -> Self {
-        copy(headerLines: count)
+        modified(self) { $0.state.headerLines = count }
     }
 
     /// Returns a copy that prints the header before the prompt line.
@@ -790,7 +790,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func headerFirst(_ enabled: Bool = true) -> Self {
-        copy(headerFirst: enabled)
+        modified(self) { $0.state.headerFirst = enabled }
     }
 
     /// Returns a copy that draws a border around the header section.
@@ -800,7 +800,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter style: The ``FzfBorderStyle`` to use, or `nil` for the default.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func headerBorder(_ style: FzfBorderStyle? = nil) -> Self {
-        copy(headerBorder: .some(style))
+        modified(self) { $0.state.headerBorder = style }
     }
 
     /// Returns a copy with the given string as the sticky footer.
@@ -810,7 +810,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The footer text.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func footer(_ value: String) -> Self {
-        copy(footer: value)
+        modified(self) { $0.state.footer = value }
     }
 
     /// Returns a copy that draws a border around the footer section.
@@ -820,7 +820,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter style: The ``FzfBorderStyle`` to use, or `nil` for the default.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func footerBorder(_ style: FzfBorderStyle? = nil) -> Self {
-        copy(footerBorder: .some(style))
+        modified(self) { $0.state.footerBorder = style }
     }
 
     // MARK: - Scripting
@@ -832,7 +832,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The initial query string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func query(_ value: String) -> Self {
-        copy(query: value)
+        modified(self) { $0.state.query = value }
     }
 
     /// Returns a copy that auto-selects if there is only one match for the initial query.
@@ -842,7 +842,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func select1(_ enabled: Bool = true) -> Self {
-        copy(select1: enabled)
+        modified(self) { $0.state.select1 = enabled }
     }
 
     /// Returns a copy that exits immediately if there is no match for the initial query.
@@ -852,7 +852,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func exit0(_ enabled: Bool = true) -> Self {
-        copy(exit0: enabled)
+        modified(self) { $0.state.exit0 = enabled }
     }
 
     /// Returns a copy that enables non-interactive filter mode.
@@ -863,7 +863,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The filter query string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func filter(_ value: String) -> Self {
-        copy(filterQuery: value)
+        modified(self) { $0.state.filterQuery = value }
     }
 
     /// Returns a copy that prints the query as the first line of output.
@@ -873,7 +873,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func printQuery(_ enabled: Bool = true) -> Self {
-        copy(printQuery: enabled)
+        modified(self) { $0.state.printQuery = enabled }
     }
 
     /// Returns a copy that enables additional completion keys.
@@ -883,7 +883,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: Comma-separated list of key names.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func expect(_ value: String) -> Self {
-        copy(expect: value)
+        modified(self) { $0.state.expect = value }
     }
 
     /// Returns a copy that does not clear the finder interface on exit.
@@ -893,7 +893,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func noClear(_ enabled: Bool = true) -> Self {
-        copy(noClear: enabled)
+        modified(self) { $0.state.noClear = enabled }
     }
 
     // MARK: - Key/Event binding
@@ -907,7 +907,7 @@ public struct Fzf: RunnableCommandFamily {
     ///   `"ctrl-r:reload(ps -ef)"`).
     /// - Returns: A new ``Fzf`` value with the binding appended.
     public func bind(_ value: String) -> Self {
-        copy(bindings: state.bindings + [value])
+        modified(self) { $0.state.bindings += [value] }
     }
 
     // MARK: - Advanced
@@ -919,7 +919,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The shell command string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func withShell(_ value: String) -> Self {
-        copy(withShell: value)
+        modified(self) { $0.state.withShell = value }
     }
 
     /// Returns a copy that starts an HTTP server for external control.
@@ -929,7 +929,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The listen address specification, or `nil` for auto.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func listen(_ value: String? = nil) -> Self {
-        copy(listen: .some(value))
+        modified(self) { $0.state.listen = value }
     }
 
     /// Returns a copy that sets the number of matcher threads.
@@ -939,7 +939,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter count: Number of matcher threads.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func threads(_ count: Int) -> Self {
-        copy(threads: count)
+        modified(self) { $0.state.threads = count }
     }
 
     // MARK: - Directory traversal
@@ -952,7 +952,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The walker specification string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func walker(_ value: String) -> Self {
-        copy(walker: value)
+        modified(self) { $0.state.walker = value }
     }
 
     /// Returns a copy with the given root directories for the built-in walker.
@@ -962,7 +962,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter dirs: The root directories to walk.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func walkerRoot(_ dirs: [String]) -> Self {
-        copy(walkerRoot: dirs)
+        modified(self) { $0.state.walkerRoot = dirs }
     }
 
     /// Returns a copy with the given directory names to skip during directory walk.
@@ -972,7 +972,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: Comma-separated list of directory names to skip.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func walkerSkip(_ value: String) -> Self {
-        copy(walkerSkip: value)
+        modified(self) { $0.state.walkerSkip = value }
     }
 
     // MARK: - History
@@ -984,7 +984,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter path: Path to the history file.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func history(_ path: String) -> Self {
-        copy(history: path)
+        modified(self) { $0.state.history = path }
     }
 
     /// Returns a copy that limits the history file to the given number of entries.
@@ -994,7 +994,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter count: Maximum number of entries.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func historySize(_ count: Int) -> Self {
-        copy(historySize: count)
+        modified(self) { $0.state.historySize = count }
     }
 
     // MARK: - Style and color
@@ -1006,7 +1006,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The style preset name.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func style(_ value: String) -> Self {
-        copy(style: value)
+        modified(self) { $0.state.style = value }
     }
 
     /// Returns a copy with the given color configuration.
@@ -1018,7 +1018,10 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter value: The color specification string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func color(_ value: String) -> Self {
-        copy(colors: state.colors + [value], noColor: false)
+        modified(self) {
+            $0.state.colors += [value]
+            $0.state.noColor = false
+        }
     }
 
     /// Returns a copy that disables all colors.
@@ -1029,7 +1032,10 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to disable colors; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func noColor(_ enabled: Bool = true) -> Self {
-        copy(colors: enabled ? [] : nil, noColor: enabled)
+        modified(self) {
+            if enabled { $0.state.colors = [] }
+            $0.state.noColor = enabled
+        }
     }
 
     /// Returns a copy that disables bold text.
@@ -1039,7 +1045,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to disable bold; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func noBold(_ enabled: Bool = true) -> Self {
-        copy(noBold: enabled)
+        modified(self) { $0.state.noBold = enabled }
     }
 
     /// Returns a copy that uses a black background.
@@ -1049,7 +1055,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func black(_ enabled: Bool = true) -> Self {
-        copy(black: enabled)
+        modified(self) { $0.state.black = enabled }
     }
 
     // MARK: - Others
@@ -1061,7 +1067,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to disable mouse; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func noMouse(_ enabled: Bool = true) -> Self {
-        copy(noMouse: enabled)
+        modified(self) { $0.state.noMouse = enabled }
     }
 
     /// Returns a copy that uses ASCII characters instead of Unicode for drawing.
@@ -1071,7 +1077,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to use ASCII; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func noUnicode(_ enabled: Bool = true) -> Self {
-        copy(noUnicode: enabled)
+        modified(self) { $0.state.noUnicode = enabled }
     }
 
     /// Returns a copy that treats ambiguous-width characters as double-width.
@@ -1082,7 +1088,7 @@ public struct Fzf: RunnableCommandFamily {
     /// - Parameter enabled: `true` to enable; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func ambidouble(_ enabled: Bool = true) -> Self {
-        copy(ambidouble: enabled)
+        modified(self) { $0.state.ambidouble = enabled }
     }
 
     // MARK: - Command builder
@@ -1345,546 +1351,121 @@ public struct Fzf: RunnableCommandFamily {
     }
 
     // swiftlint:disable function_parameter_count
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        // Search
-        extended: Bool?? = nil,
-        exact: Bool? = nil,
-        ignoreCase: Bool? = nil,
-        caseSensitive: Bool? = nil,
-        literal: Bool? = nil,
-        scheme: FzfScheme?? = nil,
-        algo: FzfAlgo?? = nil,
-        nth: String?? = nil,
-        withNth: String?? = nil,
-        acceptNth: String?? = nil,
-        noSort: Bool? = nil,
-        delimiter: String?? = nil,
-        tail: Int?? = nil,
-        disabled: Bool? = nil,
-        tiebreak: String?? = nil,
-        // I/O
-        read0: Bool? = nil,
-        print0: Bool? = nil,
-        ansi: Bool? = nil,
-        sync: Bool? = nil,
-        // Display mode
-        height: String?? = nil,
-        minHeight: String?? = nil,
-        popup: String??? = nil,
-        // Layout
-        layout: FzfLayout?? = nil,
-        margin: String?? = nil,
-        padding: String?? = nil,
-        border: FzfBorderStyle??? = nil,
-        borderLabel: String?? = nil,
-        borderLabelPos: String?? = nil,
-        // List section
-        multi: Int??? = nil,
-        highlightLine: Bool? = nil,
-        cycle: Bool? = nil,
-        wrap: FzfWrapMode??? = nil,
-        wrapSign: String?? = nil,
-        noMultiLine: Bool? = nil,
-        raw: Bool? = nil,
-        track: Bool? = nil,
-        tac: Bool? = nil,
-        gap: Int??? = nil,
-        keepRight: Bool? = nil,
-        scrollOff: Int?? = nil,
-        noHscroll: Bool? = nil,
-        hscrollOff: Int?? = nil,
-        jumpLabels: String?? = nil,
-        pointer: String?? = nil,
-        marker: String?? = nil,
-        ellipsis: String?? = nil,
-        tabstop: Int?? = nil,
-        scrollbar: String??? = nil,
-        listBorder: FzfBorderStyle??? = nil,
-        listLabel: String?? = nil,
-        // Input section
-        noInput: Bool? = nil,
-        prompt: String?? = nil,
-        info: FzfInfoStyle?? = nil,
-        separator: String??? = nil,
-        ghost: String?? = nil,
-        filepathWord: Bool? = nil,
-        inputBorder: FzfBorderStyle??? = nil,
-        inputLabel: String?? = nil,
-        // Preview
-        preview: String?? = nil,
-        previewWindow: String?? = nil,
-        previewBorder: FzfBorderStyle??? = nil,
-        previewLabel: String?? = nil,
-        previewLabelPos: String?? = nil,
-        // Header / Footer
-        header: String?? = nil,
-        headerLines: Int?? = nil,
-        headerFirst: Bool? = nil,
-        headerBorder: FzfBorderStyle??? = nil,
-        footer: String?? = nil,
-        footerBorder: FzfBorderStyle??? = nil,
-        // Scripting
-        query: String?? = nil,
-        select1: Bool? = nil,
-        exit0: Bool? = nil,
-        filterQuery: String?? = nil,
-        printQuery: Bool? = nil,
-        expect: String?? = nil,
-        noClear: Bool? = nil,
-        // Binding
-        bindings: [String]? = nil,
-        // Advanced
-        withShell: String?? = nil,
-        listen: String??? = nil,
-        threads: Int?? = nil,
-        // Directory traversal
-        walker: String?? = nil,
-        walkerRoot: [String]?? = nil,
-        walkerSkip: String?? = nil,
-        // History
-        history: String?? = nil,
-        historySize: Int?? = nil,
-        // Style and color
-        style: String?? = nil,
-        colors: [String]? = nil,
-        noColor: Bool? = nil,
-        noBold: Bool? = nil,
-        black: Bool? = nil,
-        // Others
-        noMouse: Bool? = nil,
-        noUnicode: Bool? = nil,
-        ambidouble: Bool? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                extended: extended ?? state.extended,
-                exact: exact ?? state.exact,
-                ignoreCase: ignoreCase ?? state.ignoreCase,
-                caseSensitive: caseSensitive ?? state.caseSensitive,
-                literal: literal ?? state.literal,
-                scheme: scheme ?? state.scheme,
-                algo: algo ?? state.algo,
-                nth: nth ?? state.nth,
-                withNth: withNth ?? state.withNth,
-                acceptNth: acceptNth ?? state.acceptNth,
-                noSort: noSort ?? state.noSort,
-                delimiter: delimiter ?? state.delimiter,
-                tail: tail ?? state.tail,
-                disabled: disabled ?? state.disabled,
-                tiebreak: tiebreak ?? state.tiebreak,
-                read0: read0 ?? state.read0,
-                print0: print0 ?? state.print0,
-                ansi: ansi ?? state.ansi,
-                sync: sync ?? state.sync,
-                height: height ?? state.height,
-                minHeight: minHeight ?? state.minHeight,
-                popup: popup ?? state.popup,
-                layout: layout ?? state.layout,
-                margin: margin ?? state.margin,
-                padding: padding ?? state.padding,
-                border: border ?? state.border,
-                borderLabel: borderLabel ?? state.borderLabel,
-                borderLabelPos: borderLabelPos ?? state.borderLabelPos,
-                multi: multi ?? state.multi,
-                highlightLine: highlightLine ?? state.highlightLine,
-                cycle: cycle ?? state.cycle,
-                wrap: wrap ?? state.wrap,
-                wrapSign: wrapSign ?? state.wrapSign,
-                noMultiLine: noMultiLine ?? state.noMultiLine,
-                raw: raw ?? state.raw,
-                track: track ?? state.track,
-                tac: tac ?? state.tac,
-                gap: gap ?? state.gap,
-                keepRight: keepRight ?? state.keepRight,
-                scrollOff: scrollOff ?? state.scrollOff,
-                noHscroll: noHscroll ?? state.noHscroll,
-                hscrollOff: hscrollOff ?? state.hscrollOff,
-                jumpLabels: jumpLabels ?? state.jumpLabels,
-                pointer: pointer ?? state.pointer,
-                marker: marker ?? state.marker,
-                ellipsis: ellipsis ?? state.ellipsis,
-                tabstop: tabstop ?? state.tabstop,
-                scrollbar: scrollbar ?? state.scrollbar,
-                listBorder: listBorder ?? state.listBorder,
-                listLabel: listLabel ?? state.listLabel,
-                noInput: noInput ?? state.noInput,
-                prompt: prompt ?? state.prompt,
-                info: info ?? state.info,
-                separator: separator ?? state.separator,
-                ghost: ghost ?? state.ghost,
-                filepathWord: filepathWord ?? state.filepathWord,
-                inputBorder: inputBorder ?? state.inputBorder,
-                inputLabel: inputLabel ?? state.inputLabel,
-                preview: preview ?? state.preview,
-                previewWindow: previewWindow ?? state.previewWindow,
-                previewBorder: previewBorder ?? state.previewBorder,
-                previewLabel: previewLabel ?? state.previewLabel,
-                previewLabelPos: previewLabelPos ?? state.previewLabelPos,
-                header: header ?? state.header,
-                headerLines: headerLines ?? state.headerLines,
-                headerFirst: headerFirst ?? state.headerFirst,
-                headerBorder: headerBorder ?? state.headerBorder,
-                footer: footer ?? state.footer,
-                footerBorder: footerBorder ?? state.footerBorder,
-                query: query ?? state.query,
-                select1: select1 ?? state.select1,
-                exit0: exit0 ?? state.exit0,
-                filterQuery: filterQuery ?? state.filterQuery,
-                printQuery: printQuery ?? state.printQuery,
-                expect: expect ?? state.expect,
-                noClear: noClear ?? state.noClear,
-                bindings: bindings ?? state.bindings,
-                withShell: withShell ?? state.withShell,
-                listen: listen ?? state.listen,
-                threads: threads ?? state.threads,
-                walker: walker ?? state.walker,
-                walkerRoot: walkerRoot ?? state.walkerRoot,
-                walkerSkip: walkerSkip ?? state.walkerSkip,
-                history: history ?? state.history,
-                historySize: historySize ?? state.historySize,
-                style: style ?? state.style,
-                colors: colors ?? state.colors,
-                noColor: noColor ?? state.noColor,
-                noBold: noBold ?? state.noBold,
-                black: black ?? state.black,
-                noMouse: noMouse ?? state.noMouse,
-                noUnicode: noUnicode ?? state.noUnicode,
-                ambidouble: ambidouble ?? state.ambidouble
-            )
-        )
-    }
 }
 
 // MARK: - Private State
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
     // Search
-    let extended: Bool?
-    let exact: Bool
-    let ignoreCase: Bool
-    let caseSensitive: Bool
-    let literal: Bool
-    let scheme: FzfScheme?
-    let algo: FzfAlgo?
-    let nth: String?
-    let withNth: String?
-    let acceptNth: String?
-    let noSort: Bool
-    let delimiter: String?
-    let tail: Int?
-    let disabled: Bool
-    let tiebreak: String?
-
+    var extended: Bool? = nil
+    var exact: Bool = false
+    var ignoreCase: Bool = false
+    var caseSensitive: Bool = false
+    var literal: Bool = false
+    var scheme: FzfScheme? = nil
+    var algo: FzfAlgo? = nil
+    var nth: String? = nil
+    var withNth: String? = nil
+    var acceptNth: String? = nil
+    var noSort: Bool = false
+    var delimiter: String? = nil
+    var tail: Int? = nil
+    var disabled: Bool = false
+    var tiebreak: String? = nil
     // I/O
-    let read0: Bool
-    let print0: Bool
-    let ansi: Bool
-    let sync: Bool
-
+    var read0: Bool = false
+    var print0: Bool = false
+    var ansi: Bool = false
+    var sync: Bool = false
     // Display mode
-    let height: String?
-    let minHeight: String?
-    let popup: String??
-
+    var height: String? = nil
+    var minHeight: String? = nil
+    var popup: String?? = nil
     // Layout
-    let layout: FzfLayout?
-    let margin: String?
-    let padding: String?
-    let border: FzfBorderStyle??
-    let borderLabel: String?
-    let borderLabelPos: String?
-
+    var layout: FzfLayout? = nil
+    var margin: String? = nil
+    var padding: String? = nil
+    var border: FzfBorderStyle?? = nil
+    var borderLabel: String? = nil
+    var borderLabelPos: String? = nil
     // List section
-    let multi: Int??
-    let highlightLine: Bool
-    let cycle: Bool
-    let wrap: FzfWrapMode??
-    let wrapSign: String?
-    let noMultiLine: Bool
-    let raw: Bool
-    let track: Bool
-    let tac: Bool
-    let gap: Int??
-    let keepRight: Bool
-    let scrollOff: Int?
-    let noHscroll: Bool
-    let hscrollOff: Int?
-    let jumpLabels: String?
-    let pointer: String?
-    let marker: String?
-    let ellipsis: String?
-    let tabstop: Int?
-    let scrollbar: String??
-    let listBorder: FzfBorderStyle??
-    let listLabel: String?
-
+    var multi: Int?? = nil
+    var highlightLine: Bool = false
+    var cycle: Bool = false
+    var wrap: FzfWrapMode?? = nil
+    var wrapSign: String? = nil
+    var noMultiLine: Bool = false
+    var raw: Bool = false
+    var track: Bool = false
+    var tac: Bool = false
+    var gap: Int?? = nil
+    var keepRight: Bool = false
+    var scrollOff: Int? = nil
+    var noHscroll: Bool = false
+    var hscrollOff: Int? = nil
+    var jumpLabels: String? = nil
+    var pointer: String? = nil
+    var marker: String? = nil
+    var ellipsis: String? = nil
+    var tabstop: Int? = nil
+    var scrollbar: String?? = nil
+    var listBorder: FzfBorderStyle?? = nil
+    var listLabel: String? = nil
     // Input section
-    let noInput: Bool
-    let prompt: String?
-    let info: FzfInfoStyle?
-    let separator: String??
-    let ghost: String?
-    let filepathWord: Bool
-    let inputBorder: FzfBorderStyle??
-    let inputLabel: String?
-
+    var noInput: Bool = false
+    var prompt: String? = nil
+    var info: FzfInfoStyle? = nil
+    var separator: String?? = nil
+    var ghost: String? = nil
+    var filepathWord: Bool = false
+    var inputBorder: FzfBorderStyle?? = nil
+    var inputLabel: String? = nil
     // Preview
-    let preview: String?
-    let previewWindow: String?
-    let previewBorder: FzfBorderStyle??
-    let previewLabel: String?
-    let previewLabelPos: String?
-
+    var preview: String? = nil
+    var previewWindow: String? = nil
+    var previewBorder: FzfBorderStyle?? = nil
+    var previewLabel: String? = nil
+    var previewLabelPos: String? = nil
     // Header / Footer
-    let header: String?
-    let headerLines: Int?
-    let headerFirst: Bool
-    let headerBorder: FzfBorderStyle??
-    let footer: String?
-    let footerBorder: FzfBorderStyle??
-
+    var header: String? = nil
+    var headerLines: Int? = nil
+    var headerFirst: Bool = false
+    var headerBorder: FzfBorderStyle?? = nil
+    var footer: String? = nil
+    var footerBorder: FzfBorderStyle?? = nil
     // Scripting
-    let query: String?
-    let select1: Bool
-    let exit0: Bool
-    let filterQuery: String?
-    let printQuery: Bool
-    let expect: String?
-    let noClear: Bool
-
+    var query: String? = nil
+    var select1: Bool = false
+    var exit0: Bool = false
+    var filterQuery: String? = nil
+    var printQuery: Bool = false
+    var expect: String? = nil
+    var noClear: Bool = false
     // Binding
-    let bindings: [String]
-
+    var bindings: [String] = []
     // Advanced
-    let withShell: String?
-    let listen: String??
-    let threads: Int?
-
+    var withShell: String? = nil
+    var listen: String?? = nil
+    var threads: Int? = nil
     // Directory traversal
-    let walker: String?
-    let walkerRoot: [String]?
-    let walkerSkip: String?
-
+    var walker: String? = nil
+    var walkerRoot: [String]? = nil
+    var walkerSkip: String? = nil
     // History
-    let history: String?
-    let historySize: Int?
-
+    var history: String? = nil
+    var historySize: Int? = nil
     // Style and color
-    let style: String?
-    let colors: [String]
-    let noColor: Bool
-    let noBold: Bool
-    let black: Bool
-
+    var style: String? = nil
+    var colors: [String] = []
+    var noColor: Bool = false
+    var noBold: Bool = false
+    var black: Bool = false
     // Others
-    let noMouse: Bool
-    let noUnicode: Bool
-    let ambidouble: Bool
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        extended: Bool? = nil,
-        exact: Bool = false,
-        ignoreCase: Bool = false,
-        caseSensitive: Bool = false,
-        literal: Bool = false,
-        scheme: FzfScheme? = nil,
-        algo: FzfAlgo? = nil,
-        nth: String? = nil,
-        withNth: String? = nil,
-        acceptNth: String? = nil,
-        noSort: Bool = false,
-        delimiter: String? = nil,
-        tail: Int? = nil,
-        disabled: Bool = false,
-        tiebreak: String? = nil,
-        read0: Bool = false,
-        print0: Bool = false,
-        ansi: Bool = false,
-        sync: Bool = false,
-        height: String? = nil,
-        minHeight: String? = nil,
-        popup: String?? = nil,
-        layout: FzfLayout? = nil,
-        margin: String? = nil,
-        padding: String? = nil,
-        border: FzfBorderStyle?? = nil,
-        borderLabel: String? = nil,
-        borderLabelPos: String? = nil,
-        multi: Int?? = nil,
-        highlightLine: Bool = false,
-        cycle: Bool = false,
-        wrap: FzfWrapMode?? = nil,
-        wrapSign: String? = nil,
-        noMultiLine: Bool = false,
-        raw: Bool = false,
-        track: Bool = false,
-        tac: Bool = false,
-        gap: Int?? = nil,
-        keepRight: Bool = false,
-        scrollOff: Int? = nil,
-        noHscroll: Bool = false,
-        hscrollOff: Int? = nil,
-        jumpLabels: String? = nil,
-        pointer: String? = nil,
-        marker: String? = nil,
-        ellipsis: String? = nil,
-        tabstop: Int? = nil,
-        scrollbar: String?? = nil,
-        listBorder: FzfBorderStyle?? = nil,
-        listLabel: String? = nil,
-        noInput: Bool = false,
-        prompt: String? = nil,
-        info: FzfInfoStyle? = nil,
-        separator: String?? = nil,
-        ghost: String? = nil,
-        filepathWord: Bool = false,
-        inputBorder: FzfBorderStyle?? = nil,
-        inputLabel: String? = nil,
-        preview: String? = nil,
-        previewWindow: String? = nil,
-        previewBorder: FzfBorderStyle?? = nil,
-        previewLabel: String? = nil,
-        previewLabelPos: String? = nil,
-        header: String? = nil,
-        headerLines: Int? = nil,
-        headerFirst: Bool = false,
-        headerBorder: FzfBorderStyle?? = nil,
-        footer: String? = nil,
-        footerBorder: FzfBorderStyle?? = nil,
-        query: String? = nil,
-        select1: Bool = false,
-        exit0: Bool = false,
-        filterQuery: String? = nil,
-        printQuery: Bool = false,
-        expect: String? = nil,
-        noClear: Bool = false,
-        bindings: [String] = [],
-        withShell: String? = nil,
-        listen: String?? = nil,
-        threads: Int? = nil,
-        walker: String? = nil,
-        walkerRoot: [String]? = nil,
-        walkerSkip: String? = nil,
-        history: String? = nil,
-        historySize: Int? = nil,
-        style: String? = nil,
-        colors: [String] = [],
-        noColor: Bool = false,
-        noBold: Bool = false,
-        black: Bool = false,
-        noMouse: Bool = false,
-        noUnicode: Bool = false,
-        ambidouble: Bool = false
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.extended = extended
-        self.exact = exact
-        self.ignoreCase = ignoreCase
-        self.caseSensitive = caseSensitive
-        self.literal = literal
-        self.scheme = scheme
-        self.algo = algo
-        self.nth = nth
-        self.withNth = withNth
-        self.acceptNth = acceptNth
-        self.noSort = noSort
-        self.delimiter = delimiter
-        self.tail = tail
-        self.disabled = disabled
-        self.tiebreak = tiebreak
-        self.read0 = read0
-        self.print0 = print0
-        self.ansi = ansi
-        self.sync = sync
-        self.height = height
-        self.minHeight = minHeight
-        self.popup = popup
-        self.layout = layout
-        self.margin = margin
-        self.padding = padding
-        self.border = border
-        self.borderLabel = borderLabel
-        self.borderLabelPos = borderLabelPos
-        self.multi = multi
-        self.highlightLine = highlightLine
-        self.cycle = cycle
-        self.wrap = wrap
-        self.wrapSign = wrapSign
-        self.noMultiLine = noMultiLine
-        self.raw = raw
-        self.track = track
-        self.tac = tac
-        self.gap = gap
-        self.keepRight = keepRight
-        self.scrollOff = scrollOff
-        self.noHscroll = noHscroll
-        self.hscrollOff = hscrollOff
-        self.jumpLabels = jumpLabels
-        self.pointer = pointer
-        self.marker = marker
-        self.ellipsis = ellipsis
-        self.tabstop = tabstop
-        self.scrollbar = scrollbar
-        self.listBorder = listBorder
-        self.listLabel = listLabel
-        self.noInput = noInput
-        self.prompt = prompt
-        self.info = info
-        self.separator = separator
-        self.ghost = ghost
-        self.filepathWord = filepathWord
-        self.inputBorder = inputBorder
-        self.inputLabel = inputLabel
-        self.preview = preview
-        self.previewWindow = previewWindow
-        self.previewBorder = previewBorder
-        self.previewLabel = previewLabel
-        self.previewLabelPos = previewLabelPos
-        self.header = header
-        self.headerLines = headerLines
-        self.headerFirst = headerFirst
-        self.headerBorder = headerBorder
-        self.footer = footer
-        self.footerBorder = footerBorder
-        self.query = query
-        self.select1 = select1
-        self.exit0 = exit0
-        self.filterQuery = filterQuery
-        self.printQuery = printQuery
-        self.expect = expect
-        self.noClear = noClear
-        self.bindings = bindings
-        self.withShell = withShell
-        self.listen = listen
-        self.threads = threads
-        self.walker = walker
-        self.walkerRoot = walkerRoot
-        self.walkerSkip = walkerSkip
-        self.history = history
-        self.historySize = historySize
-        self.style = style
-        self.colors = colors
-        self.noColor = noColor
-        self.noBold = noBold
-        self.black = black
-        self.noMouse = noMouse
-        self.noUnicode = noUnicode
-        self.ambidouble = ambidouble
-    }
+    var noMouse: Bool = false
+    var noUnicode: Bool = false
+    var ambidouble: Bool = false
 }
 #endif

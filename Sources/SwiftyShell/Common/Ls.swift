@@ -17,7 +17,7 @@ import Foundation
 /// print(output.stdout)
 /// ```
 public struct Ls: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -50,7 +50,7 @@ public struct Ls: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `ls` command's stdout to the given destination.
@@ -61,7 +61,7 @@ public struct Ls: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Ls`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `ls` command's stderr to the given destination.
@@ -72,7 +72,7 @@ public struct Ls: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Ls`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that includes hidden entries (those whose names start with `.`) in the
@@ -83,7 +83,7 @@ public struct Ls: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-a`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Ls`` value with the flag applied.
     public func all(_ enabled: Bool = true) -> Self {
-        copy(showsAllFiles: enabled)
+        modified(self) { $0.state.showsAllFiles = enabled }
     }
 
     /// Returns a copy that uses the long listing format (permissions, owner, size, timestamps).
@@ -93,7 +93,7 @@ public struct Ls: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-l`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Ls`` value with the flag applied.
     public func longFormat(_ enabled: Bool = true) -> Self {
-        copy(usesLongFormat: enabled)
+        modified(self) { $0.state.usesLongFormat = enabled }
     }
 
     /// Returns a copy that formats sizes in the long listing format with unit suffixes.
@@ -103,7 +103,7 @@ public struct Ls: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-h`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Ls`` value with the flag applied.
     public func humanReadable(_ enabled: Bool = true) -> Self {
-        copy(usesHumanReadableSizes: enabled)
+        modified(self) { $0.state.usesHumanReadableSizes = enabled }
     }
 
     /// Returns a copy that lists directory contents recursively.
@@ -114,7 +114,7 @@ public struct Ls: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-R`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Ls`` value with the flag applied.
     public func recursive(_ enabled: Bool = true) -> Self {
-        copy(isRecursive: enabled)
+        modified(self) { $0.state.isRecursive = enabled }
     }
 
     /// Returns a copy that treats directory paths as plain entries instead of listing their
@@ -126,7 +126,7 @@ public struct Ls: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-d`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Ls`` value with the flag applied.
     public func directoryAsFile(_ enabled: Bool = true) -> Self {
-        copy(treatsDirectoriesAsFiles: enabled)
+        modified(self) { $0.state.treatsDirectoriesAsFiles = enabled }
     }
 
     /// Returns a copy with one additional path appended for listing.
@@ -137,7 +137,7 @@ public struct Ls: RunnableCommandFamily {
     /// - Parameter value: The directory or file path to list.
     /// - Returns: A new ``Ls`` value with the path appended.
     public func path(_ value: String) -> Self {
-        copy(paths: state.paths + [value])
+        modified(self) { $0.state.paths += [value] }
     }
 
     /// Returns a copy with multiple paths appended for listing.
@@ -145,7 +145,7 @@ public struct Ls: RunnableCommandFamily {
     /// - Parameter values: The paths to append, in order.
     /// - Returns: A new ``Ls`` value with the paths appended.
     public func paths(_ values: [String]) -> Self {
-        copy(paths: state.paths + values)
+        modified(self) { $0.state.paths += values }
     }
 
     /// Builds the raw `ls` command represented by the current builder state.
@@ -183,65 +183,17 @@ public struct Ls: RunnableCommandFamily {
 
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        showsAllFiles: Bool? = nil,
-        usesLongFormat: Bool? = nil,
-        usesHumanReadableSizes: Bool? = nil,
-        isRecursive: Bool? = nil,
-        treatsDirectoriesAsFiles: Bool? = nil,
-        paths: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                showsAllFiles: showsAllFiles ?? state.showsAllFiles,
-                usesLongFormat: usesLongFormat ?? state.usesLongFormat,
-                usesHumanReadableSizes: usesHumanReadableSizes ?? state.usesHumanReadableSizes,
-                isRecursive: isRecursive ?? state.isRecursive,
-                treatsDirectoriesAsFiles: treatsDirectoriesAsFiles ?? state.treatsDirectoriesAsFiles,
-                paths: paths ?? state.paths
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let showsAllFiles: Bool
-    let usesLongFormat: Bool
-    let usesHumanReadableSizes: Bool
-    let isRecursive: Bool
-    let treatsDirectoriesAsFiles: Bool
-    let paths: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        showsAllFiles: Bool = false,
-        usesLongFormat: Bool = false,
-        usesHumanReadableSizes: Bool = false,
-        isRecursive: Bool = false,
-        treatsDirectoriesAsFiles: Bool = false,
-        paths: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.showsAllFiles = showsAllFiles
-        self.usesLongFormat = usesLongFormat
-        self.usesHumanReadableSizes = usesHumanReadableSizes
-        self.isRecursive = isRecursive
-        self.treatsDirectoriesAsFiles = treatsDirectoriesAsFiles
-        self.paths = paths
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var showsAllFiles: Bool = false
+    var usesLongFormat: Bool = false
+    var usesHumanReadableSizes: Bool = false
+    var isRecursive: Bool = false
+    var treatsDirectoriesAsFiles: Bool = false
+    var paths: [String] = []
 }
 #endif

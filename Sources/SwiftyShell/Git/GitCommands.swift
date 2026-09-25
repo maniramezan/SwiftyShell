@@ -123,7 +123,7 @@ enum GitBranchMode: Sendable, Equatable {
 /// print(output.stdout)
 /// ```
 public struct GitBranch: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -145,7 +145,7 @@ public struct GitBranch: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(git: state.git.updatingConfiguration(update))
+        modified(self) { $0.state.git = state.git.updatingConfiguration(update) }
     }
 
     /// Returns a copy that routes the built `git branch` command's stdout to the given destination.
@@ -155,7 +155,7 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `git branch` command's stderr to the given destination.
@@ -165,7 +165,7 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that lists branches instead of creating one.
@@ -178,7 +178,7 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--list`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``GitBranch`` value with the flag applied.
     public func list(_ enabled: Bool = true) -> Self {
-        copy(mode: .some(toggledMode(state.mode, .list, enabled: enabled)))
+        modified(self) { $0.state.mode = toggledMode(state.mode, .list, enabled: enabled) }
     }
 
     /// Returns a copy that includes remote-tracking branches when listing.
@@ -189,7 +189,7 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--all`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``GitBranch`` value with the flag applied.
     public func all(_ enabled: Bool = true) -> Self {
-        copy(includesAllBranches: enabled)
+        modified(self) { $0.state.includesAllBranches = enabled }
     }
 
     /// Returns a copy that deletes the named branch.
@@ -200,7 +200,10 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Parameter name: The branch to delete.
     /// - Returns: A new ``GitBranch`` value configured to delete the branch.
     public func delete(_ name: String) -> Self {
-        copy(mode: .some(.delete(force: false)), branchName: name)
+        modified(self) {
+            $0.state.mode = .delete(force: false)
+            $0.state.branchName = name
+        }
     }
 
     /// Returns a copy that force-deletes the named branch.
@@ -211,7 +214,10 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Parameter name: The branch to force-delete.
     /// - Returns: A new ``GitBranch`` value configured to force-delete the branch.
     public func forceDelete(_ name: String) -> Self {
-        copy(mode: .some(.delete(force: true)), branchName: name)
+        modified(self) {
+            $0.state.mode = .delete(force: true)
+            $0.state.branchName = name
+        }
     }
 
     /// Returns a copy that sets the branch name for create, move, or delete operations.
@@ -223,7 +229,7 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Parameter name: The branch name.
     /// - Returns: A new ``GitBranch`` value with the name applied.
     public func named(_ name: String) -> Self {
-        copy(branchName: name)
+        modified(self) { $0.state.branchName = name }
     }
 
     /// Returns a copy that sets the start-point ref used when creating a branch.
@@ -235,7 +241,7 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Parameter value: The commit, branch, or tag to start the new branch from.
     /// - Returns: A new ``GitBranch`` value with the start point applied.
     public func startPoint(_ value: String) -> Self {
-        copy(startPoint: value)
+        modified(self) { $0.state.startPoint = value }
     }
 
     /// Returns a copy that renames a branch to the given new name.
@@ -246,7 +252,10 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Parameter newName: The new branch name.
     /// - Returns: A new ``GitBranch`` value configured to perform the rename.
     public func move(to newName: String) -> Self {
-        copy(mode: .some(.move), newBranchName: newName)
+        modified(self) {
+            $0.state.mode = .move
+            $0.state.newBranchName = newName
+        }
     }
 
     /// Builds the raw `git branch` command represented by the current builder state.
@@ -327,30 +336,6 @@ public struct GitBranch: RunnableCommandFamily {
             )
         }
     }
-
-    private func copy(
-        git: Git? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        mode: GitBranchMode?? = nil,
-        includesAllBranches: Bool? = nil,
-        branchName: String?? = nil,
-        newBranchName: String?? = nil,
-        startPoint: String?? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                git: git ?? state.git,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                mode: mode ?? state.mode,
-                includesAllBranches: includesAllBranches ?? state.includesAllBranches,
-                branchName: branchName ?? state.branchName,
-                newBranchName: newBranchName ?? state.newBranchName,
-                startPoint: startPoint ?? state.startPoint
-            )
-        )
-    }
 }
 
 /// A fluent wrapper for `git stash`.
@@ -371,7 +356,7 @@ public struct GitBranch: RunnableCommandFamily {
 /// print(output.stdout)
 /// ```
 public struct GitStash: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -393,7 +378,7 @@ public struct GitStash: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(git: state.git.updatingConfiguration(update))
+        modified(self) { $0.state.git = state.git.updatingConfiguration(update) }
     }
 
     /// Returns a copy that routes the built `git stash` command's stdout to the given destination.
@@ -403,7 +388,7 @@ public struct GitStash: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `git stash` command's stderr to the given destination.
@@ -413,7 +398,7 @@ public struct GitStash: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that selects `git stash push`.
@@ -423,7 +408,7 @@ public struct GitStash: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitStash`` value configured to run `git stash push`.
     public func push() -> Self {
-        copy(subcommand: .push)
+        modified(self) { $0.state.subcommand = .push }
     }
 
     /// Returns a copy that selects `git stash pop`.
@@ -433,7 +418,7 @@ public struct GitStash: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitStash`` value configured to run `git stash pop`.
     public func pop() -> Self {
-        copy(subcommand: .pop)
+        modified(self) { $0.state.subcommand = .pop }
     }
 
     /// Returns a copy that selects `git stash apply`.
@@ -443,7 +428,7 @@ public struct GitStash: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitStash`` value configured to run `git stash apply`.
     public func apply() -> Self {
-        copy(subcommand: .apply)
+        modified(self) { $0.state.subcommand = .apply }
     }
 
     /// Returns a copy that selects `git stash list`.
@@ -452,7 +437,7 @@ public struct GitStash: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitStash`` value configured to run `git stash list`.
     public func list() -> Self {
-        copy(subcommand: .list)
+        modified(self) { $0.state.subcommand = .list }
     }
 
     /// Returns a copy that selects `git stash show`.
@@ -462,7 +447,7 @@ public struct GitStash: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitStash`` value configured to run `git stash show`.
     public func show() -> Self {
-        copy(subcommand: .show)
+        modified(self) { $0.state.subcommand = .show }
     }
 
     /// Returns a copy that selects `git stash drop`.
@@ -471,7 +456,7 @@ public struct GitStash: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitStash`` value configured to run `git stash drop`.
     public func drop() -> Self {
-        copy(subcommand: .drop)
+        modified(self) { $0.state.subcommand = .drop }
     }
 
     /// Returns a copy that selects `git stash drop`.
@@ -490,7 +475,7 @@ public struct GitStash: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitStash`` value configured to run `git stash clear`.
     public func clear() -> Self {
-        copy(subcommand: .clear)
+        modified(self) { $0.state.subcommand = .clear }
     }
 
     /// Returns a copy that selects `git stash branch <name>`.
@@ -501,7 +486,10 @@ public struct GitStash: RunnableCommandFamily {
     /// - Parameter name: The branch to create.
     /// - Returns: A new ``GitStash`` value configured to run `git stash branch`.
     public func branch(_ name: String) -> Self {
-        copy(subcommand: .branch, branchName: name)
+        modified(self) {
+            $0.state.subcommand = .branch
+            $0.state.branchName = name
+        }
     }
 
     /// Returns a copy that selects `git stash create`.
@@ -511,7 +499,7 @@ public struct GitStash: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitStash`` value configured to run `git stash create`.
     public func create() -> Self {
-        copy(subcommand: .create)
+        modified(self) { $0.state.subcommand = .create }
     }
 
     /// Returns a copy that includes untracked files when pushing a stash.
@@ -522,7 +510,7 @@ public struct GitStash: RunnableCommandFamily {
     ///   `true`.
     /// - Returns: A new ``GitStash`` value with the flag applied.
     public func includeUntracked(_ enabled: Bool = true) -> Self {
-        copy(includesUntracked: enabled)
+        modified(self) { $0.state.includesUntracked = enabled }
     }
 
     /// Returns a copy that sets the stash message used by `git stash push`.
@@ -532,7 +520,7 @@ public struct GitStash: RunnableCommandFamily {
     /// - Parameter value: The stash message.
     /// - Returns: A new ``GitStash`` value with the message applied.
     public func message(_ value: String) -> Self {
-        copy(message: value)
+        modified(self) { $0.state.message = value }
     }
 
     /// Returns a copy that targets a specific stash entry by reference.
@@ -543,7 +531,7 @@ public struct GitStash: RunnableCommandFamily {
     /// - Parameter value: The stash reference.
     /// - Returns: A new ``GitStash`` value with the reference applied.
     public func reference(_ value: String) -> Self {
-        copy(reference: value)
+        modified(self) { $0.state.reference = value }
     }
 
     /// Builds the raw `git stash` command represented by the current builder state.
@@ -575,30 +563,6 @@ public struct GitStash: RunnableCommandFamily {
             .stdout(state.stdoutDestination)
             .stderr(state.stderrDestination)
     }
-
-    private func copy(
-        git: Git? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        subcommand: Subcommand?? = nil,
-        branchName: String?? = nil,
-        includesUntracked: Bool? = nil,
-        message: String?? = nil,
-        reference: String?? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                git: git ?? state.git,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                subcommand: subcommand ?? state.subcommand,
-                branchName: branchName ?? state.branchName,
-                includesUntracked: includesUntracked ?? state.includesUntracked,
-                message: message ?? state.message,
-                reference: reference ?? state.reference
-            )
-        )
-    }
 }
 
 /// A fluent wrapper for `git worktree`.
@@ -616,7 +580,7 @@ public struct GitStash: RunnableCommandFamily {
 /// print(output.stdout)
 /// ```
 public struct GitWorktree: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -638,7 +602,7 @@ public struct GitWorktree: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(git: state.git.updatingConfiguration(update))
+        modified(self) { $0.state.git = state.git.updatingConfiguration(update) }
     }
 
     /// Returns a copy that routes the built `git worktree` command's stdout to the given destination.
@@ -648,7 +612,7 @@ public struct GitWorktree: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `git worktree` command's stderr to the given destination.
@@ -658,7 +622,7 @@ public struct GitWorktree: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that selects `git worktree list`.
@@ -667,7 +631,7 @@ public struct GitWorktree: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitWorktree`` value configured to run `git worktree list`.
     public func list() -> Self {
-        copy(subcommand: .list)
+        modified(self) { $0.state.subcommand = .list }
     }
 
     /// Returns a copy that selects `git worktree add <path>`.
@@ -678,7 +642,10 @@ public struct GitWorktree: RunnableCommandFamily {
     /// - Parameter path: The filesystem path for the new worktree.
     /// - Returns: A new ``GitWorktree`` value configured to run `git worktree add`.
     public func add(_ path: String) -> Self {
-        copy(subcommand: .add, path: path)
+        modified(self) {
+            $0.state.subcommand = .add
+            $0.state.path = path
+        }
     }
 
     /// Returns a copy that selects `git worktree remove <path>`.
@@ -689,7 +656,10 @@ public struct GitWorktree: RunnableCommandFamily {
     /// - Parameter path: The filesystem path of the worktree to remove.
     /// - Returns: A new ``GitWorktree`` value configured to run `git worktree remove`.
     public func remove(_ path: String) -> Self {
-        copy(subcommand: .remove, path: path)
+        modified(self) {
+            $0.state.subcommand = .remove
+            $0.state.path = path
+        }
     }
 
     /// Returns a copy that sets the new branch used by `git worktree add`.
@@ -700,7 +670,7 @@ public struct GitWorktree: RunnableCommandFamily {
     /// - Parameter value: The branch name to create.
     /// - Returns: A new ``GitWorktree`` value with the branch applied.
     public func branch(_ value: String) -> Self {
-        copy(branch: value)
+        modified(self) { $0.state.branch = value }
     }
 
     /// Builds the raw `git worktree` command represented by the current builder state.
@@ -725,26 +695,6 @@ public struct GitWorktree: RunnableCommandFamily {
             .stdout(state.stdoutDestination)
             .stderr(state.stderrDestination)
     }
-
-    private func copy(
-        git: Git? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        subcommand: Subcommand?? = nil,
-        path: String?? = nil,
-        branch: String?? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                git: git ?? state.git,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                subcommand: subcommand ?? state.subcommand,
-                path: path ?? state.path,
-                branch: branch ?? state.branch
-            )
-        )
-    }
 }
 
 /// A fluent wrapper for `git diff`.
@@ -763,7 +713,7 @@ public struct GitWorktree: RunnableCommandFamily {
 /// print(output.stdout)
 /// ```
 public struct GitDiff: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -785,7 +735,7 @@ public struct GitDiff: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(git: state.git.updatingConfiguration(update))
+        modified(self) { $0.state.git = state.git.updatingConfiguration(update) }
     }
 
     /// Returns a copy that routes the built `git diff` command's stdout to the given destination.
@@ -795,7 +745,7 @@ public struct GitDiff: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `git diff` command's stderr to the given destination.
@@ -805,7 +755,7 @@ public struct GitDiff: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy with the diff output format applied.
@@ -816,7 +766,7 @@ public struct GitDiff: RunnableCommandFamily {
     /// - Parameter value: The desired output format.
     /// - Returns: A new ``GitDiff`` value with the format applied.
     public func format(_ value: GitDiffFormat) -> Self {
-        copy(format: value)
+        modified(self) { $0.state.format = value }
     }
 
     /// Returns a copy that diffs staged changes against `HEAD`.
@@ -827,7 +777,7 @@ public struct GitDiff: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--staged`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``GitDiff`` value with the flag applied.
     public func staged(_ enabled: Bool = true) -> Self {
-        copy(staged: enabled)
+        modified(self) { $0.state.staged = enabled }
     }
 
     /// Returns a copy that targets a specific commit, branch, or revision range.
@@ -837,7 +787,7 @@ public struct GitDiff: RunnableCommandFamily {
     /// - Parameter value: The commit, branch, or revision range.
     /// - Returns: A new ``GitDiff`` value with the range applied.
     public func range(_ value: String) -> Self {
-        copy(range: value)
+        modified(self) { $0.state.range = value }
     }
 
     /// Returns a copy with one additional path filter appended.
@@ -847,7 +797,7 @@ public struct GitDiff: RunnableCommandFamily {
     /// - Parameter value: The path filter to append.
     /// - Returns: A new ``GitDiff`` value with the path appended.
     public func path(_ value: String) -> Self {
-        copy(paths: state.paths + [value])
+        modified(self) { $0.state.paths += [value] }
     }
 
     /// Returns a copy with multiple path filters appended.
@@ -857,7 +807,7 @@ public struct GitDiff: RunnableCommandFamily {
     /// - Parameter values: The path filters to append, in order.
     /// - Returns: A new ``GitDiff`` value with the paths appended.
     public func paths(_ values: [String]) -> Self {
-        copy(paths: state.paths + values)
+        modified(self) { $0.state.paths += values }
     }
 
     /// Builds the raw `git diff` command represented by the current builder state.
@@ -917,28 +867,6 @@ public struct GitDiff: RunnableCommandFamily {
             )
         }
     }
-
-    private func copy(
-        git: Git? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        format: GitDiffFormat? = nil,
-        staged: Bool? = nil,
-        range: String?? = nil,
-        paths: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                git: git ?? state.git,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                format: format ?? state.format,
-                staged: staged ?? state.staged,
-                range: range ?? state.range,
-                paths: paths ?? state.paths
-            )
-        )
-    }
 }
 
 /// A fluent wrapper for `git log`.
@@ -958,7 +886,7 @@ public struct GitDiff: RunnableCommandFamily {
 /// print(output.stdout)
 /// ```
 public struct GitLog: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -980,7 +908,7 @@ public struct GitLog: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(git: state.git.updatingConfiguration(update))
+        modified(self) { $0.state.git = state.git.updatingConfiguration(update) }
     }
 
     /// Returns a copy that routes the built `git log` command's stdout to the given destination.
@@ -990,7 +918,7 @@ public struct GitLog: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `git log` command's stderr to the given destination.
@@ -1000,7 +928,7 @@ public struct GitLog: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy with the log output format applied.
@@ -1011,7 +939,7 @@ public struct GitLog: RunnableCommandFamily {
     /// - Parameter value: The desired output format.
     /// - Returns: A new ``GitLog`` value with the format applied.
     public func format(_ value: GitLogFormat) -> Self {
-        copy(format: value)
+        modified(self) { $0.state.format = value }
     }
 
     /// Returns a copy that limits the number of commits returned.
@@ -1021,7 +949,7 @@ public struct GitLog: RunnableCommandFamily {
     /// - Parameter value: The maximum number of commits.
     /// - Returns: A new ``GitLog`` value with the limit applied.
     public func maxCount(_ value: Int) -> Self {
-        copy(maxCount: value)
+        modified(self) { $0.state.maxCount = value }
     }
 
     /// Returns a copy that targets a specific commit, branch, or revision range.
@@ -1031,7 +959,7 @@ public struct GitLog: RunnableCommandFamily {
     /// - Parameter value: The commit, branch, or revision range.
     /// - Returns: A new ``GitLog`` value with the range applied.
     public func range(_ value: String) -> Self {
-        copy(range: value)
+        modified(self) { $0.state.range = value }
     }
 
     /// Builds the raw `git log` command represented by the current builder state.
@@ -1084,26 +1012,6 @@ public struct GitLog: RunnableCommandFamily {
             )
         }
     }
-
-    private func copy(
-        git: Git? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        format: GitLogFormat? = nil,
-        maxCount: Int?? = nil,
-        range: String?? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                git: git ?? state.git,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                format: format ?? state.format,
-                maxCount: maxCount ?? state.maxCount,
-                range: range ?? state.range
-            )
-        )
-    }
 }
 
 /// A fluent wrapper for `git config`.
@@ -1121,7 +1029,7 @@ public struct GitLog: RunnableCommandFamily {
 /// let userName = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
 /// ```
 public struct GitConfigCommand: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -1143,7 +1051,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(git: state.git.updatingConfiguration(update))
+        modified(self) { $0.state.git = state.git.updatingConfiguration(update) }
     }
 
     /// Returns a copy that routes the built `git config` command's stdout to the given destination.
@@ -1153,7 +1061,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `git config` command's stderr to the given destination.
@@ -1163,7 +1071,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that selects `git config --get <key>`.
@@ -1174,7 +1082,10 @@ public struct GitConfigCommand: RunnableCommandFamily {
     /// - Parameter key: The fully-qualified config key (e.g. `"user.name"`).
     /// - Returns: A new ``GitConfigCommand`` configured to read the key.
     public func get(_ key: String) -> Self {
-        copy(action: .get, key: key)
+        modified(self) {
+            $0.state.action = .get
+            $0.state.key = key
+        }
     }
 
     /// Returns a copy that selects `git config <key> <value>`.
@@ -1186,7 +1097,11 @@ public struct GitConfigCommand: RunnableCommandFamily {
     ///   - value: The new value.
     /// - Returns: A new ``GitConfigCommand`` configured to write the key.
     public func set(_ key: String, to value: String) -> Self {
-        copy(action: .set, key: key, value: value)
+        modified(self) {
+            $0.state.action = .set
+            $0.state.key = key
+            $0.state.value = value
+        }
     }
 
     /// Returns a copy that selects `git config --unset <key>`.
@@ -1194,7 +1109,10 @@ public struct GitConfigCommand: RunnableCommandFamily {
     /// - Parameter key: The config key to clear.
     /// - Returns: A new ``GitConfigCommand`` configured to unset the key.
     public func unset(_ key: String) -> Self {
-        copy(action: .unset, key: key)
+        modified(self) {
+            $0.state.action = .unset
+            $0.state.key = key
+        }
     }
 
     /// Returns a copy that selects `git config --list`.
@@ -1204,7 +1122,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitConfigCommand`` configured to list config entries.
     public func list() -> Self {
-        copy(action: .list)
+        modified(self) { $0.state.action = .list }
     }
 
     /// Returns a copy that targets the local repository config file.
@@ -1216,7 +1134,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
     ///   `true`.
     /// - Returns: A new ``GitConfigCommand`` value with the scope applied.
     public func local(_ enabled: Bool = true) -> Self {
-        copy(scope: enabled ? .local : nil)
+        modified(self) { $0.state.scope = enabled ? .local : nil }
     }
 
     /// Returns a copy that targets the global user config file.
@@ -1228,7 +1146,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
     ///   `true`.
     /// - Returns: A new ``GitConfigCommand`` value with the scope applied.
     public func global(_ enabled: Bool = true) -> Self {
-        copy(scope: enabled ? .global : nil)
+        modified(self) { $0.state.scope = enabled ? .global : nil }
     }
 
     /// Returns a copy with the listing output format applied.
@@ -1238,7 +1156,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
     /// - Parameter value: The desired output format.
     /// - Returns: A new ``GitConfigCommand`` value with the format applied.
     public func format(_ value: GitConfigFormat) -> Self {
-        copy(format: value)
+        modified(self) { $0.state.format = value }
     }
 
     /// Builds the raw `git config` command represented by the current builder state.
@@ -1276,30 +1194,6 @@ public struct GitConfigCommand: RunnableCommandFamily {
             .stdout(state.stdoutDestination)
             .stderr(state.stderrDestination)
     }
-
-    private func copy(
-        git: Git? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        action: Action? = nil,
-        scope: Scope?? = nil,
-        format: GitConfigFormat? = nil,
-        key: String?? = nil,
-        value: String?? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                git: git ?? state.git,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                action: action ?? state.action,
-                scope: scope ?? state.scope,
-                format: format ?? state.format,
-                key: key ?? state.key,
-                value: value ?? state.value
-            )
-        )
-    }
 }
 
 /// A fluent wrapper for `git merge`.
@@ -1318,7 +1212,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
 /// print(output.stdout)
 /// ```
 public struct GitMerge: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -1340,7 +1234,7 @@ public struct GitMerge: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(git: state.git.updatingConfiguration(update))
+        modified(self) { $0.state.git = state.git.updatingConfiguration(update) }
     }
 
     /// Returns a copy that routes the built `git merge` command's stdout to the given destination.
@@ -1350,7 +1244,7 @@ public struct GitMerge: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `git merge` command's stderr to the given destination.
@@ -1360,7 +1254,7 @@ public struct GitMerge: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that sets the branch or commit to merge.
@@ -1370,7 +1264,7 @@ public struct GitMerge: RunnableCommandFamily {
     /// - Parameter value: The branch, tag, or commit to merge.
     /// - Returns: A new ``GitMerge`` value with the target applied.
     public func branch(_ value: String) -> Self {
-        copy(branch: value)
+        modified(self) { $0.state.branch = value }
     }
 
     /// Returns a copy that disables fast-forward merges.
@@ -1381,7 +1275,7 @@ public struct GitMerge: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--no-ff`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``GitMerge`` value with the flag applied.
     public func noFastForward(_ enabled: Bool = true) -> Self {
-        copy(noFastForward: enabled)
+        modified(self) { $0.state.noFastForward = enabled }
     }
 
     /// Builds the raw `git merge` command represented by the current builder state.
@@ -1403,24 +1297,6 @@ public struct GitMerge: RunnableCommandFamily {
             .stdout(state.stdoutDestination)
             .stderr(state.stderrDestination)
     }
-
-    private func copy(
-        git: Git? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        branch: String?? = nil,
-        noFastForward: Bool? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                git: git ?? state.git,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                branch: branch ?? state.branch,
-                noFastForward: noFastForward ?? state.noFastForward
-            )
-        )
-    }
 }
 
 /// A fluent wrapper for `git commit`.
@@ -1440,7 +1316,7 @@ public struct GitMerge: RunnableCommandFamily {
 /// print(output.stdout)
 /// ```
 public struct GitCommit: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -1462,7 +1338,7 @@ public struct GitCommit: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(git: state.git.updatingConfiguration(update))
+        modified(self) { $0.state.git = state.git.updatingConfiguration(update) }
     }
 
     /// Returns a copy that routes the built `git commit` command's stdout to the given destination.
@@ -1472,7 +1348,7 @@ public struct GitCommit: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `git commit` command's stderr to the given destination.
@@ -1482,7 +1358,7 @@ public struct GitCommit: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that sets the commit message.
@@ -1492,7 +1368,7 @@ public struct GitCommit: RunnableCommandFamily {
     /// - Parameter value: The commit message.
     /// - Returns: A new ``GitCommit`` value with the message applied.
     public func message(_ value: String) -> Self {
-        copy(message: value)
+        modified(self) { $0.state.message = value }
     }
 
     /// Returns a copy that stages tracked-file modifications and deletions before committing.
@@ -1503,7 +1379,7 @@ public struct GitCommit: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--all`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``GitCommit`` value with the flag applied.
     public func all(_ enabled: Bool = true) -> Self {
-        copy(commitsAllTrackedChanges: enabled)
+        modified(self) { $0.state.commitsAllTrackedChanges = enabled }
     }
 
     /// Builds the raw `git commit` command represented by the current builder state.
@@ -1525,24 +1401,6 @@ public struct GitCommit: RunnableCommandFamily {
             .stdout(state.stdoutDestination)
             .stderr(state.stderrDestination)
     }
-
-    private func copy(
-        git: Git? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        message: String?? = nil,
-        commitsAllTrackedChanges: Bool? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                git: git ?? state.git,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                message: message ?? state.message,
-                commitsAllTrackedChanges: commitsAllTrackedChanges ?? state.commitsAllTrackedChanges
-            )
-        )
-    }
 }
 
 /// A fluent wrapper for `git rebase`.
@@ -1561,7 +1419,7 @@ public struct GitCommit: RunnableCommandFamily {
 /// print(output.stdout)
 /// ```
 public struct GitRebase: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -1583,7 +1441,7 @@ public struct GitRebase: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(git: state.git.updatingConfiguration(update))
+        modified(self) { $0.state.git = state.git.updatingConfiguration(update) }
     }
 
     /// Returns a copy that routes the built `git rebase` command's stdout to the given destination.
@@ -1593,7 +1451,7 @@ public struct GitRebase: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `git rebase` command's stderr to the given destination.
@@ -1603,7 +1461,7 @@ public struct GitRebase: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that sets the branch or commit to rebase onto.
@@ -1613,7 +1471,7 @@ public struct GitRebase: RunnableCommandFamily {
     /// - Parameter value: The target ref to rebase onto.
     /// - Returns: A new ``GitRebase`` value with the target applied.
     public func onto(_ value: String) -> Self {
-        copy(target: value)
+        modified(self) { $0.state.target = value }
     }
 
     /// Returns a copy that selects `git rebase --continue`.
@@ -1622,7 +1480,7 @@ public struct GitRebase: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitRebase`` value configured to continue an in-progress rebase.
     public func `continue`() -> Self {
-        copy(mode: .continue)
+        modified(self) { $0.state.mode = .continue }
     }
 
     /// Returns a copy that selects `git rebase --abort`.
@@ -1631,7 +1489,7 @@ public struct GitRebase: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitRebase`` value configured to abort an in-progress rebase.
     public func abort() -> Self {
-        copy(mode: .abort)
+        modified(self) { $0.state.mode = .abort }
     }
 
     /// Builds the raw `git rebase` command represented by the current builder state.
@@ -1658,24 +1516,6 @@ public struct GitRebase: RunnableCommandFamily {
             .stdout(state.stdoutDestination)
             .stderr(state.stderrDestination)
     }
-
-    private func copy(
-        git: Git? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        target: String?? = nil,
-        mode: Mode? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                git: git ?? state.git,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                target: target ?? state.target,
-                mode: mode ?? state.mode
-            )
-        )
-    }
 }
 
 private extension GitBranch {
@@ -1684,34 +1524,14 @@ private extension GitBranch {
     }
 
     struct State: Sendable {
-        let git: Git
-        let stdoutDestination: OutputDestination
-        let stderrDestination: OutputDestination
-        let mode: GitBranchMode?
-        let includesAllBranches: Bool
-        let branchName: String?
-        let newBranchName: String?
-        let startPoint: String?
-
-        init(
-            git: Git,
-            stdoutDestination: OutputDestination = .capture,
-            stderrDestination: OutputDestination = .capture,
-            mode: GitBranchMode? = nil,
-            includesAllBranches: Bool = false,
-            branchName: String? = nil,
-            newBranchName: String? = nil,
-            startPoint: String? = nil
-        ) {
-            self.git = git
-            self.stdoutDestination = stdoutDestination
-            self.stderrDestination = stderrDestination
-            self.mode = mode
-            self.includesAllBranches = includesAllBranches
-            self.branchName = branchName
-            self.newBranchName = newBranchName
-            self.startPoint = startPoint
-        }
+        var git: Git
+        var stdoutDestination: OutputDestination = .capture
+        var stderrDestination: OutputDestination = .capture
+        var mode: GitBranchMode? = nil
+        var includesAllBranches: Bool = false
+        var branchName: String? = nil
+        var newBranchName: String? = nil
+        var startPoint: String? = nil
     }
 }
 
@@ -1733,34 +1553,14 @@ private extension GitStash {
     }
 
     struct State: Sendable {
-        let git: Git
-        let stdoutDestination: OutputDestination
-        let stderrDestination: OutputDestination
-        let subcommand: Subcommand?
-        let branchName: String?
-        let includesUntracked: Bool
-        let message: String?
-        let reference: String?
-
-        init(
-            git: Git,
-            stdoutDestination: OutputDestination = .capture,
-            stderrDestination: OutputDestination = .capture,
-            subcommand: Subcommand? = nil,
-            branchName: String? = nil,
-            includesUntracked: Bool = false,
-            message: String? = nil,
-            reference: String? = nil
-        ) {
-            self.git = git
-            self.stdoutDestination = stdoutDestination
-            self.stderrDestination = stderrDestination
-            self.subcommand = subcommand
-            self.branchName = branchName
-            self.includesUntracked = includesUntracked
-            self.message = message
-            self.reference = reference
-        }
+        var git: Git
+        var stdoutDestination: OutputDestination = .capture
+        var stderrDestination: OutputDestination = .capture
+        var subcommand: Subcommand? = nil
+        var branchName: String? = nil
+        var includesUntracked: Bool = false
+        var message: String? = nil
+        var reference: String? = nil
     }
 }
 
@@ -1776,28 +1576,12 @@ private extension GitWorktree {
     }
 
     struct State: Sendable {
-        let git: Git
-        let stdoutDestination: OutputDestination
-        let stderrDestination: OutputDestination
-        let subcommand: Subcommand?
-        let path: String?
-        let branch: String?
-
-        init(
-            git: Git,
-            stdoutDestination: OutputDestination = .capture,
-            stderrDestination: OutputDestination = .capture,
-            subcommand: Subcommand? = nil,
-            path: String? = nil,
-            branch: String? = nil
-        ) {
-            self.git = git
-            self.stdoutDestination = stdoutDestination
-            self.stderrDestination = stderrDestination
-            self.subcommand = subcommand
-            self.path = path
-            self.branch = branch
-        }
+        var git: Git
+        var stdoutDestination: OutputDestination = .capture
+        var stderrDestination: OutputDestination = .capture
+        var subcommand: Subcommand? = nil
+        var path: String? = nil
+        var branch: String? = nil
     }
 }
 
@@ -1807,31 +1591,13 @@ private extension GitDiff {
     }
 
     struct State: Sendable {
-        let git: Git
-        let stdoutDestination: OutputDestination
-        let stderrDestination: OutputDestination
-        let format: GitDiffFormat
-        let staged: Bool
-        let range: String?
-        let paths: [String]
-
-        init(
-            git: Git,
-            stdoutDestination: OutputDestination = .capture,
-            stderrDestination: OutputDestination = .capture,
-            format: GitDiffFormat = .patch,
-            staged: Bool = false,
-            range: String? = nil,
-            paths: [String] = []
-        ) {
-            self.git = git
-            self.stdoutDestination = stdoutDestination
-            self.stderrDestination = stderrDestination
-            self.format = format
-            self.staged = staged
-            self.range = range
-            self.paths = paths
-        }
+        var git: Git
+        var stdoutDestination: OutputDestination = .capture
+        var stderrDestination: OutputDestination = .capture
+        var format: GitDiffFormat = .patch
+        var staged: Bool = false
+        var range: String? = nil
+        var paths: [String] = []
     }
 }
 
@@ -1841,28 +1607,12 @@ private extension GitLog {
     }
 
     struct State: Sendable {
-        let git: Git
-        let stdoutDestination: OutputDestination
-        let stderrDestination: OutputDestination
-        let format: GitLogFormat
-        let maxCount: Int?
-        let range: String?
-
-        init(
-            git: Git,
-            stdoutDestination: OutputDestination = .capture,
-            stderrDestination: OutputDestination = .capture,
-            format: GitLogFormat = .medium,
-            maxCount: Int? = nil,
-            range: String? = nil
-        ) {
-            self.git = git
-            self.stdoutDestination = stdoutDestination
-            self.stderrDestination = stderrDestination
-            self.format = format
-            self.maxCount = maxCount
-            self.range = range
-        }
+        var git: Git
+        var stdoutDestination: OutputDestination = .capture
+        var stderrDestination: OutputDestination = .capture
+        var format: GitLogFormat = .medium
+        var maxCount: Int? = nil
+        var range: String? = nil
     }
 }
 
@@ -1884,34 +1634,14 @@ private extension GitConfigCommand {
     }
 
     struct State: Sendable {
-        let git: Git
-        let stdoutDestination: OutputDestination
-        let stderrDestination: OutputDestination
-        let action: Action
-        let scope: Scope?
-        let format: GitConfigFormat
-        let key: String?
-        let value: String?
-
-        init(
-            git: Git,
-            stdoutDestination: OutputDestination = .capture,
-            stderrDestination: OutputDestination = .capture,
-            action: Action = .list,
-            scope: Scope? = nil,
-            format: GitConfigFormat = .defaultFormat,
-            key: String? = nil,
-            value: String? = nil
-        ) {
-            self.git = git
-            self.stdoutDestination = stdoutDestination
-            self.stderrDestination = stderrDestination
-            self.action = action
-            self.scope = scope
-            self.format = format
-            self.key = key
-            self.value = value
-        }
+        var git: Git
+        var stdoutDestination: OutputDestination = .capture
+        var stderrDestination: OutputDestination = .capture
+        var action: Action = .list
+        var scope: Scope? = nil
+        var format: GitConfigFormat = .defaultFormat
+        var key: String? = nil
+        var value: String? = nil
     }
 }
 
@@ -1921,25 +1651,11 @@ private extension GitMerge {
     }
 
     struct State: Sendable {
-        let git: Git
-        let stdoutDestination: OutputDestination
-        let stderrDestination: OutputDestination
-        let branch: String?
-        let noFastForward: Bool
-
-        init(
-            git: Git,
-            stdoutDestination: OutputDestination = .capture,
-            stderrDestination: OutputDestination = .capture,
-            branch: String? = nil,
-            noFastForward: Bool = false
-        ) {
-            self.git = git
-            self.stdoutDestination = stdoutDestination
-            self.stderrDestination = stderrDestination
-            self.branch = branch
-            self.noFastForward = noFastForward
-        }
+        var git: Git
+        var stdoutDestination: OutputDestination = .capture
+        var stderrDestination: OutputDestination = .capture
+        var branch: String? = nil
+        var noFastForward: Bool = false
     }
 }
 
@@ -1949,25 +1665,11 @@ private extension GitCommit {
     }
 
     struct State: Sendable {
-        let git: Git
-        let stdoutDestination: OutputDestination
-        let stderrDestination: OutputDestination
-        let message: String?
-        let commitsAllTrackedChanges: Bool
-
-        init(
-            git: Git,
-            stdoutDestination: OutputDestination = .capture,
-            stderrDestination: OutputDestination = .capture,
-            message: String? = nil,
-            commitsAllTrackedChanges: Bool = false
-        ) {
-            self.git = git
-            self.stdoutDestination = stdoutDestination
-            self.stderrDestination = stderrDestination
-            self.message = message
-            self.commitsAllTrackedChanges = commitsAllTrackedChanges
-        }
+        var git: Git
+        var stdoutDestination: OutputDestination = .capture
+        var stderrDestination: OutputDestination = .capture
+        var message: String? = nil
+        var commitsAllTrackedChanges: Bool = false
     }
 }
 
@@ -1983,25 +1685,11 @@ private extension GitRebase {
     }
 
     struct State: Sendable {
-        let git: Git
-        let stdoutDestination: OutputDestination
-        let stderrDestination: OutputDestination
-        let target: String?
-        let mode: Mode
-
-        init(
-            git: Git,
-            stdoutDestination: OutputDestination = .capture,
-            stderrDestination: OutputDestination = .capture,
-            target: String? = nil,
-            mode: Mode = .start
-        ) {
-            self.git = git
-            self.stdoutDestination = stdoutDestination
-            self.stderrDestination = stderrDestination
-            self.target = target
-            self.mode = mode
-        }
+        var git: Git
+        var stdoutDestination: OutputDestination = .capture
+        var stderrDestination: OutputDestination = .capture
+        var target: String? = nil
+        var mode: Mode = .start
     }
 }
 #endif

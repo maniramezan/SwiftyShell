@@ -142,4 +142,27 @@ struct ZipCommandTests {
         #expect(size > 0)
     }
 }
+
+/// Every Boolean flag setter adds exactly its flag when enabled and removes it when disabled.
+struct ZipFlagSetterTests {
+    @Test func eachFlagSetterTogglesItsFlag() {
+        let base = Zip()
+        let setters: [(flag: String, set: (Zip, Bool) -> Zip)] = [
+            ("-m", { $0.move($1) }),
+            ("-r", { $0.recursive($1) }),
+            ("-q", { $0.quiet($1) }),
+            ("-v", { $0.verbose($1) }),
+            ("-j", { $0.junkPaths($1) }),
+            ("-y", { $0.storeSymlinks($1) }),
+            ("-X", { $0.stripExtraFields($1) }),
+            ("-e", { $0.encryptInteractive($1) }),
+        ]
+        for (flag, set) in setters {
+            #expect(!base.command().arguments.contains(flag), "\(flag) present before enabling")
+            let enabled = set(base, true)
+            #expect(enabled.command().arguments.contains(flag), "\(flag) missing after enabling")
+            #expect(!set(enabled, false).command().arguments.contains(flag), "\(flag) kept after disabling")
+        }
+    }
+}
 #endif

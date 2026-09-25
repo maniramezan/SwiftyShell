@@ -138,7 +138,7 @@ public indirect enum FindExpression: Sendable, Equatable, Hashable {
 ///     .run()
 /// ```
 public struct Find: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -164,7 +164,7 @@ public struct Find: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes stdout to the given destination.
@@ -172,7 +172,7 @@ public struct Find: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send matching paths.
     /// - Returns: A new ``Find`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes stderr to the given destination.
@@ -180,7 +180,7 @@ public struct Find: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send diagnostics.
     /// - Returns: A new ``Find`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy with one additional traversal root.
@@ -192,7 +192,7 @@ public struct Find: RunnableCommandFamily {
     /// - Parameter path: The file or directory at which traversal starts.
     /// - Returns: A new ``Find`` value with the root appended.
     public func root(_ path: String) -> Self {
-        copy(roots: state.roots + [Self.portableRoot(path)])
+        modified(self) { $0.state.roots += [Self.portableRoot(path)] }
     }
 
     /// Returns a copy with multiple traversal roots appended in order.
@@ -202,7 +202,7 @@ public struct Find: RunnableCommandFamily {
     /// - Parameter paths: The traversal roots to append.
     /// - Returns: A new ``Find`` value with the roots appended.
     public func roots(_ paths: [String]) -> Self {
-        copy(roots: state.roots + paths.map(Self.portableRoot))
+        modified(self) { $0.state.roots += paths.map(Self.portableRoot) }
     }
 
     /// Returns a copy with the expression evaluated for every visited path.
@@ -212,7 +212,7 @@ public struct Find: RunnableCommandFamily {
     /// - Parameter value: The typed tests, operators, and output actions to evaluate.
     /// - Returns: A new ``Find`` value with the expression applied.
     public func expression(_ value: FindExpression) -> Self {
-        copy(expression: value)
+        modified(self) { $0.state.expression = value }
     }
 
     /// Builds the raw `find` command represented by the current builder state.
@@ -241,45 +241,13 @@ public struct Find: RunnableCommandFamily {
         }
         return "./\(path)"
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        roots: [String]? = nil,
-        expression: FindExpression? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                roots: roots ?? state.roots,
-                expression: expression ?? state.expression
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let roots: [String]
-    let expression: FindExpression?
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        roots: [String] = [],
-        expression: FindExpression? = nil
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.roots = roots
-        self.expression = expression
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var roots: [String] = []
+    var expression: FindExpression? = nil
 }
 #endif

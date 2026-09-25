@@ -15,7 +15,7 @@ import Foundation
 ///     .run()
 /// ```
 public struct Rm: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -48,7 +48,7 @@ public struct Rm: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `rm` command's stdout to the given destination.
@@ -58,7 +58,7 @@ public struct Rm: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Rm`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `rm` command's stderr to the given destination.
@@ -69,7 +69,7 @@ public struct Rm: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Rm`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that removes directories recursively.
@@ -87,7 +87,7 @@ public struct Rm: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-r`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Rm`` value with the flag applied.
     public func recursive(_ enabled: Bool = true) -> Self {
-        copy(isRecursive: enabled)
+        modified(self) { $0.state.isRecursive = enabled }
     }
 
     /// Returns a copy that forces removal without prompting and ignores missing paths.
@@ -98,7 +98,7 @@ public struct Rm: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-f`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Rm`` value with the flag applied.
     public func force(_ enabled: Bool = true) -> Self {
-        copy(forcesRemoval: enabled)
+        modified(self) { $0.state.forcesRemoval = enabled }
     }
 
     /// Returns a copy with one additional path appended for removal.
@@ -106,7 +106,7 @@ public struct Rm: RunnableCommandFamily {
     /// - Parameter value: The file or directory path to remove.
     /// - Returns: A new ``Rm`` value with the path appended.
     public func path(_ value: String) -> Self {
-        copy(paths: state.paths + [value])
+        modified(self) { $0.state.paths += [value] }
     }
 
     /// Returns a copy with multiple paths appended for removal.
@@ -114,7 +114,7 @@ public struct Rm: RunnableCommandFamily {
     /// - Parameter values: The paths to append, in order.
     /// - Returns: A new ``Rm`` value with the paths appended.
     public func paths(_ values: [String]) -> Self {
-        copy(paths: state.paths + values)
+        modified(self) { $0.state.paths += values }
     }
 
     /// Builds the raw `rm` command represented by the current builder state.
@@ -143,50 +143,14 @@ public struct Rm: RunnableCommandFamily {
 
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        isRecursive: Bool? = nil,
-        forcesRemoval: Bool? = nil,
-        paths: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                isRecursive: isRecursive ?? state.isRecursive,
-                forcesRemoval: forcesRemoval ?? state.forcesRemoval,
-                paths: paths ?? state.paths
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let isRecursive: Bool
-    let forcesRemoval: Bool
-    let paths: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        isRecursive: Bool = false,
-        forcesRemoval: Bool = false,
-        paths: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.isRecursive = isRecursive
-        self.forcesRemoval = forcesRemoval
-        self.paths = paths
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var isRecursive: Bool = false
+    var forcesRemoval: Bool = false
+    var paths: [String] = []
 }
 #endif

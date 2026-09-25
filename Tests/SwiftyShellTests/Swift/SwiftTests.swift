@@ -3,6 +3,10 @@ import Testing
 @testable import SwiftyShell
 
 struct SwiftCommandTests {
+    @Test func switchingSubcommandClearsPackageSubcommand() {
+        #expect(Swift().package("resolve").subcommand(.build).command().arguments == ["build"])
+    }
+
     @Test func defaultsToVersionCommand() {
         let command = Swift().command()
 
@@ -161,6 +165,27 @@ struct SwiftCommandTests {
 
         #expect(output.exitCode == 0)
         #expect(output.stdout.contains("Swift"))
+    }
+}
+
+/// Every Boolean flag setter adds exactly its flag when enabled and removes it when disabled.
+struct SwiftFlagSetterTests {
+    @Test func eachFlagSetterTogglesItsFlag() {
+        let base = Swift()
+        let setters: [(flag: String, set: (Swift, Bool) -> Swift)] = [
+            ("--enable-all-traits", { $0.enableAllTraits($1) }),
+            ("--disable-default-traits", { $0.disableDefaultTraits($1) }),
+            ("--build-tests", { $0.buildTests($1) }),
+            ("--enable-code-coverage", { $0.codeCoverage($1) }),
+            ("--skip-build", { $0.skipBuild($1) }),
+            ("--list-tests", { $0.listTests($1) }),
+        ]
+        for (flag, set) in setters {
+            #expect(!base.command().arguments.contains(flag), "\(flag) present before enabling")
+            let enabled = set(base, true)
+            #expect(enabled.command().arguments.contains(flag), "\(flag) missing after enabling")
+            #expect(!set(enabled, false).command().arguments.contains(flag), "\(flag) kept after disabling")
+        }
     }
 }
 #endif

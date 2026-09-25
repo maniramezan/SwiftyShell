@@ -54,7 +54,7 @@ public enum CurlHTTPMethod: Sendable, Equatable, Hashable {
 ///     .run()
 /// ```
 public struct Curl: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -86,27 +86,27 @@ public struct Curl: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes curl's stdout to a destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes curl's stderr to a destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that prints curl version information instead of performing a transfer.
-    public func version() -> Self { copy(url: .some(nil)) }
+    public func version() -> Self { modified(self) { $0.state.url = nil } }
 
     /// Returns a copy that transfers the given URL.
-    public func url(_ value: String) -> Self { copy(url: .some(value)) }
+    public func url(_ value: String) -> Self { modified(self) { $0.state.url = value } }
 
     /// Returns a copy that uses an explicit HTTP request method.
-    public func method(_ value: CurlHTTPMethod) -> Self { copy(method: .some(value)) }
+    public func method(_ value: CurlHTTPMethod) -> Self { modified(self) { $0.state.method = value } }
 
     /// Returns a copy with an additional request header.
     ///
@@ -114,72 +114,80 @@ public struct Curl: RunnableCommandFamily {
     /// process inspection. Do not pass credentials here; put sensitive headers in a
     /// permission-restricted file and use ``headerFile(_:)``.
     public func header(name: String, value: String) -> Self {
-        copy(headers: state.headers + ["\(name): \(value)"])
+        modified(self) { $0.state.headers += ["\(name): \(value)"] }
     }
 
     /// Returns a copy that reads additional request headers from a file.
     ///
     /// curl receives only the file path in argv. Protect the file with appropriate permissions
     /// and avoid logging its contents.
-    public func headerFile(_ path: String) -> Self { copy(headerFiles: state.headerFiles + [path]) }
+    public func headerFile(_ path: String) -> Self { modified(self) { $0.state.headerFiles += [path] } }
 
     /// Returns a copy that sends text as request data using `--data-raw`.
     ///
     /// The value is placed in argv and should not contain credentials or other secrets. This
     /// replaces any previously configured body or upload file.
-    public func body(_ value: String) -> Self { copy(payload: .some(.body(value))) }
+    public func body(_ value: String) -> Self { modified(self) { $0.state.payload = .body(value) } }
 
     /// Returns a copy that reads the request body from a file without text conversion.
     ///
     /// This maps to `--data-binary @<path>` and replaces any previously configured body or
     /// upload file.
-    public func bodyFile(_ path: String) -> Self { copy(payload: .some(.bodyFile(path))) }
+    public func bodyFile(_ path: String) -> Self { modified(self) { $0.state.payload = .bodyFile(path) } }
 
     /// Returns a copy that uploads a file using curl's `--upload-file` transfer mode.
     ///
     /// This replaces any previously configured request body or upload file.
-    public func uploadFile(_ path: String) -> Self { copy(payload: .some(.uploadFile(path))) }
+    public func uploadFile(_ path: String) -> Self { modified(self) { $0.state.payload = .uploadFile(path) } }
 
     /// Returns a copy that follows HTTP redirects.
-    public func followRedirects(_ enabled: Bool = true) -> Self { copy(followsRedirects: enabled) }
+    public func followRedirects(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.followsRedirects = enabled }
+    }
 
     /// Returns a copy with the maximum number of redirects curl may follow.
     ///
     /// This setting does not enable redirects by itself; combine it with ``followRedirects(_:)``.
-    public func maximumRedirects(_ count: Int) -> Self { copy(maximumRedirects: count) }
+    public func maximumRedirects(_ count: Int) -> Self { modified(self) { $0.state.maximumRedirects = count } }
 
     /// Returns a copy that retries transient failures up to the given count.
-    public func retry(_ count: Int) -> Self { copy(retryCount: count) }
+    public func retry(_ count: Int) -> Self { modified(self) { $0.state.retryCount = count } }
 
     /// Returns a copy with a fixed delay in seconds between retries.
-    public func retryDelay(_ seconds: Int) -> Self { copy(retryDelay: seconds) }
+    public func retryDelay(_ seconds: Int) -> Self { modified(self) { $0.state.retryDelay = seconds } }
 
     /// Returns a copy with a total time limit in seconds for retries.
-    public func retryMaximumTime(_ seconds: Int) -> Self { copy(retryMaximumTime: seconds) }
+    public func retryMaximumTime(_ seconds: Int) -> Self { modified(self) { $0.state.retryMaximumTime = seconds } }
 
     /// Returns a copy that retries all curl errors considered retry-safe by the caller.
-    public func retryAllErrors(_ enabled: Bool = true) -> Self { copy(retriesAllErrors: enabled) }
+    public func retryAllErrors(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.retriesAllErrors = enabled }
+    }
 
     /// Returns a copy that treats connection-refused failures as transient for retry purposes.
-    public func retryConnectionRefused(_ enabled: Bool = true) -> Self { copy(retriesConnectionRefused: enabled) }
+    public func retryConnectionRefused(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.retriesConnectionRefused = enabled }
+    }
 
     /// Returns a copy with curl's maximum transfer duration in seconds.
     ///
     /// Unlike inherited ``timeout(_:)-(Duration)``, which controls the subprocess executor, this maps to
     /// curl's `--max-time` transfer timer.
-    public func requestTimeout(_ seconds: TimeInterval) -> Self { copy(requestTimeout: seconds) }
+    public func requestTimeout(_ seconds: TimeInterval) -> Self { modified(self) { $0.state.requestTimeout = seconds } }
 
     /// Returns a copy with curl's connection-phase timeout in seconds.
-    public func connectionTimeout(_ seconds: TimeInterval) -> Self { copy(connectionTimeout: seconds) }
+    public func connectionTimeout(_ seconds: TimeInterval) -> Self {
+        modified(self) { $0.state.connectionTimeout = seconds }
+    }
 
     /// Returns a copy that makes HTTP status codes 400 and above fail while retaining the body.
-    public func failWithBody(_ enabled: Bool = true) -> Self { copy(failsWithBody: enabled) }
+    public func failWithBody(_ enabled: Bool = true) -> Self { modified(self) { $0.state.failsWithBody = enabled } }
 
     /// Returns a copy that asks curl to write the response body to a file.
     ///
     /// This maps to curl's `--output`; inherited ``stdout(_:)`` controls process-level stdout
     /// routing instead.
-    public func outputFile(_ path: String) -> Self { copy(outputFile: .some(path)) }
+    public func outputFile(_ path: String) -> Self { modified(self) { $0.state.outputFile = path } }
 
     /// Builds the raw curl command represented by the current builder state.
     public func command() -> Command {
@@ -228,52 +236,6 @@ public struct Curl: RunnableCommandFamily {
     private func formatSeconds(_ seconds: TimeInterval) -> String {
         String(format: "%g", locale: Locale(identifier: "en_US_POSIX"), seconds)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        url: String?? = nil,
-        method: CurlHTTPMethod?? = nil,
-        headers: [String]? = nil,
-        headerFiles: [String]? = nil,
-        payload: Payload?? = nil,
-        followsRedirects: Bool? = nil,
-        maximumRedirects: Int?? = nil,
-        retryCount: Int?? = nil,
-        retryDelay: Int?? = nil,
-        retryMaximumTime: Int?? = nil,
-        retriesAllErrors: Bool? = nil,
-        retriesConnectionRefused: Bool? = nil,
-        requestTimeout: TimeInterval?? = nil,
-        connectionTimeout: TimeInterval?? = nil,
-        failsWithBody: Bool? = nil,
-        outputFile: String?? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                url: url ?? state.url,
-                method: method ?? state.method,
-                headers: headers ?? state.headers,
-                headerFiles: headerFiles ?? state.headerFiles,
-                payload: payload ?? state.payload,
-                followsRedirects: followsRedirects ?? state.followsRedirects,
-                maximumRedirects: maximumRedirects ?? state.maximumRedirects,
-                retryCount: retryCount ?? state.retryCount,
-                retryDelay: retryDelay ?? state.retryDelay,
-                retryMaximumTime: retryMaximumTime ?? state.retryMaximumTime,
-                retriesAllErrors: retriesAllErrors ?? state.retriesAllErrors,
-                retriesConnectionRefused: retriesConnectionRefused ?? state.retriesConnectionRefused,
-                requestTimeout: requestTimeout ?? state.requestTimeout,
-                connectionTimeout: connectionTimeout ?? state.connectionTimeout,
-                failsWithBody: failsWithBody ?? state.failsWithBody,
-                outputFile: outputFile ?? state.outputFile
-            )
-        )
-    }
 }
 
 private enum Payload: Sendable {
@@ -283,66 +245,24 @@ private enum Payload: Sendable {
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let url: String?
-    let method: CurlHTTPMethod?
-    let headers: [String]
-    let headerFiles: [String]
-    let payload: Payload?
-    let followsRedirects: Bool
-    let maximumRedirects: Int?
-    let retryCount: Int?
-    let retryDelay: Int?
-    let retryMaximumTime: Int?
-    let retriesAllErrors: Bool
-    let retriesConnectionRefused: Bool
-    let requestTimeout: TimeInterval?
-    let connectionTimeout: TimeInterval?
-    let failsWithBody: Bool
-    let outputFile: String?
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        url: String? = nil,
-        method: CurlHTTPMethod? = nil,
-        headers: [String] = [],
-        headerFiles: [String] = [],
-        payload: Payload? = nil,
-        followsRedirects: Bool = false,
-        maximumRedirects: Int? = nil,
-        retryCount: Int? = nil,
-        retryDelay: Int? = nil,
-        retryMaximumTime: Int? = nil,
-        retriesAllErrors: Bool = false,
-        retriesConnectionRefused: Bool = false,
-        requestTimeout: TimeInterval? = nil,
-        connectionTimeout: TimeInterval? = nil,
-        failsWithBody: Bool = false,
-        outputFile: String? = nil
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.url = url
-        self.method = method
-        self.headers = headers
-        self.headerFiles = headerFiles
-        self.payload = payload
-        self.followsRedirects = followsRedirects
-        self.maximumRedirects = maximumRedirects
-        self.retryCount = retryCount
-        self.retryDelay = retryDelay
-        self.retryMaximumTime = retryMaximumTime
-        self.retriesAllErrors = retriesAllErrors
-        self.retriesConnectionRefused = retriesConnectionRefused
-        self.requestTimeout = requestTimeout
-        self.connectionTimeout = connectionTimeout
-        self.failsWithBody = failsWithBody
-        self.outputFile = outputFile
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var url: String? = nil
+    var method: CurlHTTPMethod? = nil
+    var headers: [String] = []
+    var headerFiles: [String] = []
+    var payload: Payload? = nil
+    var followsRedirects: Bool = false
+    var maximumRedirects: Int? = nil
+    var retryCount: Int? = nil
+    var retryDelay: Int? = nil
+    var retryMaximumTime: Int? = nil
+    var retriesAllErrors: Bool = false
+    var retriesConnectionRefused: Bool = false
+    var requestTimeout: TimeInterval? = nil
+    var connectionTimeout: TimeInterval? = nil
+    var failsWithBody: Bool = false
+    var outputFile: String? = nil
 }
 #endif

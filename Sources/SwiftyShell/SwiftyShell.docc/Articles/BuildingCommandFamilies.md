@@ -59,14 +59,15 @@ swift test  -Xswiftc -warnings-as-errors --traits Curl
 
 ## Recommended Structure
 
-The canonical pattern uses a private `State` struct to hold all configuration
-and a private `copy(...)` helper for fluent updates. Public state that is part
-of the API surface can be exposed via computed properties.
+The canonical pattern keeps all configuration in a private `State` struct whose
+properties are `var`s with default values. Each fluent method returns an updated
+copy through the internal `modified(_:_:)` helper, so there is no hand-written
+memberwise initializer or `copy(...)` function to keep in sync, and a field can
+be cleared by assigning `nil` directly.
 
 ```swift
 #if MyTool
 import Foundation
-import SwiftyShell
 
 /// A fluent wrapper for the `my-tool` command.
 ///
@@ -77,7 +78,7 @@ import SwiftyShell
 ///     .run()
 /// ```
 public struct MyTool: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -87,37 +88,33 @@ public struct MyTool: RunnableCommandFamily {
         self.state = State(config: ToolConfiguration(context: context))
     }
 
-    private init(state: State) {
-        self.state = state
-    }
-
     /// Returns a new value with updated shared tool configuration.
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Redirects stdout for the built command.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Redirects stderr for the built command.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     // MARK: - Tool-specific options
 
     /// Enables verbose output.
     public func verbose(_ enabled: Bool = true) -> Self {
-        copy(isVerbose: enabled)
+        modified(self) { $0.state.isVerbose = enabled }
     }
 
     /// Appends an input file path.
     public func inputFile(_ path: String) -> Self {
-        copy(inputFiles: state.inputFiles + [path])
+        modified(self) { $0.state.inputFiles.append(path) }
     }
 
     // MARK: - Command building
@@ -135,52 +132,26 @@ public struct MyTool: RunnableCommandFamily {
 
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        isVerbose: Bool? = nil,
-        inputFiles: [String]? = nil
-    ) -> Self {
-        Self(state: State(
-            config: config ?? state.config,
-            stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-            stderrDestination: stderrDestination ?? state.stderrDestination,
-            isVerbose: isVerbose ?? state.isVerbose,
-            inputFiles: inputFiles ?? state.inputFiles
-        ))
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let isVerbose: Bool
-    let inputFiles: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        isVerbose: Bool = false,
-        inputFiles: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.isVerbose = isVerbose
-        self.inputFiles = inputFiles
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var isVerbose = false
+    var inputFiles: [String] = []
 }
 #endif
 ```
 
+`modified(_:_:)` is internal to SwiftyShell. A command family defined in another
+package uses the same shape with a local copy: `var copy = self`, change
+`copy.state`, `return copy`.
+
 ## Key Rules
 
 - **Value type, `Sendable`**: every command family is a `struct` that conforms to `Sendable`.
-- **Immutable state**: fluent methods return a new copy — never mutate `self`.
+- **Immutable state**: fluent methods return a new copy via `modified(self) { … }` — never mutate `self`.
 - **Single build site**: assemble all `argv` arguments in exactly one place: `command()`.
 - **Exclusive options are one enum**: Model mutually exclusive flags (operations, modes, overwrite policies) as one internal enum rather than independent `Bool`s, so invalid argv such as `git branch --list -d -m` cannot be built; enabling one selects it and the last call wins (use the internal `toggledMode` helper), and options that belong to one operation are emitted only in that operation.
 - **Apply tool config last**: call `state.config.apply(to: base)` at the end of `command()`.

@@ -1216,7 +1216,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
     ///   `true`.
     /// - Returns: A new ``GitConfigCommand`` value with the scope applied.
     public func local(_ enabled: Bool = true) -> Self {
-        copy(scope: enabled ? .local : nil)
+        copy(scope: enabled ? .local : .some(nil))
     }
 
     /// Returns a copy that targets the global user config file.
@@ -1228,7 +1228,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
     ///   `true`.
     /// - Returns: A new ``GitConfigCommand`` value with the scope applied.
     public func global(_ enabled: Bool = true) -> Self {
-        copy(scope: enabled ? .global : nil)
+        copy(scope: enabled ? .global : .some(nil))
     }
 
     /// Returns a copy with the listing output format applied.

@@ -3,6 +3,11 @@ import Testing
 @testable import SwiftyShell
 
 struct YarnCommandTests {
+    @Test func switchingSubcommandClearsScriptName() {
+        #expect(Yarn().runScript("build").subcommand("audit").command().arguments == ["audit"])
+        #expect(Yarn().runScript("build").add(["x"]).command().arguments == ["add", "x"])
+    }
+
     @Test func defaultsToVersionCommand() {
         let command = Yarn().command()
 

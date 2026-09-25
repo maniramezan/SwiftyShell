@@ -3,6 +3,10 @@ import Testing
 @testable import SwiftyShell
 
 struct SwiftCommandTests {
+    @Test func switchingSubcommandClearsPackageSubcommand() {
+        #expect(Swift().package("resolve").subcommand(.build).command().arguments == ["build"])
+    }
+
     @Test func defaultsToVersionCommand() {
         let command = Swift().command()
 

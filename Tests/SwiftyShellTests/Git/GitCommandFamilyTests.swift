@@ -31,6 +31,12 @@ struct GitCommandFamilyTests {
         #expect(branch.delete("old").list(false).command().arguments == ["branch", "-d", "old"])
     }
 
+    @Test func disablingConfigScopeClearsIt() {
+        #expect(Git().gitConfig().local().local(false).command().arguments == ["config", "--list"])
+        #expect(Git().gitConfig().global().global(false).command().arguments == ["config", "--list"])
+        #expect(Git().gitConfig().global().local().command().arguments == ["config", "--local", "--list"])
+    }
+
     @Test func buildsBranchListCommand() {
         let command = Git()
             .workingDirectory("/tmp/repo")

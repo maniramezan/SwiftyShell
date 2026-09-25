@@ -216,7 +216,11 @@ public struct MockExecutor: CommandExecutor {
     ) async throws -> any SpawnedProcess {
         try validateConfiguration(for: command, in: context)
         log.append(command)
-        return MockSpawnedProcess(teardown: teardown, output: try await handler(command, context))
+        return MockSpawnedProcess(
+            teardown: teardown,
+            output: try await handler(command, context),
+            captureOutput: command.spawnRetainsOutput
+        )
     }
 
     private func validateConfiguration(for command: Command, in context: ShellContext) throws {

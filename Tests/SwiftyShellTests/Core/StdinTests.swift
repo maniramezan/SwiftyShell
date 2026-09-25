@@ -85,7 +85,7 @@ struct StdinTests {
     }
 
     @Test func spawnedProcessReadsStdinSource() async throws {
-        let process = try await Command("cat").stdin(.string("spawned input")).spawn()
+        let process = try await Command("cat").stdin(.string("spawned input")).spawn(captureOutput: true)
 
         var streamed = ""
         for await chunk in process.standardOutput {
@@ -102,7 +102,7 @@ struct StdinTests {
         defer { try? FileManager.default.removeItem(atPath: path) }
         try "from file".write(toFile: path, atomically: true, encoding: .utf8)
 
-        let process = try await Command("cat").stdin(.file(path: path)).spawn()
+        let process = try await Command("cat").stdin(.file(path: path)).spawn(captureOutput: true)
         let output = await process.waitForExit()
 
         #expect(output.stdout == "from file")

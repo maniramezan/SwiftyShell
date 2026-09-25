@@ -38,6 +38,8 @@ way to stop a process.
 
 - ``standardOutput``
 - ``standardError``
+- ``standardOutputData``
+- ``standardErrorData``
 
 ### Signaling
 

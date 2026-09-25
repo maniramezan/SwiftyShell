@@ -36,7 +36,7 @@ public enum TerraformSubcommand: String, Sendable, Equatable, Hashable {
 ///     .run()
 /// ```
 public struct Terraform: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -50,24 +50,34 @@ public struct Terraform: RunnableCommandFamily {
 
     /// Returns a copy with updated shared tool configuration.
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that selects a Terraform subcommand.
-    public func subcommand(_ value: TerraformSubcommand) -> Self { copy(subcommand: value.rawValue, positionals: []) }
+    public func subcommand(_ value: TerraformSubcommand) -> Self {
+        modified(self) {
+            $0.state.subcommand = value.rawValue
+            $0.state.positionals = []
+        }
+    }
 
     /// Returns a copy that selects a raw Terraform subcommand.
-    public func subcommand(_ value: String) -> Self { copy(subcommand: value, positionals: []) }
+    public func subcommand(_ value: String) -> Self {
+        modified(self) {
+            $0.state.subcommand = value
+            $0.state.positionals = []
+        }
+    }
 
     /// Returns a copy configured for `terraform init`.
     public func initCommand() -> Self { subcommand(.initialize) }
@@ -98,49 +108,49 @@ public struct Terraform: RunnableCommandFamily {
     }
 
     /// Returns a copy that passes `-chdir=<path>` before the subcommand.
-    public func chdir(_ path: String) -> Self { copy(chdirPath: path) }
+    public func chdir(_ path: String) -> Self { modified(self) { $0.state.chdirPath = path } }
 
     /// Returns a copy that passes `-input=<value>`.
-    public func input(_ enabled: Bool) -> Self { copy(inputEnabled: enabled) }
+    public func input(_ enabled: Bool) -> Self { modified(self) { $0.state.inputEnabled = enabled } }
 
     /// Returns a copy that passes `-no-color`.
-    public func noColor(_ enabled: Bool = true) -> Self { copy(noColorEnabled: enabled) }
+    public func noColor(_ enabled: Bool = true) -> Self { modified(self) { $0.state.noColorEnabled = enabled } }
 
     /// Returns a copy that passes `-json` for commands that support machine-readable output.
-    public func json(_ enabled: Bool = true) -> Self { copy(jsonEnabled: enabled) }
+    public func json(_ enabled: Bool = true) -> Self { modified(self) { $0.state.jsonEnabled = enabled } }
 
     /// Returns a copy that passes `-auto-approve`.
-    public func autoApprove(_ enabled: Bool = true) -> Self { copy(autoApproves: enabled) }
+    public func autoApprove(_ enabled: Bool = true) -> Self { modified(self) { $0.state.autoApproves = enabled } }
 
     /// Returns a copy that passes `-refresh=<value>`.
-    public func refresh(_ enabled: Bool) -> Self { copy(refreshEnabled: enabled) }
+    public func refresh(_ enabled: Bool) -> Self { modified(self) { $0.state.refreshEnabled = enabled } }
 
     /// Returns a copy that passes `-var <assignment>`.
-    public func `var`(_ assignment: String) -> Self { copy(vars: state.vars + [assignment]) }
+    public func `var`(_ assignment: String) -> Self { modified(self) { $0.state.vars += [assignment] } }
 
     /// Returns a copy that passes `-var <key=value>`.
     public func `var`(_ key: String, _ value: String) -> Self { self.var("\(key)=\(value)") }
 
     /// Returns a copy that passes `-var-file <path>`.
-    public func varFile(_ path: String) -> Self { copy(varFiles: state.varFiles + [path]) }
+    public func varFile(_ path: String) -> Self { modified(self) { $0.state.varFiles += [path] } }
 
     /// Returns a copy that passes `-out <path>`.
-    public func out(_ path: String) -> Self { copy(outPath: path) }
+    public func out(_ path: String) -> Self { modified(self) { $0.state.outPath = path } }
 
     /// Returns a copy that passes `-target <address>`.
-    public func target(_ address: String) -> Self { copy(targets: state.targets + [address]) }
+    public func target(_ address: String) -> Self { modified(self) { $0.state.targets += [address] } }
 
     /// Returns a copy that appends a raw Terraform option before positional arguments.
-    public func argument(_ value: String) -> Self { copy(extraArguments: state.extraArguments + [value]) }
+    public func argument(_ value: String) -> Self { modified(self) { $0.state.extraArguments += [value] } }
 
     /// Returns a copy that appends raw Terraform options before positional arguments.
-    public func arguments(_ values: [String]) -> Self { copy(extraArguments: state.extraArguments + values) }
+    public func arguments(_ values: [String]) -> Self { modified(self) { $0.state.extraArguments += values } }
 
     /// Returns a copy that appends a positional argument.
-    public func positionalArgument(_ value: String) -> Self { copy(positionals: state.positionals + [value]) }
+    public func positionalArgument(_ value: String) -> Self { modified(self) { $0.state.positionals += [value] } }
 
     /// Returns a copy that appends positional arguments.
-    public func positionalArguments(_ values: [String]) -> Self { copy(positionals: state.positionals + values) }
+    public func positionalArguments(_ values: [String]) -> Self { modified(self) { $0.state.positionals += values } }
 
     /// Builds the raw `terraform` command represented by the current builder state.
     public func command() -> Command {
@@ -160,100 +170,24 @@ public struct Terraform: RunnableCommandFamily {
         let base = Command("terraform").args(arguments).stdout(state.stdoutDestination).stderr(state.stderrDestination)
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        subcommand: String? = nil,
-        chdirPath: String?? = nil,
-        inputEnabled: Bool?? = nil,
-        noColorEnabled: Bool? = nil,
-        jsonEnabled: Bool? = nil,
-        autoApproves: Bool? = nil,
-        refreshEnabled: Bool?? = nil,
-        vars: [String]? = nil,
-        varFiles: [String]? = nil,
-        outPath: String?? = nil,
-        targets: [String]? = nil,
-        extraArguments: [String]? = nil,
-        positionals: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                subcommand: subcommand ?? state.subcommand,
-                chdirPath: chdirPath ?? state.chdirPath,
-                inputEnabled: inputEnabled ?? state.inputEnabled,
-                noColorEnabled: noColorEnabled ?? state.noColorEnabled,
-                jsonEnabled: jsonEnabled ?? state.jsonEnabled,
-                autoApproves: autoApproves ?? state.autoApproves,
-                refreshEnabled: refreshEnabled ?? state.refreshEnabled,
-                vars: vars ?? state.vars,
-                varFiles: varFiles ?? state.varFiles,
-                outPath: outPath ?? state.outPath,
-                targets: targets ?? state.targets,
-                extraArguments: extraArguments ?? state.extraArguments,
-                positionals: positionals ?? state.positionals
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let subcommand: String
-    let chdirPath: String?
-    let inputEnabled: Bool?
-    let noColorEnabled: Bool
-    let jsonEnabled: Bool
-    let autoApproves: Bool
-    let refreshEnabled: Bool?
-    let vars: [String]
-    let varFiles: [String]
-    let outPath: String?
-    let targets: [String]
-    let extraArguments: [String]
-    let positionals: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        subcommand: String = TerraformSubcommand.version.rawValue,
-        chdirPath: String? = nil,
-        inputEnabled: Bool? = nil,
-        noColorEnabled: Bool = false,
-        jsonEnabled: Bool = false,
-        autoApproves: Bool = false,
-        refreshEnabled: Bool? = nil,
-        vars: [String] = [],
-        varFiles: [String] = [],
-        outPath: String? = nil,
-        targets: [String] = [],
-        extraArguments: [String] = [],
-        positionals: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.subcommand = subcommand
-        self.chdirPath = chdirPath
-        self.inputEnabled = inputEnabled
-        self.noColorEnabled = noColorEnabled
-        self.jsonEnabled = jsonEnabled
-        self.autoApproves = autoApproves
-        self.refreshEnabled = refreshEnabled
-        self.vars = vars
-        self.varFiles = varFiles
-        self.outPath = outPath
-        self.targets = targets
-        self.extraArguments = extraArguments
-        self.positionals = positionals
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var subcommand: String = TerraformSubcommand.version.rawValue
+    var chdirPath: String? = nil
+    var inputEnabled: Bool? = nil
+    var noColorEnabled: Bool = false
+    var jsonEnabled: Bool = false
+    var autoApproves: Bool = false
+    var refreshEnabled: Bool? = nil
+    var vars: [String] = []
+    var varFiles: [String] = []
+    var outPath: String? = nil
+    var targets: [String] = []
+    var extraArguments: [String] = []
+    var positionals: [String] = []
 }
 #endif

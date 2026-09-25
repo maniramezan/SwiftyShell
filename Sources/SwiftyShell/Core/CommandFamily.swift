@@ -262,6 +262,21 @@ public extension RunnableCommandFamily {
     }
 }
 
+/// Returns a copy of `value` changed by `update`.
+///
+/// Fluent builders use this to return an updated copy without mutating `self`:
+///
+/// ```swift
+/// public func quiet(_ enabled: Bool = true) -> Self {
+///     modified(self) { $0.state.isQuiet = enabled }
+/// }
+/// ```
+func modified<Value>(_ value: Value, _ update: (inout Value) -> Void) -> Value {
+    var copy = value
+    update(&copy)
+    return copy
+}
+
 /// Returns the mode that results from toggling `mode` within a set of mutually exclusive modes.
 ///
 /// Enabling selects `mode`, replacing any other mode, so the last enabled mode wins. Disabling clears

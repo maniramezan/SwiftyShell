@@ -220,7 +220,7 @@ public enum BrewSubcommand: Sendable, Equatable, Hashable {
 /// [Linuxbrew](https://docs.brew.sh/Homebrew-on-Linux). Real execution requires
 /// `brew` to be on ``ShellContext/searchPaths``.
 public struct Brew: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -256,7 +256,7 @@ public struct Brew: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `brew` command's stdout to the given destination.
@@ -267,7 +267,7 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Brew`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `brew` command's stderr to the given destination.
@@ -278,7 +278,7 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Brew`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     // MARK: - Subcommand selectors
@@ -292,7 +292,7 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter value: The subcommand to invoke.
     /// - Returns: A new ``Brew`` value with the subcommand applied.
     public func subcommand(_ value: BrewSubcommand) -> Self {
-        copy(subcommand: value)
+        modified(self) { $0.state.subcommand = value }
     }
 
     /// Returns a copy that selects a Homebrew subcommand by raw command name.
@@ -323,7 +323,10 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter formulae: Names of formulae or casks to install.
     /// - Returns: A new ``Brew`` value configured to run `brew install`.
     public func install(_ formulae: [String]) -> Self {
-        copy(subcommand: .install, arguments: state.arguments + formulae)
+        modified(self) {
+            $0.state.subcommand = .install
+            $0.state.arguments += formulae
+        }
     }
 
     /// Returns a copy that selects ``BrewSubcommand/uninstall`` and appends the given formulae.
@@ -341,7 +344,10 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter formulae: Names of formulae or casks to uninstall.
     /// - Returns: A new ``Brew`` value configured to run `brew uninstall`.
     public func uninstall(_ formulae: [String]) -> Self {
-        copy(subcommand: .uninstall, arguments: state.arguments + formulae)
+        modified(self) {
+            $0.state.subcommand = .uninstall
+            $0.state.arguments += formulae
+        }
     }
 
     /// Returns a copy that selects ``BrewSubcommand/upgrade`` and appends the given formulae.
@@ -361,7 +367,10 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter formulae: Names of formulae or casks to upgrade.
     /// - Returns: A new ``Brew`` value configured to run `brew upgrade`.
     public func upgrade(_ formulae: [String]) -> Self {
-        copy(subcommand: .upgrade, arguments: state.arguments + formulae)
+        modified(self) {
+            $0.state.subcommand = .upgrade
+            $0.state.arguments += formulae
+        }
     }
 
     /// Returns a copy that selects ``BrewSubcommand/update``.
@@ -371,7 +380,7 @@ public struct Brew: RunnableCommandFamily {
     ///
     /// - Returns: A new ``Brew`` value configured to run `brew update`.
     public func update() -> Self {
-        copy(subcommand: .update)
+        modified(self) { $0.state.subcommand = .update }
     }
 
     /// Returns a copy that selects ``BrewSubcommand/list`` and appends the given formulae.
@@ -392,7 +401,10 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter formulae: Optional names of installed packages to inspect.
     /// - Returns: A new ``Brew`` value configured to run `brew list`.
     public func list(_ formulae: [String]) -> Self {
-        copy(subcommand: .list, arguments: state.arguments + formulae)
+        modified(self) {
+            $0.state.subcommand = .list
+            $0.state.arguments += formulae
+        }
     }
 
     /// Returns a copy that selects ``BrewSubcommand/info`` and appends the given formulae.
@@ -410,7 +422,10 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter formulae: Names of formulae or casks to describe.
     /// - Returns: A new ``Brew`` value configured to run `brew info`.
     public func info(_ formulae: [String]) -> Self {
-        copy(subcommand: .info, arguments: state.arguments + formulae)
+        modified(self) {
+            $0.state.subcommand = .info
+            $0.state.arguments += formulae
+        }
     }
 
     /// Returns a copy that selects ``BrewSubcommand/search`` with the given pattern.
@@ -421,7 +436,10 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter pattern: The search pattern (literal text or `/regex/`).
     /// - Returns: A new ``Brew`` value configured to run `brew search`.
     public func search(_ pattern: String) -> Self {
-        copy(subcommand: .search, arguments: state.arguments + [pattern])
+        modified(self) {
+            $0.state.subcommand = .search
+            $0.state.arguments += [pattern]
+        }
     }
 
     /// Returns a copy that selects ``BrewSubcommand/outdated``.
@@ -430,7 +448,7 @@ public struct Brew: RunnableCommandFamily {
     ///
     /// - Returns: A new ``Brew`` value configured to run `brew outdated`.
     public func outdated() -> Self {
-        copy(subcommand: .outdated)
+        modified(self) { $0.state.subcommand = .outdated }
     }
 
     /// Returns a copy with one additional positional argument or flag appended.
@@ -442,7 +460,7 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter value: The argument or flag to append.
     /// - Returns: A new ``Brew`` value with the argument appended.
     public func arg(_ value: String) -> Self {
-        copy(arguments: state.arguments + [value])
+        modified(self) { $0.state.arguments += [value] }
     }
 
     /// Returns a copy with multiple positional arguments or flags appended.
@@ -452,7 +470,7 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter values: The arguments or flags to append, in order.
     /// - Returns: A new ``Brew`` value with the arguments appended.
     public func args(_ values: [String]) -> Self {
-        copy(arguments: state.arguments + values)
+        modified(self) { $0.state.arguments += values }
     }
 
     /// Returns a copy with one additional positional formula or cask name appended.
@@ -462,7 +480,7 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter name: The formula or cask name to append.
     /// - Returns: A new ``Brew`` value with the name appended.
     public func formula(_ name: String) -> Self {
-        copy(arguments: state.arguments + [name])
+        modified(self) { $0.state.arguments += [name] }
     }
 
     /// Returns a copy with multiple positional formula or cask names appended.
@@ -472,7 +490,7 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter names: The formula or cask names to append, in order.
     /// - Returns: A new ``Brew`` value with the names appended.
     public func formulae(_ names: [String]) -> Self {
-        copy(arguments: state.arguments + names)
+        modified(self) { $0.state.arguments += names }
     }
 
     // MARK: - Flags
@@ -485,7 +503,10 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--cask`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Brew`` value with the flag applied.
     public func cask(_ enabled: Bool = true) -> Self {
-        copy(usesCaskFlag: enabled, usesFormulaFlag: enabled ? false : nil)
+        modified(self) {
+            $0.state.usesCaskFlag = enabled
+            if enabled { $0.state.usesFormulaFlag = false }
+        }
     }
 
     /// Returns a copy that treats the named packages as formulae.
@@ -496,7 +517,10 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--formula`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Brew`` value with the flag applied.
     public func formulaFlag(_ enabled: Bool = true) -> Self {
-        copy(usesCaskFlag: enabled ? false : nil, usesFormulaFlag: enabled)
+        modified(self) {
+            if enabled { $0.state.usesCaskFlag = false }
+            $0.state.usesFormulaFlag = enabled
+        }
     }
 
     /// Returns a copy that forces the operation past safety checks.
@@ -507,7 +531,7 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--force`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Brew`` value with the flag applied.
     public func force(_ enabled: Bool = true) -> Self {
-        copy(isForce: enabled)
+        modified(self) { $0.state.isForce = enabled }
     }
 
     /// Returns a copy that suppresses non-essential Homebrew output.
@@ -517,7 +541,7 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--quiet`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Brew`` value with the flag applied.
     public func quiet(_ enabled: Bool = true) -> Self {
-        copy(isQuiet: enabled)
+        modified(self) { $0.state.isQuiet = enabled }
     }
 
     /// Returns a copy that requests verbose Homebrew output.
@@ -527,7 +551,7 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--verbose`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Brew`` value with the flag applied.
     public func verbose(_ enabled: Bool = true) -> Self {
-        copy(isVerbose: enabled)
+        modified(self) { $0.state.isVerbose = enabled }
     }
 
     /// Returns a copy that describes what would be done without running the operation.
@@ -538,7 +562,7 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--dry-run`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Brew`` value with the flag applied.
     public func dryRun(_ enabled: Bool = true) -> Self {
-        copy(isDryRun: enabled)
+        modified(self) { $0.state.isDryRun = enabled }
     }
 
     /// Returns a copy that includes auto-updating casks in reports and upgrades.
@@ -549,7 +573,7 @@ public struct Brew: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--greedy`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Brew`` value with the flag applied.
     public func greedy(_ enabled: Bool = true) -> Self {
-        copy(isGreedy: enabled)
+        modified(self) { $0.state.isGreedy = enabled }
     }
 
     /// Builds the raw `brew` command represented by the current builder state.
@@ -595,80 +619,20 @@ public struct Brew: RunnableCommandFamily {
 
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        subcommand: BrewSubcommand? = nil,
-        arguments: [String]? = nil,
-        usesCaskFlag: Bool? = nil,
-        usesFormulaFlag: Bool? = nil,
-        isForce: Bool? = nil,
-        isQuiet: Bool? = nil,
-        isVerbose: Bool? = nil,
-        isDryRun: Bool? = nil,
-        isGreedy: Bool? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                subcommand: subcommand ?? state.subcommand,
-                arguments: arguments ?? state.arguments,
-                usesCaskFlag: usesCaskFlag ?? state.usesCaskFlag,
-                usesFormulaFlag: usesFormulaFlag ?? state.usesFormulaFlag,
-                isForce: isForce ?? state.isForce,
-                isQuiet: isQuiet ?? state.isQuiet,
-                isVerbose: isVerbose ?? state.isVerbose,
-                isDryRun: isDryRun ?? state.isDryRun,
-                isGreedy: isGreedy ?? state.isGreedy
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let subcommand: BrewSubcommand
-    let arguments: [String]
-    let usesCaskFlag: Bool
-    let usesFormulaFlag: Bool
-    let isForce: Bool
-    let isQuiet: Bool
-    let isVerbose: Bool
-    let isDryRun: Bool
-    let isGreedy: Bool
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        subcommand: BrewSubcommand = .list,
-        arguments: [String] = [],
-        usesCaskFlag: Bool = false,
-        usesFormulaFlag: Bool = false,
-        isForce: Bool = false,
-        isQuiet: Bool = false,
-        isVerbose: Bool = false,
-        isDryRun: Bool = false,
-        isGreedy: Bool = false
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.subcommand = subcommand
-        self.arguments = arguments
-        self.usesCaskFlag = usesCaskFlag
-        self.usesFormulaFlag = usesFormulaFlag
-        self.isForce = isForce
-        self.isQuiet = isQuiet
-        self.isVerbose = isVerbose
-        self.isDryRun = isDryRun
-        self.isGreedy = isGreedy
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var subcommand: BrewSubcommand = .list
+    var arguments: [String] = []
+    var usesCaskFlag: Bool = false
+    var usesFormulaFlag: Bool = false
+    var isForce: Bool = false
+    var isQuiet: Bool = false
+    var isVerbose: Bool = false
+    var isDryRun: Bool = false
+    var isGreedy: Bool = false
 }
 #endif

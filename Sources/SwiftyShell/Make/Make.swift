@@ -15,7 +15,7 @@ import Foundation
 ///     .run()
 /// ```
 public struct Make: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -34,51 +34,51 @@ public struct Make: RunnableCommandFamily {
 
     /// Returns a copy with updated shared tool configuration.
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that selects a Makefile with `--file <path>`.
-    public func file(_ path: String) -> Self { copy(filePath: path) }
+    public func file(_ path: String) -> Self { modified(self) { $0.state.filePath = path } }
 
     /// Returns a copy that changes make's directory with `--directory <path>`.
-    public func directory(_ path: String) -> Self { copy(directoryPath: path) }
+    public func directory(_ path: String) -> Self { modified(self) { $0.state.directoryPath = path } }
 
     /// Returns a copy that sets parallelism with `--jobs <count>`.
-    public func jobs(_ count: Int) -> Self { copy(jobCount: count) }
+    public func jobs(_ count: Int) -> Self { modified(self) { $0.state.jobCount = count } }
 
     /// Returns a copy that passes `--keep-going`.
-    public func keepGoing(_ enabled: Bool = true) -> Self { copy(keepsGoing: enabled) }
+    public func keepGoing(_ enabled: Bool = true) -> Self { modified(self) { $0.state.keepsGoing = enabled } }
 
     /// Returns a copy that passes `--silent`.
-    public func silent(_ enabled: Bool = true) -> Self { copy(isSilent: enabled) }
+    public func silent(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isSilent = enabled } }
 
     /// Returns a copy that passes `--dry-run`.
-    public func dryRun(_ enabled: Bool = true) -> Self { copy(isDryRun: enabled) }
+    public func dryRun(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isDryRun = enabled } }
 
     /// Returns a copy that passes `--always-make`.
-    public func alwaysMake(_ enabled: Bool = true) -> Self { copy(alwaysMakes: enabled) }
+    public func alwaysMake(_ enabled: Bool = true) -> Self { modified(self) { $0.state.alwaysMakes = enabled } }
 
     /// Returns a copy that appends a raw option or variable assignment before targets.
-    public func argument(_ value: String) -> Self { copy(extraArguments: state.extraArguments + [value]) }
+    public func argument(_ value: String) -> Self { modified(self) { $0.state.extraArguments += [value] } }
 
     /// Returns a copy that appends raw options or variable assignments before targets.
-    public func arguments(_ values: [String]) -> Self { copy(extraArguments: state.extraArguments + values) }
+    public func arguments(_ values: [String]) -> Self { modified(self) { $0.state.extraArguments += values } }
 
     /// Returns a copy that appends a make target.
-    public func target(_ name: String) -> Self { copy(targets: state.targets + [name]) }
+    public func target(_ name: String) -> Self { modified(self) { $0.state.targets += [name] } }
 
     /// Returns a copy that appends multiple make targets.
-    public func targets(_ names: [String]) -> Self { copy(targets: state.targets + names) }
+    public func targets(_ names: [String]) -> Self { modified(self) { $0.state.targets += names } }
 
     /// Builds the raw `make` command represented by the current builder state.
     public func command() -> Command {
@@ -95,80 +95,20 @@ public struct Make: RunnableCommandFamily {
         let base = Command("make").args(arguments).stdout(state.stdoutDestination).stderr(state.stderrDestination)
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        filePath: String?? = nil,
-        directoryPath: String?? = nil,
-        jobCount: Int?? = nil,
-        keepsGoing: Bool? = nil,
-        isSilent: Bool? = nil,
-        isDryRun: Bool? = nil,
-        alwaysMakes: Bool? = nil,
-        extraArguments: [String]? = nil,
-        targets: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                filePath: filePath ?? state.filePath,
-                directoryPath: directoryPath ?? state.directoryPath,
-                jobCount: jobCount ?? state.jobCount,
-                keepsGoing: keepsGoing ?? state.keepsGoing,
-                isSilent: isSilent ?? state.isSilent,
-                isDryRun: isDryRun ?? state.isDryRun,
-                alwaysMakes: alwaysMakes ?? state.alwaysMakes,
-                extraArguments: extraArguments ?? state.extraArguments,
-                targets: targets ?? state.targets
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let filePath: String?
-    let directoryPath: String?
-    let jobCount: Int?
-    let keepsGoing: Bool
-    let isSilent: Bool
-    let isDryRun: Bool
-    let alwaysMakes: Bool
-    let extraArguments: [String]
-    let targets: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        filePath: String? = nil,
-        directoryPath: String? = nil,
-        jobCount: Int? = nil,
-        keepsGoing: Bool = false,
-        isSilent: Bool = false,
-        isDryRun: Bool = false,
-        alwaysMakes: Bool = false,
-        extraArguments: [String] = [],
-        targets: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.filePath = filePath
-        self.directoryPath = directoryPath
-        self.jobCount = jobCount
-        self.keepsGoing = keepsGoing
-        self.isSilent = isSilent
-        self.isDryRun = isDryRun
-        self.alwaysMakes = alwaysMakes
-        self.extraArguments = extraArguments
-        self.targets = targets
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var filePath: String? = nil
+    var directoryPath: String? = nil
+    var jobCount: Int? = nil
+    var keepsGoing: Bool = false
+    var isSilent: Bool = false
+    var isDryRun: Bool = false
+    var alwaysMakes: Bool = false
+    var extraArguments: [String] = []
+    var targets: [String] = []
 }
 #endif

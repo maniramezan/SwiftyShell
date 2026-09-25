@@ -41,6 +41,8 @@ import Foundation
 ///
 /// All ``Command`` values are immutable; every modifier returns a new copy.
 public struct Command: Sendable {
+    private var options = ExecutionOptions()
+
     /// The executable name originally requested for the command.
     ///
     /// This is the value passed to ``init(_:arguments:)-(_,String...)``. It may be a bare program name (such as
@@ -53,40 +55,40 @@ public struct Command: Sendable {
     ///
     /// Each element becomes a separate argument when the process is spawned, so values containing
     /// spaces are passed as a single argument rather than being split by a shell.
-    public let arguments: [String]
+    public private(set) var arguments: [String]
 
     /// An optional absolute or relative executable path that replaces ``executableName`` at
     /// execution time.
     ///
     /// Set with ``executable(_:)``. When `nil`, the executor resolves ``executableName`` against
     /// ``ShellContext/searchPaths``.
-    public let executableOverride: String?
+    public var executableOverride: String? { options.executableOverride }
 
     /// Environment variable overrides applied when running the command.
     ///
     /// These values are merged on top of ``ShellContext/environment`` for this invocation only.
     /// Use ``env(_:_:)`` or ``env(_:)`` to populate.
-    public let environmentOverrides: [String: String]
+    public var environmentOverrides: [String: String] { options.environmentOverrides }
 
     /// Environment variables removed from the inherited environment for this invocation.
     ///
     /// Names here are absent from the child's environment even when ``ShellContext/environment``
     /// defines them. Use ``unsetEnv(_:)-(String...)`` to populate. A name is never in both this set and
     /// ``environmentOverrides``: whichever call came last wins.
-    public let unsetEnvironmentVariables: Set<String>
+    public var unsetEnvironmentVariables: Set<String> { options.unsetEnvironmentVariables }
 
     /// An optional working directory override applied when running the command.
     ///
     /// When non-`nil`, this path replaces ``ShellContext/workingDirectory`` for this invocation
     /// only. Set with ``workingDirectory(_:)``.
-    public let workingDirectoryOverride: String?
+    public var workingDirectoryOverride: String? { options.workingDirectoryOverride }
 
     /// An optional per-command timeout.
     ///
     /// When non-`nil`, this value replaces ``ShellContext/defaultTimeout`` for this invocation.
     /// A value of `.zero` disables waiting beyond the immediate process scheduler tick. Set with
     /// ``timeout(_:)-(Duration)``.
-    public let timeoutOverride: Duration?
+    public var timeoutOverride: Duration? { options.timeoutOverride }
 
     /// An optional per-command output capture limit in bytes.
     ///
@@ -94,24 +96,24 @@ public struct Command: Sendable {
     /// means unlimited (no cap). A positive value enforces that byte limit — exceeding it
     /// raises ``ShellError/outputLimitExceeded(command:limit:partialOutput:)``. Set with
     /// ``outputLimit(_:)``.
-    public let outputLimitOverride: Int?
+    public var outputLimitOverride: Int? { options.outputLimitOverride }
 
     /// The stdout handling strategy for this command.
     ///
     /// Defaults to ``OutputDestination/capture``, which retains stdout in ``ShellOutput/stdout``.
     /// Change with ``stdout(_:)`` to discard or write to a file.
-    public let stdoutDestination: OutputDestination
+    public private(set) var stdoutDestination: OutputDestination = .capture
 
     /// Where this command's stdin comes from.
     ///
     /// Defaults to ``InputSource/none``, an empty stdin. Change with ``stdin(_:)``.
-    public let stdinSource: InputSource
+    public private(set) var stdinSource: InputSource = .none
 
     /// The stderr handling strategy for this command.
     ///
     /// Defaults to ``OutputDestination/capture``, which retains stderr in ``ShellOutput/stderr``.
     /// Change with ``stderr(_:)`` to discard or write to a file.
-    public let stderrDestination: OutputDestination
+    public private(set) var stderrDestination: OutputDestination = .capture
 
     /// Creates a command from an executable name and optional argv arguments.
     ///
@@ -149,41 +151,6 @@ public struct Command: Sendable {
     public init(_ executable: String, arguments: [String]) {
         self.executableName = executable
         self.arguments = arguments
-        self.executableOverride = nil
-        self.environmentOverrides = [:]
-        self.unsetEnvironmentVariables = []
-        self.workingDirectoryOverride = nil
-        self.timeoutOverride = nil
-        self.outputLimitOverride = nil
-        self.stdinSource = .none
-        self.stdoutDestination = .capture
-        self.stderrDestination = .capture
-    }
-
-    private init(
-        executableName: String,
-        arguments: [String],
-        executableOverride: String?,
-        environmentOverrides: [String: String],
-        unsetEnvironmentVariables: Set<String>,
-        workingDirectoryOverride: String?,
-        timeoutOverride: Duration?,
-        outputLimitOverride: Int?,
-        stdinSource: InputSource,
-        stdoutDestination: OutputDestination,
-        stderrDestination: OutputDestination
-    ) {
-        self.executableName = executableName
-        self.arguments = arguments
-        self.executableOverride = executableOverride
-        self.environmentOverrides = environmentOverrides
-        self.unsetEnvironmentVariables = unsetEnvironmentVariables
-        self.workingDirectoryOverride = workingDirectoryOverride
-        self.timeoutOverride = timeoutOverride
-        self.outputLimitOverride = outputLimitOverride
-        self.stdinSource = stdinSource
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
     }
 
     /// Returns a copy of the command with an explicit executable path.
@@ -203,7 +170,7 @@ public struct Command: Sendable {
     /// - Parameter path: An absolute or relative path to the executable to invoke.
     /// - Returns: A new ``Command`` with the executable override applied.
     public func executable(_ path: String) -> Self {
-        copy(executableOverride: path)
+        modified(self) { $0.options.executableOverride = path }
     }
 
     /// Returns a copy of the command with one additional argv argument appended.
@@ -220,7 +187,7 @@ public struct Command: Sendable {
     /// - Parameter value: The argv argument to append.
     /// - Returns: A new ``Command`` with the additional argument.
     public func arg(_ value: String) -> Self {
-        copy(arguments: arguments + [value])
+        modified(self) { $0.arguments.append(value) }
     }
 
     /// Returns a copy of the command with multiple argv arguments appended.
@@ -234,7 +201,7 @@ public struct Command: Sendable {
     /// - Parameter values: The argv arguments to append, in order.
     /// - Returns: A new ``Command`` with the additional arguments.
     public func args(_ values: [String]) -> Self {
-        copy(arguments: arguments + values)
+        modified(self) { $0.arguments += values }
     }
 
     /// Returns a copy of the command with one environment variable set or replaced.
@@ -255,12 +222,7 @@ public struct Command: Sendable {
     ///   - value: The value to assign for this command's execution.
     /// - Returns: A new ``Command`` with the environment override applied.
     public func env(_ name: String, _ value: String) -> Self {
-        var overrides = environmentOverrides
-        overrides[name] = value
-        return copy(
-            environmentOverrides: overrides,
-            unsetEnvironmentVariables: unsetEnvironmentVariables.subtracting([name])
-        )
+        modified(self) { $0.options.setEnvironment([name: value]) }
     }
 
     /// Returns a copy of the command with multiple environment variable overrides merged in.
@@ -278,10 +240,7 @@ public struct Command: Sendable {
     /// - Parameter values: A dictionary of environment variable name/value pairs to merge.
     /// - Returns: A new ``Command`` with the merged environment overrides applied.
     public func env(_ values: [String: String]) -> Self {
-        copy(
-            environmentOverrides: environmentOverrides.merging(values) { _, new in new },
-            unsetEnvironmentVariables: unsetEnvironmentVariables.subtracting(values.keys)
-        )
+        modified(self) { $0.options.setEnvironment(values) }
     }
 
     /// Returns a copy of the command with environment variables removed from its environment.
@@ -308,14 +267,7 @@ public struct Command: Sendable {
     /// - Parameter names: The environment variable names to remove.
     /// - Returns: A new ``Command`` without those variables in its environment.
     public func unsetEnv(_ names: [String]) -> Self {
-        var overrides = environmentOverrides
-        for name in names {
-            overrides.removeValue(forKey: name)
-        }
-        return copy(
-            environmentOverrides: overrides,
-            unsetEnvironmentVariables: unsetEnvironmentVariables.union(names)
-        )
+        modified(self) { $0.options.unsetEnvironment(names) }
     }
 
     /// Returns a copy of the command that runs in the given working directory.
@@ -334,7 +286,7 @@ public struct Command: Sendable {
     /// - Parameter path: The directory in which to spawn the command's process.
     /// - Returns: A new ``Command`` with the working-directory override applied.
     public func workingDirectory(_ path: String) -> Self {
-        copy(workingDirectoryOverride: path)
+        modified(self) { $0.options.workingDirectoryOverride = path }
     }
 
     /// Returns a copy of the command with a per-command timeout.
@@ -355,7 +307,7 @@ public struct Command: Sendable {
     /// - Parameter duration: The maximum time to wait for the process. Must not be negative.
     /// - Returns: A new ``Command`` with the timeout override applied.
     public func timeout(_ duration: Duration) -> Self {
-        copy(timeoutOverride: duration)
+        modified(self) { $0.options.timeoutOverride = duration }
     }
 
     /// Returns a copy of the command with a per-command timeout in seconds.
@@ -364,7 +316,7 @@ public struct Command: Sendable {
     /// - Returns: A new ``Command`` with the timeout override applied.
     @available(*, deprecated, message: "Pass a Duration, for example timeout(.seconds(120))")
     public func timeout(_ seconds: TimeInterval) -> Self {
-        copy(timeoutOverride: Duration(timeoutSeconds: seconds))
+        modified(self) { $0.options.timeoutOverride = Duration(timeoutSeconds: seconds) }
     }
 
     /// Returns a copy of the command with a per-command captured-output limit in bytes.
@@ -386,7 +338,7 @@ public struct Command: Sendable {
     /// - Parameter bytes: The maximum number of bytes to retain in memory. Must be `>= 0`.
     /// - Returns: A new ``Command`` with the output-limit override applied.
     public func outputLimit(_ bytes: Int) -> Self {
-        copy(outputLimitOverride: bytes)
+        modified(self) { $0.options.outputLimitOverride = bytes }
     }
 
     /// Returns a copy of the command that reads its stdin from the given source.
@@ -404,7 +356,7 @@ public struct Command: Sendable {
     /// - Parameter source: Where the command's stdin comes from.
     /// - Returns: A new ``Command`` with the input source applied.
     public func stdin(_ source: InputSource) -> Self {
-        copy(stdinSource: source)
+        modified(self) { $0.stdinSource = source }
     }
 
     /// Returns a copy of the command that routes stdout to the given destination.
@@ -425,7 +377,7 @@ public struct Command: Sendable {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Command`` with the stdout destination applied.
     public func stdout(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.stdoutDestination = destination }
     }
 
     /// Returns a copy of the command that routes stderr to the given destination.
@@ -442,7 +394,7 @@ public struct Command: Sendable {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Command`` with the stderr destination applied.
     public func stderr(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.stderrDestination = destination }
     }
 
     /// Returns a two-stage ``Pipeline`` connecting this command's stdout to `next`'s stdin.
@@ -556,34 +508,6 @@ public struct Command: Sendable {
         default:
             false
         }
-    }
-
-    private func copy(
-        executableName: String? = nil,
-        arguments: [String]? = nil,
-        executableOverride: String?? = nil,
-        environmentOverrides: [String: String]? = nil,
-        unsetEnvironmentVariables: Set<String>? = nil,
-        workingDirectoryOverride: String?? = nil,
-        timeoutOverride: Duration?? = nil,
-        outputLimitOverride: Int?? = nil,
-        stdinSource: InputSource? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil
-    ) -> Self {
-        Self(
-            executableName: executableName ?? self.executableName,
-            arguments: arguments ?? self.arguments,
-            executableOverride: executableOverride ?? self.executableOverride,
-            environmentOverrides: environmentOverrides ?? self.environmentOverrides,
-            unsetEnvironmentVariables: unsetEnvironmentVariables ?? self.unsetEnvironmentVariables,
-            workingDirectoryOverride: workingDirectoryOverride ?? self.workingDirectoryOverride,
-            timeoutOverride: timeoutOverride ?? self.timeoutOverride,
-            outputLimitOverride: outputLimitOverride ?? self.outputLimitOverride,
-            stdinSource: stdinSource ?? self.stdinSource,
-            stdoutDestination: stdoutDestination ?? self.stdoutDestination,
-            stderrDestination: stderrDestination ?? self.stderrDestination
-        )
     }
 }
 

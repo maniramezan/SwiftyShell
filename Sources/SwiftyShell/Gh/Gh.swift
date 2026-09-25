@@ -86,7 +86,7 @@ public enum GhSubcommand: String, Sendable, Equatable, Hashable {
 ///     .run()
 /// ```
 public struct Gh: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -110,40 +110,62 @@ public struct Gh: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `gh` command's stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `gh` command's stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that prints gh version information (`gh --version`).
-    public func version() -> Self { copy(versionRequested: true, subcommand: .some(nil), nestedSubcommand: .some(nil)) }
+    public func version() -> Self {
+        modified(self) {
+            $0.state.versionRequested = true
+            $0.state.subcommand = nil
+            $0.state.nestedSubcommand = nil
+        }
+    }
 
     /// Returns a copy that selects a top-level gh command group.
     public func subcommand(_ value: GhSubcommand) -> Self {
-        copy(versionRequested: false, subcommand: .some(value.rawValue), nestedSubcommand: .some(nil))
+        modified(self) {
+            $0.state.versionRequested = false
+            $0.state.subcommand = value.rawValue
+            $0.state.nestedSubcommand = nil
+        }
     }
 
     /// Returns a copy that selects a raw top-level gh command group.
     public func subcommand(_ value: String) -> Self {
-        copy(versionRequested: false, subcommand: .some(value), nestedSubcommand: .some(nil))
+        modified(self) {
+            $0.state.versionRequested = false
+            $0.state.subcommand = value
+            $0.state.nestedSubcommand = nil
+        }
     }
 
     /// Returns a copy that selects a top-level command group and nested command.
     public func subcommand(_ value: GhSubcommand, _ nested: String) -> Self {
-        copy(versionRequested: false, subcommand: .some(value.rawValue), nestedSubcommand: .some(nested))
+        modified(self) {
+            $0.state.versionRequested = false
+            $0.state.subcommand = value.rawValue
+            $0.state.nestedSubcommand = nested
+        }
     }
 
     /// Returns a copy that selects a raw top-level command group and nested command.
     public func subcommand(_ value: String, _ nested: String) -> Self {
-        copy(versionRequested: false, subcommand: .some(value), nestedSubcommand: .some(nested))
+        modified(self) {
+            $0.state.versionRequested = false
+            $0.state.subcommand = value
+            $0.state.nestedSubcommand = nested
+        }
     }
 
     /// Returns a copy that configures an `gh agent-task` command.
@@ -258,57 +280,57 @@ public struct Gh: RunnableCommandFamily {
     public func workflow(_ nested: String? = nil) -> Self { commandGroup(.workflow, nested) }
 
     /// Returns a copy that passes `--repo <owner/repo>`.
-    public func repo(_ ownerAndName: String) -> Self { copy(repoOverride: ownerAndName) }
+    public func repo(_ ownerAndName: String) -> Self { modified(self) { $0.state.repoOverride = ownerAndName } }
 
     /// Returns a copy that passes `--hostname <host>`.
-    public func hostname(_ value: String) -> Self { copy(hostnameOverride: value) }
+    public func hostname(_ value: String) -> Self { modified(self) { $0.state.hostnameOverride = value } }
 
     /// Returns a copy that passes `--json` with comma-separated fields.
-    public func json(_ fields: [String]) -> Self { copy(jsonFields: fields) }
+    public func json(_ fields: [String]) -> Self { modified(self) { $0.state.jsonFields = fields } }
 
     /// Returns a copy that passes `--json` with comma-separated fields.
     public func json(_ fields: String...) -> Self { json(fields) }
 
     /// Returns a copy that passes `--jq <expression>`.
-    public func jq(_ expression: String) -> Self { copy(jqExpression: expression) }
+    public func jq(_ expression: String) -> Self { modified(self) { $0.state.jqExpression = expression } }
 
     /// Returns a copy that passes `--template <template>`.
-    public func template(_ value: String) -> Self { copy(templateValue: value) }
+    public func template(_ value: String) -> Self { modified(self) { $0.state.templateValue = value } }
 
     /// Returns a copy that passes `--limit <count>`.
-    public func limit(_ count: Int) -> Self { copy(limitCount: count) }
+    public func limit(_ count: Int) -> Self { modified(self) { $0.state.limitCount = count } }
 
     /// Returns a copy that passes `--web`.
-    public func web(_ enabled: Bool = true) -> Self { copy(opensWeb: enabled) }
+    public func web(_ enabled: Bool = true) -> Self { modified(self) { $0.state.opensWeb = enabled } }
 
     /// Returns a copy that passes `--confirm`.
-    public func confirm(_ enabled: Bool = true) -> Self { copy(confirms: enabled) }
+    public func confirm(_ enabled: Bool = true) -> Self { modified(self) { $0.state.confirms = enabled } }
 
     /// Returns a copy that passes `--silent`.
-    public func silent(_ enabled: Bool = true) -> Self { copy(isSilent: enabled) }
+    public func silent(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isSilent = enabled } }
 
     /// Returns a copy that appends a raw option before positional arguments.
-    public func option(_ name: String) -> Self { copy(extraArguments: state.extraArguments + [name]) }
+    public func option(_ name: String) -> Self { modified(self) { $0.state.extraArguments += [name] } }
 
     /// Returns a copy that appends a raw option and value before positional arguments.
     public func option(_ name: String, _ value: String) -> Self {
-        copy(extraArguments: state.extraArguments + [name, value])
+        modified(self) { $0.state.extraArguments += [name, value] }
     }
 
     /// Returns a copy that appends a raw argument before positional arguments.
-    public func argument(_ value: String) -> Self { copy(extraArguments: state.extraArguments + [value]) }
+    public func argument(_ value: String) -> Self { modified(self) { $0.state.extraArguments += [value] } }
 
     /// Returns a copy that appends raw arguments before positional arguments.
-    public func arguments(_ values: [String]) -> Self { copy(extraArguments: state.extraArguments + values) }
+    public func arguments(_ values: [String]) -> Self { modified(self) { $0.state.extraArguments += values } }
 
     /// Returns a copy that appends a positional argument after modeled and raw options.
     public func positionalArgument(_ value: String) -> Self {
-        copy(positionalArguments: state.positionalArguments + [value])
+        modified(self) { $0.state.positionalArguments += [value] }
     }
 
     /// Returns a copy that appends positional arguments after modeled and raw options.
     public func positionalArguments(_ values: [String]) -> Self {
-        copy(positionalArguments: state.positionalArguments + values)
+        modified(self) { $0.state.positionalArguments += values }
     }
 
     /// Builds the raw `gh` command represented by the current builder state.
@@ -375,107 +397,31 @@ public struct Gh: RunnableCommandFamily {
     }
 
     private func commandGroup(_ value: GhSubcommand, _ nested: String?) -> Self {
-        copy(versionRequested: false, subcommand: .some(value.rawValue), nestedSubcommand: .some(nested))
-    }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        versionRequested: Bool? = nil,
-        subcommand: String?? = nil,
-        nestedSubcommand: String?? = nil,
-        repoOverride: String?? = nil,
-        hostnameOverride: String?? = nil,
-        jsonFields: [String]? = nil,
-        jqExpression: String?? = nil,
-        templateValue: String?? = nil,
-        limitCount: Int?? = nil,
-        opensWeb: Bool? = nil,
-        confirms: Bool? = nil,
-        isSilent: Bool? = nil,
-        extraArguments: [String]? = nil,
-        positionalArguments: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                versionRequested: versionRequested ?? state.versionRequested,
-                subcommand: subcommand ?? state.subcommand,
-                nestedSubcommand: nestedSubcommand ?? state.nestedSubcommand,
-                repoOverride: repoOverride ?? state.repoOverride,
-                hostnameOverride: hostnameOverride ?? state.hostnameOverride,
-                jsonFields: jsonFields ?? state.jsonFields,
-                jqExpression: jqExpression ?? state.jqExpression,
-                templateValue: templateValue ?? state.templateValue,
-                limitCount: limitCount ?? state.limitCount,
-                opensWeb: opensWeb ?? state.opensWeb,
-                confirms: confirms ?? state.confirms,
-                isSilent: isSilent ?? state.isSilent,
-                extraArguments: extraArguments ?? state.extraArguments,
-                positionalArguments: positionalArguments ?? state.positionalArguments
-            )
-        )
+        modified(self) {
+            $0.state.versionRequested = false
+            $0.state.subcommand = value.rawValue
+            $0.state.nestedSubcommand = nested
+        }
     }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let versionRequested: Bool
-    let subcommand: String?
-    let nestedSubcommand: String?
-    let repoOverride: String?
-    let hostnameOverride: String?
-    let jsonFields: [String]
-    let jqExpression: String?
-    let templateValue: String?
-    let limitCount: Int?
-    let opensWeb: Bool
-    let confirms: Bool
-    let isSilent: Bool
-    let extraArguments: [String]
-    let positionalArguments: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        versionRequested: Bool = true,
-        subcommand: String? = nil,
-        nestedSubcommand: String? = nil,
-        repoOverride: String? = nil,
-        hostnameOverride: String? = nil,
-        jsonFields: [String] = [],
-        jqExpression: String? = nil,
-        templateValue: String? = nil,
-        limitCount: Int? = nil,
-        opensWeb: Bool = false,
-        confirms: Bool = false,
-        isSilent: Bool = false,
-        extraArguments: [String] = [],
-        positionalArguments: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.versionRequested = versionRequested
-        self.subcommand = subcommand
-        self.nestedSubcommand = nestedSubcommand
-        self.repoOverride = repoOverride
-        self.hostnameOverride = hostnameOverride
-        self.jsonFields = jsonFields
-        self.jqExpression = jqExpression
-        self.templateValue = templateValue
-        self.limitCount = limitCount
-        self.opensWeb = opensWeb
-        self.confirms = confirms
-        self.isSilent = isSilent
-        self.extraArguments = extraArguments
-        self.positionalArguments = positionalArguments
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var versionRequested: Bool = true
+    var subcommand: String? = nil
+    var nestedSubcommand: String? = nil
+    var repoOverride: String? = nil
+    var hostnameOverride: String? = nil
+    var jsonFields: [String] = []
+    var jqExpression: String? = nil
+    var templateValue: String? = nil
+    var limitCount: Int? = nil
+    var opensWeb: Bool = false
+    var confirms: Bool = false
+    var isSilent: Bool = false
+    var extraArguments: [String] = []
+    var positionalArguments: [String] = []
 }
 #endif

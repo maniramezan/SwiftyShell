@@ -57,7 +57,7 @@ public struct JqArgument: Sendable, Equatable, Hashable {
 ///     .run()
 /// ```
 public struct Jq: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -93,7 +93,7 @@ public struct Jq: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `jq` command's stdout to the given destination.
@@ -105,7 +105,7 @@ public struct Jq: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Jq`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `jq` command's stderr to the given destination.
@@ -116,7 +116,7 @@ public struct Jq: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Jq`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy with the jq filter expression replaced.
@@ -127,7 +127,7 @@ public struct Jq: RunnableCommandFamily {
     /// - Parameter value: The new jq filter expression.
     /// - Returns: A new ``Jq`` value with the filter applied.
     public func filter(_ value: String) -> Self {
-        copy(filterExpression: value)
+        modified(self) { $0.state.filterExpression = value }
     }
 
     /// Returns a copy that emits raw strings instead of JSON-encoded output.
@@ -139,7 +139,7 @@ public struct Jq: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-r`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Jq`` value with the flag applied.
     public func rawOutput(_ enabled: Bool = true) -> Self {
-        copy(emitsRawStrings: enabled)
+        modified(self) { $0.state.emitsRawStrings = enabled }
     }
 
     /// Returns a copy that emits compact JSON output (no extra whitespace).
@@ -150,7 +150,7 @@ public struct Jq: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-c`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Jq`` value with the flag applied.
     public func compactOutput(_ enabled: Bool = true) -> Self {
-        copy(emitsCompactOutput: enabled)
+        modified(self) { $0.state.emitsCompactOutput = enabled }
     }
 
     /// Returns a copy that slurps the input stream into a single array value.
@@ -161,7 +161,7 @@ public struct Jq: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-s`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Jq`` value with the flag applied.
     public func slurp(_ enabled: Bool = true) -> Self {
-        copy(slurpsInput: enabled)
+        modified(self) { $0.state.slurpsInput = enabled }
     }
 
     /// Returns a copy that runs jq with null input rather than reading from stdin or files.
@@ -172,7 +172,7 @@ public struct Jq: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-n`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Jq`` value with the flag applied.
     public func nullInput(_ enabled: Bool = true) -> Self {
-        copy(usesNullInput: enabled)
+        modified(self) { $0.state.usesNullInput = enabled }
     }
 
     /// Returns a copy that sorts object keys alphabetically in the output.
@@ -183,7 +183,7 @@ public struct Jq: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-S`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Jq`` value with the flag applied.
     public func sortKeys(_ enabled: Bool = true) -> Self {
-        copy(sortsKeys: enabled)
+        modified(self) { $0.state.sortsKeys = enabled }
     }
 
     /// Returns a copy with one additional `--arg` string binding appended.
@@ -202,7 +202,7 @@ public struct Jq: RunnableCommandFamily {
     ///   - value: The string value to bind.
     /// - Returns: A new ``Jq`` value with the binding appended.
     public func arg(_ name: String, _ value: String) -> Self {
-        copy(stringArguments: state.stringArguments + [JqArgument(name: name, value: value)])
+        modified(self) { $0.state.stringArguments += [JqArgument(name: name, value: value)] }
     }
 
     /// Returns a copy with one additional input file path appended.
@@ -212,7 +212,7 @@ public struct Jq: RunnableCommandFamily {
     /// - Parameter path: The path to a file containing JSON input.
     /// - Returns: A new ``Jq`` value with the file appended.
     public func file(_ path: String) -> Self {
-        copy(filePaths: state.filePaths + [path])
+        modified(self) { $0.state.filePaths += [path] }
     }
 
     /// Returns a copy with multiple input file paths appended.
@@ -220,7 +220,7 @@ public struct Jq: RunnableCommandFamily {
     /// - Parameter paths: The file paths to append, in order.
     /// - Returns: A new ``Jq`` value with the files appended.
     public func files(_ paths: [String]) -> Self {
-        copy(filePaths: state.filePaths + paths)
+        modified(self) { $0.state.filePaths += paths }
     }
 
     /// Builds the raw `jq` command represented by the current builder state.
@@ -260,75 +260,19 @@ public struct Jq: RunnableCommandFamily {
 
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        filterExpression: String? = nil,
-        emitsRawStrings: Bool? = nil,
-        emitsCompactOutput: Bool? = nil,
-        slurpsInput: Bool? = nil,
-        usesNullInput: Bool? = nil,
-        sortsKeys: Bool? = nil,
-        stringArguments: [JqArgument]? = nil,
-        filePaths: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                filterExpression: filterExpression ?? state.filterExpression,
-                emitsRawStrings: emitsRawStrings ?? state.emitsRawStrings,
-                emitsCompactOutput: emitsCompactOutput ?? state.emitsCompactOutput,
-                slurpsInput: slurpsInput ?? state.slurpsInput,
-                usesNullInput: usesNullInput ?? state.usesNullInput,
-                sortsKeys: sortsKeys ?? state.sortsKeys,
-                stringArguments: stringArguments ?? state.stringArguments,
-                filePaths: filePaths ?? state.filePaths
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let filterExpression: String
-    let emitsRawStrings: Bool
-    let emitsCompactOutput: Bool
-    let slurpsInput: Bool
-    let usesNullInput: Bool
-    let sortsKeys: Bool
-    let stringArguments: [JqArgument]
-    let filePaths: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        filterExpression: String = ".",
-        emitsRawStrings: Bool = false,
-        emitsCompactOutput: Bool = false,
-        slurpsInput: Bool = false,
-        usesNullInput: Bool = false,
-        sortsKeys: Bool = false,
-        stringArguments: [JqArgument] = [],
-        filePaths: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.filterExpression = filterExpression
-        self.emitsRawStrings = emitsRawStrings
-        self.emitsCompactOutput = emitsCompactOutput
-        self.slurpsInput = slurpsInput
-        self.usesNullInput = usesNullInput
-        self.sortsKeys = sortsKeys
-        self.stringArguments = stringArguments
-        self.filePaths = filePaths
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var filterExpression: String = "."
+    var emitsRawStrings: Bool = false
+    var emitsCompactOutput: Bool = false
+    var slurpsInput: Bool = false
+    var usesNullInput: Bool = false
+    var sortsKeys: Bool = false
+    var stringArguments: [JqArgument] = []
+    var filePaths: [String] = []
 }
 #endif

@@ -74,7 +74,7 @@ public enum TarOperation: String, Sendable, Equatable, Hashable {
 ///     .run()
 /// ```
 public struct Tar: RunnableCommandFamily {
-    private let state: TarState
+    private var state: TarState
 
     /// The shell context used when running this command family.
     ///
@@ -108,7 +108,7 @@ public struct Tar: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `tar` command's stdout to the given destination.
@@ -119,7 +119,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Tar`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `tar` command's stderr to the given destination.
@@ -130,7 +130,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Tar`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that creates a new archive (`-c`).
@@ -153,7 +153,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter value: The operation to emit first in argv.
     /// - Returns: A new ``Tar`` value with the operation applied.
     public func operation(_ value: TarOperation) -> Self {
-        copy(operation: .some(value))
+        modified(self) { $0.state.operation = value }
     }
 
     /// Returns a copy that sets the archive file (`-f <archive>`).
@@ -163,7 +163,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter path: The archive path to read or write.
     /// - Returns: A new ``Tar`` value with the archive file set.
     public func file(_ path: String) -> Self {
-        copy(archivePath: path)
+        modified(self) { $0.state.archivePath = path }
     }
 
     /// Returns a copy with one input or member path appended.
@@ -174,7 +174,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter value: A filesystem path or archive member name.
     /// - Returns: A new ``Tar`` value with the path appended.
     public func path(_ value: String) -> Self {
-        copy(paths: state.paths + [value])
+        modified(self) { $0.state.paths += [value] }
     }
 
     /// Returns a copy with multiple input or member paths appended.
@@ -182,7 +182,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter values: Paths or member names to append in order.
     /// - Returns: A new ``Tar`` value with the paths appended.
     public func paths(_ values: [String]) -> Self {
-        copy(paths: state.paths + values)
+        modified(self) { $0.state.paths += values }
     }
 
     /// Returns a copy that changes tar's directory before processing following paths (`-C`).
@@ -193,7 +193,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter path: Directory path to pass after `-C`.
     /// - Returns: A new ``Tar`` value with the directory appended.
     public func directory(_ path: String) -> Self {
-        copy(directories: state.directories + [path])
+        modified(self) { $0.state.directories += [path] }
     }
 
     /// Returns a copy that enables gzip compression (`-z`).
@@ -213,7 +213,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter value: The compression mode to apply, replacing any previous mode.
     /// - Returns: A new ``Tar`` value with the compression mode applied.
     public func compression(_ value: TarCompression) -> Self {
-        copy(compression: .some(value))
+        modified(self) { $0.state.compression = value }
     }
 
     /// Returns a copy that appends an exclude pattern (`--exclude <pattern>`).
@@ -221,7 +221,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter pattern: A tar pattern to exclude.
     /// - Returns: A new ``Tar`` value with the exclude pattern appended.
     public func exclude(_ pattern: String) -> Self {
-        copy(excludes: state.excludes + [pattern])
+        modified(self) { $0.state.excludes += [pattern] }
     }
 
     /// Returns a copy that appends multiple exclude patterns.
@@ -229,7 +229,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter patterns: Exclude patterns to append in order.
     /// - Returns: A new ``Tar`` value with the exclude patterns appended.
     public func excludes(_ patterns: [String]) -> Self {
-        copy(excludes: state.excludes + patterns)
+        modified(self) { $0.state.excludes += patterns }
     }
 
     /// Returns a copy that reads exclude patterns from a file (`-X <file>`).
@@ -237,7 +237,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter path: File containing newline-delimited tar patterns.
     /// - Returns: A new ``Tar`` value with the exclude file appended.
     public func excludeFrom(_ path: String) -> Self {
-        copy(excludeFiles: state.excludeFiles + [path])
+        modified(self) { $0.state.excludeFiles += [path] }
     }
 
     /// Returns a copy that reads paths or members from a file (`-T <file>`).
@@ -245,7 +245,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter path: File containing path names.
     /// - Returns: A new ``Tar`` value with the paths-from file appended.
     public func filesFrom(_ path: String) -> Self {
-        copy(filesFrom: state.filesFrom + [path])
+        modified(self) { $0.state.filesFrom += [path] }
     }
 
     /// Returns a copy that treats `filesFrom` inputs as NUL-terminated (`--null`).
@@ -253,7 +253,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--null`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func nullTerminatedFiles(_ enabled: Bool = true) -> Self {
-        copy(usesNullTerminatedFiles: enabled)
+        modified(self) { $0.state.usesNullTerminatedFiles = enabled }
     }
 
     /// Returns a copy that strips leading path components during extraction (`--strip-components`).
@@ -261,7 +261,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter count: Number of leading path components to remove.
     /// - Returns: A new ``Tar`` value with the strip count set.
     public func stripComponents(_ count: Int) -> Self {
-        copy(stripComponents: count)
+        modified(self) { $0.state.stripComponents = count }
     }
 
     /// Returns a copy that extracts each member to stdout instead of the filesystem (`-O`).
@@ -269,7 +269,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-O`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func toStdout(_ enabled: Bool = true) -> Self {
-        copy(outputsToStdout: enabled)
+        modified(self) { $0.state.outputsToStdout = enabled }
     }
 
     /// Returns a copy that enables verbose output (`-v`).
@@ -277,7 +277,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-v`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func verbose(_ enabled: Bool = true) -> Self {
-        copy(isVerbose: enabled)
+        modified(self) { $0.state.isVerbose = enabled }
     }
 
     /// Returns a copy that verifies archive writes when creating archives (`-W`).
@@ -285,7 +285,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-W`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func verify(_ enabled: Bool = true) -> Self {
-        copy(verifiesWrites: enabled)
+        modified(self) { $0.state.verifiesWrites = enabled }
     }
 
     /// Returns a copy that removes source files after adding them (`--remove-files`).
@@ -293,7 +293,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--remove-files`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func removeFilesAfterAdding(_ enabled: Bool = true) -> Self {
-        copy(removesFilesAfterAdding: enabled)
+        modified(self) { $0.state.removesFilesAfterAdding = enabled }
     }
 
     /// Returns a copy that follows symlinks when archiving (`-h`).
@@ -301,7 +301,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-h`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func dereferenceSymlinks(_ enabled: Bool = true) -> Self {
-        copy(dereferencesSymlinks: enabled)
+        modified(self) { $0.state.dereferencesSymlinks = enabled }
     }
 
     /// Returns a copy that keeps absolute path names (`-P`).
@@ -312,7 +312,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-P`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func absoluteNames(_ enabled: Bool = true) -> Self {
-        copy(usesAbsoluteNames: enabled)
+        modified(self) { $0.state.usesAbsoluteNames = enabled }
     }
 
     /// Returns a copy that preserves permissions when extracting (`-p`).
@@ -320,7 +320,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-p`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func preservePermissions(_ enabled: Bool = true) -> Self {
-        copy(preservesPermissions: enabled)
+        modified(self) { $0.state.preservesPermissions = enabled }
     }
 
     /// Returns a copy that preserves owner when extracting (`--same-owner`).
@@ -328,7 +328,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--same-owner`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func sameOwner(_ enabled: Bool = true) -> Self {
-        copy(preservesOwner: enabled)
+        modified(self) { $0.state.preservesOwner = enabled }
     }
 
     /// Returns a copy that avoids preserving owner when extracting (`--no-same-owner`).
@@ -336,7 +336,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--no-same-owner`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func noSameOwner(_ enabled: Bool = true) -> Self {
-        copy(skipsOwnerPreservation: enabled)
+        modified(self) { $0.state.skipsOwnerPreservation = enabled }
     }
 
     /// Returns a copy that does not overwrite existing files while extracting (`-k`).
@@ -344,7 +344,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-k`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func keepOldFiles(_ enabled: Bool = true) -> Self {
-        copy(keepsOldFiles: enabled)
+        modified(self) { $0.state.keepsOldFiles = enabled }
     }
 
     /// Returns a copy that skips existing files while extracting (`--skip-old-files`).
@@ -352,7 +352,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--skip-old-files`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func skipOldFiles(_ enabled: Bool = true) -> Self {
-        copy(skipsOldFiles: enabled)
+        modified(self) { $0.state.skipsOldFiles = enabled }
     }
 
     /// Returns a copy that overwrites existing files while extracting (`--overwrite`).
@@ -360,7 +360,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--overwrite`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func overwrite(_ enabled: Bool = true) -> Self {
-        copy(overwritesExistingFiles: enabled)
+        modified(self) { $0.state.overwritesExistingFiles = enabled }
     }
 
     /// Returns a copy that omits recursion when archiving directories (`--no-recursion`).
@@ -368,7 +368,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--no-recursion`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func noRecursion(_ enabled: Bool = true) -> Self {
-        copy(disablesRecursion: enabled)
+        modified(self) { $0.state.disablesRecursion = enabled }
     }
 
     /// Returns a copy that prevents crossing filesystem boundaries (`--one-file-system`).
@@ -376,7 +376,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `--one-file-system`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func oneFileSystem(_ enabled: Bool = true) -> Self {
-        copy(staysOnOneFileSystem: enabled)
+        modified(self) { $0.state.staysOnOneFileSystem = enabled }
     }
 
     /// Returns a copy that appends a raw tar option.
@@ -387,7 +387,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter value: A single argument to append before file and path operands.
     /// - Returns: A new ``Tar`` value with the raw option appended.
     public func option(_ value: String) -> Self {
-        copy(extraOptions: state.extraOptions + [value])
+        modified(self) { $0.state.extraOptions += [value] }
     }
 
     /// Returns a copy that appends raw tar options.
@@ -395,7 +395,7 @@ public struct Tar: RunnableCommandFamily {
     /// - Parameter values: Arguments to append before file and path operands.
     /// - Returns: A new ``Tar`` value with the raw options appended.
     public func options(_ values: [String]) -> Self {
-        copy(extraOptions: state.extraOptions + values)
+        modified(self) { $0.state.extraOptions += values }
     }
 
     /// Builds the raw `tar` command represented by the current builder state.
@@ -473,160 +473,36 @@ public struct Tar: RunnableCommandFamily {
 
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        operation: TarOperation?? = nil,
-        archivePath: String?? = nil,
-        paths: [String]? = nil,
-        directories: [String]? = nil,
-        compression: TarCompression?? = nil,
-        excludes: [String]? = nil,
-        excludeFiles: [String]? = nil,
-        filesFrom: [String]? = nil,
-        stripComponents: Int?? = nil,
-        outputsToStdout: Bool? = nil,
-        isVerbose: Bool? = nil,
-        verifiesWrites: Bool? = nil,
-        removesFilesAfterAdding: Bool? = nil,
-        dereferencesSymlinks: Bool? = nil,
-        usesAbsoluteNames: Bool? = nil,
-        preservesPermissions: Bool? = nil,
-        preservesOwner: Bool? = nil,
-        skipsOwnerPreservation: Bool? = nil,
-        keepsOldFiles: Bool? = nil,
-        skipsOldFiles: Bool? = nil,
-        overwritesExistingFiles: Bool? = nil,
-        disablesRecursion: Bool? = nil,
-        staysOnOneFileSystem: Bool? = nil,
-        usesNullTerminatedFiles: Bool? = nil,
-        extraOptions: [String]? = nil
-    ) -> Self {
-        Self(
-            state: TarState(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                operation: operation ?? state.operation,
-                archivePath: archivePath ?? state.archivePath,
-                paths: paths ?? state.paths,
-                directories: directories ?? state.directories,
-                compression: compression ?? state.compression,
-                excludes: excludes ?? state.excludes,
-                excludeFiles: excludeFiles ?? state.excludeFiles,
-                filesFrom: filesFrom ?? state.filesFrom,
-                stripComponents: stripComponents ?? state.stripComponents,
-                outputsToStdout: outputsToStdout ?? state.outputsToStdout,
-                isVerbose: isVerbose ?? state.isVerbose,
-                verifiesWrites: verifiesWrites ?? state.verifiesWrites,
-                removesFilesAfterAdding: removesFilesAfterAdding ?? state.removesFilesAfterAdding,
-                dereferencesSymlinks: dereferencesSymlinks ?? state.dereferencesSymlinks,
-                usesAbsoluteNames: usesAbsoluteNames ?? state.usesAbsoluteNames,
-                preservesPermissions: preservesPermissions ?? state.preservesPermissions,
-                preservesOwner: preservesOwner ?? state.preservesOwner,
-                skipsOwnerPreservation: skipsOwnerPreservation ?? state.skipsOwnerPreservation,
-                keepsOldFiles: keepsOldFiles ?? state.keepsOldFiles,
-                skipsOldFiles: skipsOldFiles ?? state.skipsOldFiles,
-                overwritesExistingFiles: overwritesExistingFiles ?? state.overwritesExistingFiles,
-                disablesRecursion: disablesRecursion ?? state.disablesRecursion,
-                staysOnOneFileSystem: staysOnOneFileSystem ?? state.staysOnOneFileSystem,
-                usesNullTerminatedFiles: usesNullTerminatedFiles ?? state.usesNullTerminatedFiles,
-                extraOptions: extraOptions ?? state.extraOptions
-            )
-        )
-    }
 }
 
 private struct TarState: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let operation: TarOperation?
-    let archivePath: String?
-    let paths: [String]
-    let directories: [String]
-    let compression: TarCompression?
-    let excludes: [String]
-    let excludeFiles: [String]
-    let filesFrom: [String]
-    let stripComponents: Int?
-    let outputsToStdout: Bool
-    let isVerbose: Bool
-    let verifiesWrites: Bool
-    let removesFilesAfterAdding: Bool
-    let dereferencesSymlinks: Bool
-    let usesAbsoluteNames: Bool
-    let preservesPermissions: Bool
-    let preservesOwner: Bool
-    let skipsOwnerPreservation: Bool
-    let keepsOldFiles: Bool
-    let skipsOldFiles: Bool
-    let overwritesExistingFiles: Bool
-    let disablesRecursion: Bool
-    let staysOnOneFileSystem: Bool
-    let usesNullTerminatedFiles: Bool
-    let extraOptions: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        operation: TarOperation? = nil,
-        archivePath: String? = nil,
-        paths: [String] = [],
-        directories: [String] = [],
-        compression: TarCompression? = nil,
-        excludes: [String] = [],
-        excludeFiles: [String] = [],
-        filesFrom: [String] = [],
-        stripComponents: Int? = nil,
-        outputsToStdout: Bool = false,
-        isVerbose: Bool = false,
-        verifiesWrites: Bool = false,
-        removesFilesAfterAdding: Bool = false,
-        dereferencesSymlinks: Bool = false,
-        usesAbsoluteNames: Bool = false,
-        preservesPermissions: Bool = false,
-        preservesOwner: Bool = false,
-        skipsOwnerPreservation: Bool = false,
-        keepsOldFiles: Bool = false,
-        skipsOldFiles: Bool = false,
-        overwritesExistingFiles: Bool = false,
-        disablesRecursion: Bool = false,
-        staysOnOneFileSystem: Bool = false,
-        usesNullTerminatedFiles: Bool = false,
-        extraOptions: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.operation = operation
-        self.archivePath = archivePath
-        self.paths = paths
-        self.directories = directories
-        self.compression = compression
-        self.excludes = excludes
-        self.excludeFiles = excludeFiles
-        self.filesFrom = filesFrom
-        self.stripComponents = stripComponents
-        self.outputsToStdout = outputsToStdout
-        self.isVerbose = isVerbose
-        self.verifiesWrites = verifiesWrites
-        self.removesFilesAfterAdding = removesFilesAfterAdding
-        self.dereferencesSymlinks = dereferencesSymlinks
-        self.usesAbsoluteNames = usesAbsoluteNames
-        self.preservesPermissions = preservesPermissions
-        self.preservesOwner = preservesOwner
-        self.skipsOwnerPreservation = skipsOwnerPreservation
-        self.keepsOldFiles = keepsOldFiles
-        self.skipsOldFiles = skipsOldFiles
-        self.overwritesExistingFiles = overwritesExistingFiles
-        self.disablesRecursion = disablesRecursion
-        self.staysOnOneFileSystem = staysOnOneFileSystem
-        self.usesNullTerminatedFiles = usesNullTerminatedFiles
-        self.extraOptions = extraOptions
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var operation: TarOperation? = nil
+    var archivePath: String? = nil
+    var paths: [String] = []
+    var directories: [String] = []
+    var compression: TarCompression? = nil
+    var excludes: [String] = []
+    var excludeFiles: [String] = []
+    var filesFrom: [String] = []
+    var stripComponents: Int? = nil
+    var outputsToStdout: Bool = false
+    var isVerbose: Bool = false
+    var verifiesWrites: Bool = false
+    var removesFilesAfterAdding: Bool = false
+    var dereferencesSymlinks: Bool = false
+    var usesAbsoluteNames: Bool = false
+    var preservesPermissions: Bool = false
+    var preservesOwner: Bool = false
+    var skipsOwnerPreservation: Bool = false
+    var keepsOldFiles: Bool = false
+    var skipsOldFiles: Bool = false
+    var overwritesExistingFiles: Bool = false
+    var disablesRecursion: Bool = false
+    var staysOnOneFileSystem: Bool = false
+    var usesNullTerminatedFiles: Bool = false
+    var extraOptions: [String] = []
 }
 #endif

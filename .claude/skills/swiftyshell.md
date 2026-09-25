@@ -2073,11 +2073,16 @@ Use this section when adding or revising command families.
 
 ### Recommended Structure
 
+State lives in a private struct of `var`s with defaults; every fluent method returns
+`modified(self) { … }` (internal helper in `Core/CommandFamily.swift`). Do not add
+memberwise `init(...)`/`copy(...)` builders: a double-optional `copy(field: nil)`
+silently means "keep", which caused real stale-argv bugs.
+
 ```swift
 import Foundation
 
 public struct ExampleTool: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     public var context: ShellContext { state.config.context }
 
@@ -2085,30 +2090,26 @@ public struct ExampleTool: RunnableCommandFamily {
         self.state = State(config: ToolConfiguration(context: context))
     }
 
-    private init(state: State) {
-        self.state = state
-    }
-
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        with(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        with(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        with(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     public func verbose(_ enabled: Bool = true) -> Self {
-        with(isVerbose: enabled)
+        modified(self) { $0.state.isVerbose = enabled }
     }
 
     public func file(_ path: String) -> Self {
-        with(files: state.files + [path])
+        modified(self) { $0.state.files.append(path) }
     }
 
     public func command() -> Command {
@@ -2123,44 +2124,14 @@ public struct ExampleTool: RunnableCommandFamily {
 
         return state.config.apply(to: base)
     }
-
-    private func with(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        isVerbose: Bool? = nil,
-        files: [String]? = nil
-    ) -> Self {
-        Self(state: State(
-            config: config ?? state.config,
-            stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-            stderrDestination: stderrDestination ?? state.stderrDestination,
-            isVerbose: isVerbose ?? state.isVerbose,
-            files: files ?? state.files
-        ))
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let isVerbose: Bool
-    let files: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        isVerbose: Bool = false,
-        files: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.isVerbose = isVerbose
-        self.files = files
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var isVerbose = false
+    var files: [String] = []
 }
 ```
 

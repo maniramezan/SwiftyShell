@@ -17,6 +17,15 @@ struct UTF8ChunkDecoderTests {
         #expect(text == Self.sample)
     }
 
+    @Test func decodesSlicedDataWithNonZeroStartIndex() {
+        let backing = Data([0x78, 0x78] + Array("a€".utf8))
+        let slice = backing[2...]
+        var decoder = UTF8ChunkDecoder()
+
+        #expect(decoder.decode(slice.dropLast()) == "a")
+        #expect(decoder.decode(Data([0xAC])) == "€")
+    }
+
     @Test func singleByteChunksPreserveText() {
         var decoder = UTF8ChunkDecoder()
         var text = ""

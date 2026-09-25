@@ -12,6 +12,13 @@ struct UTF8ChunkDecoder {
     ///
     /// - Returns: The decoded text, or `nil` when every byte is still pending.
     mutating func decode(_ data: Data) -> String? {
+        guard !pending.isEmpty else {
+            // Common case: nothing held back, so decode straight from `data` without copying it.
+            let boundary = data.index(data.startIndex, offsetBy: Self.completeLength(of: data))
+            pending = Array(data[boundary...])
+            guard boundary > data.startIndex else { return nil }
+            return String(decoding: data[..<boundary], as: UTF8.self)
+        }
         var bytes = pending
         bytes.append(contentsOf: data)
         let boundary = Self.completeLength(of: bytes)
@@ -35,10 +42,13 @@ struct UTF8ChunkDecoder {
     /// Only the last three bytes are inspected: a UTF-8 sequence is at most four bytes long, so an
     /// incomplete one can hold back at most three. Invalid bytes are not held back; they decode to
     /// U+FFFD as usual.
-    static func completeLength(of bytes: [UInt8]) -> Int {
+    static func completeLength<Bytes: BidirectionalCollection<UInt8>>(of bytes: Bytes) -> Int {
         let count = bytes.count
-        var index = count - 1
-        while index >= 0, index >= count - 3 {
+        var index = bytes.endIndex
+        var inspected = 0
+        while index > bytes.startIndex, inspected < 3 {
+            index = bytes.index(before: index)
+            inspected += 1
             let byte = bytes[index]
             if byte & 0b1100_0000 != 0b1000_0000 {
                 // Found a lead (or ASCII / invalid) byte; check whether its sequence is complete.
@@ -49,9 +59,8 @@ struct UTF8ChunkDecoder {
                 case 0b1111_0000...0b1111_0111: expectedLength = 4
                 default: return count
                 }
-                return count - index < expectedLength ? index : count
+                return inspected < expectedLength ? count - inspected : count
             }
-            index -= 1
         }
         return count
     }

@@ -81,7 +81,7 @@ headers. ``Curl`` deliberately has no credential-specific or raw-argument API.
 ## Timeout layers
 
 ``Curl/requestTimeout(_:)`` and ``Curl/connectionTimeout(_:)`` configure curl's transfer timers. The
-inherited ``ToolConfigurableCommandFamily/timeout(_:)`` configures SwiftyShell's process-level
+inherited ``ToolConfigurableCommandFamily/timeout(_:)-(Duration)`` configures SwiftyShell's process-level
 deadline. A process timeout can provide an outer bound around curl's own retry and transfer timing.
 
 ``Curl`` returns ``ShellOutput`` rather than a structured HTTP response. Response bodies can be

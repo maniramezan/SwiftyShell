@@ -47,7 +47,7 @@ public struct Mkdir: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// Funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     ///
     /// - Parameter update: A pure function that returns the next ``ToolConfiguration``.
     /// - Returns: A new ``Mkdir`` value with the updated configuration applied.

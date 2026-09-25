@@ -81,7 +81,7 @@ public struct Swift: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// Funnels the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     ///
     /// - Parameter update: A pure function that receives the current ``ToolConfiguration`` and
     ///   returns the next one.

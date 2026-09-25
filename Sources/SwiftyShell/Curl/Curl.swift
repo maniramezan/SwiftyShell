@@ -165,7 +165,7 @@ public struct Curl: RunnableCommandFamily {
 
     /// Returns a copy with curl's maximum transfer duration in seconds.
     ///
-    /// Unlike inherited ``timeout(_:)``, which controls the subprocess executor, this maps to
+    /// Unlike inherited ``timeout(_:)-(Duration)``, which controls the subprocess executor, this maps to
     /// curl's `--max-time` transfer timer.
     public func requestTimeout(_ seconds: TimeInterval) -> Self { copy(requestTimeout: seconds) }
 

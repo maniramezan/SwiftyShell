@@ -19,7 +19,7 @@ import Foundation
 /// let deployOutput = try await Command("ruby", arguments: "deploy.rb")
 ///     .env("RAILS_ENV", "production")
 ///     .workingDirectory("/var/app")
-///     .timeout(120)
+///     .timeout(.seconds(120))
 ///     .run(in: context)
 /// ```
 ///
@@ -43,7 +43,7 @@ import Foundation
 public struct Command: Sendable {
     /// The executable name originally requested for the command.
     ///
-    /// This is the value passed to ``init(_:arguments:)``. It may be a bare program name (such as
+    /// This is the value passed to ``init(_:arguments:)-(_,String...)``. It may be a bare program name (such as
     /// `"git"`) which the executor resolves against ``ShellContext/searchPaths``, or it may be
     /// an absolute path. Use ``executableOverride`` to inspect any explicit override applied via
     /// ``executable(_:)``.
@@ -74,12 +74,12 @@ public struct Command: Sendable {
     /// only. Set with ``workingDirectory(_:)``.
     public let workingDirectoryOverride: String?
 
-    /// An optional per-command timeout in seconds.
+    /// An optional per-command timeout.
     ///
     /// When non-`nil`, this value replaces ``ShellContext/defaultTimeout`` for this invocation.
-    /// A value of `0` disables waiting beyond the immediate process scheduler tick. Set with
-    /// ``timeout(_:)``.
-    public let timeoutOverride: TimeInterval?
+    /// A value of `.zero` disables waiting beyond the immediate process scheduler tick. Set with
+    /// ``timeout(_:)-(Duration)``.
+    public let timeoutOverride: Duration?
 
     /// An optional per-command output capture limit in bytes.
     ///
@@ -118,6 +118,23 @@ public struct Command: Sendable {
     ///   - arguments: The argv arguments to pass to the executable. Each variadic element becomes
     ///     a separate argument; no shell parsing or quoting is performed.
     public init(_ executable: String, arguments: String...) {
+        self.init(executable, arguments: arguments)
+    }
+
+    /// Creates a command from an executable name and an array of argv arguments.
+    ///
+    /// Use this overload when the arguments are computed at runtime:
+    ///
+    /// ```swift
+    /// let files = ["Package.swift", "README.md"]
+    /// let output = try await Command("wc", arguments: ["-l"] + files).run(in: context)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - executable: The executable name or absolute path to invoke.
+    ///   - arguments: The argv arguments to pass to the executable, in order. Each element becomes
+    ///     a separate argument; no shell parsing or quoting is performed.
+    public init(_ executable: String, arguments: [String]) {
         self.executableName = executable
         self.arguments = arguments
         self.executableOverride = nil
@@ -135,7 +152,7 @@ public struct Command: Sendable {
         executableOverride: String?,
         environmentOverrides: [String: String],
         workingDirectoryOverride: String?,
-        timeoutOverride: TimeInterval?,
+        timeoutOverride: Duration?,
         outputLimitOverride: Int?,
         stdoutDestination: OutputDestination,
         stderrDestination: OutputDestination
@@ -262,26 +279,34 @@ public struct Command: Sendable {
         copy(workingDirectoryOverride: path)
     }
 
-    /// Returns a copy of the command with a per-command timeout in seconds.
+    /// Returns a copy of the command with a per-command timeout.
     ///
-    /// When the running process exceeds `seconds`, the executor terminates it and throws
+    /// When the running process exceeds `duration`, the executor terminates it and throws
     /// ``ShellError/timeout(command:duration:partialOutput:)`` containing whatever output was
-    /// captured before termination. The value must be greater than or equal to zero — negative
-    /// values raise ``ShellError/invalidConfiguration(description:)`` at execution time.
+    /// captured before termination. The value must not be negative — negative values raise
+    /// ``ShellError/invalidConfiguration(description:)`` at execution time.
     ///
     /// This override replaces ``ShellContext/defaultTimeout`` for this invocation only.
     ///
     /// ```swift
     /// try await Command("swift", arguments: "build")
-    ///     .timeout(120)   // abort if the build runs longer than two minutes
+    ///     .timeout(.seconds(120))   // abort if the build runs longer than two minutes
     ///     .run(in: context)
     /// ```
     ///
-    /// - Parameter seconds: The maximum duration to wait for the process, in seconds. Must be
-    ///   `>= 0`.
+    /// - Parameter duration: The maximum time to wait for the process. Must not be negative.
     /// - Returns: A new ``Command`` with the timeout override applied.
+    public func timeout(_ duration: Duration) -> Self {
+        copy(timeoutOverride: duration)
+    }
+
+    /// Returns a copy of the command with a per-command timeout in seconds.
+    ///
+    /// - Parameter seconds: The maximum duration to wait for the process, in seconds.
+    /// - Returns: A new ``Command`` with the timeout override applied.
+    @available(*, deprecated, message: "Pass a Duration, for example timeout(.seconds(120))")
     public func timeout(_ seconds: TimeInterval) -> Self {
-        copy(timeoutOverride: seconds)
+        copy(timeoutOverride: Duration(timeoutSeconds: seconds))
     }
 
     /// Returns a copy of the command with a per-command captured-output limit in bytes.
@@ -445,7 +470,7 @@ public struct Command: Sendable {
         executableOverride: String?? = nil,
         environmentOverrides: [String: String]? = nil,
         workingDirectoryOverride: String?? = nil,
-        timeoutOverride: TimeInterval?? = nil,
+        timeoutOverride: Duration?? = nil,
         outputLimitOverride: Int?? = nil,
         stdoutDestination: OutputDestination? = nil,
         stderrDestination: OutputDestination? = nil
@@ -478,7 +503,7 @@ extension Command: CustomDebugStringConvertible {
         if let override = executableOverride { parts.append("executable: \(override.debugDescription)") }
         if !environmentOverrides.isEmpty { parts.append("env: \(environmentOverrides)") }
         if let wd = workingDirectoryOverride { parts.append("workingDirectory: \(wd.debugDescription)") }
-        if let timeout = timeoutOverride { parts.append("timeout: \(timeout)s") }
+        if let timeout = timeoutOverride { parts.append("timeout: \(timeout)") }
         if let limit = outputLimitOverride { parts.append("outputLimit: \(limit)") }
         if stdoutDestination != .capture { parts.append("stdout: \(stdoutDestination)") }
         if stderrDestination != .capture { parts.append("stderr: \(stderrDestination)") }

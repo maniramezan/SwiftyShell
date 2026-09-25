@@ -30,7 +30,7 @@ directory, and timeout:
 try await Command("ruby", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .workingDirectory("/var/app")
-    .timeout(300)
+    .timeout(.seconds(300))
     .run(in: context)
 ```
 
@@ -55,7 +55,8 @@ To compose with other commands, use ``pipe(to:)`` to build a ``Pipeline``.
 
 ### Creating a Command
 
-- ``init(_:arguments:)``
+- ``init(_:arguments:)-(_,String...)``
+- ``init(_:arguments:)-(_,[String])``
 
 ### Adding Arguments
 
@@ -74,7 +75,7 @@ To compose with other commands, use ``pipe(to:)`` to build a ``Pipeline``.
 ### Constraining Execution
 
 - ``workingDirectory(_:)``
-- ``timeout(_:)``
+- ``timeout(_:)-(Duration)``
 - ``outputLimit(_:)``
 
 ### Redirecting Output

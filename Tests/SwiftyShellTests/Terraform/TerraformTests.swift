@@ -95,7 +95,7 @@ struct TerraformCommandTests {
         let output = try await Terraform(context: context)
             .executable("/opt/bin/terraform")
             .workingDirectory("/infra")
-            .timeout(5)
+            .timeout(.seconds(5))
             .outputLimit(1024)
             .run()
 
@@ -103,7 +103,7 @@ struct TerraformCommandTests {
         #expect(output.stdout == "Terraform v1.0.0")
         #expect(command?.executableOverride == "/opt/bin/terraform")
         #expect(command?.workingDirectoryOverride == "/infra")
-        #expect(command?.timeoutOverride == 5)
+        #expect(command?.timeoutOverride == .seconds(5))
         #expect(command?.outputLimitOverride == 1024)
         #expect(command?.arguments == ["version"])
     }

@@ -112,7 +112,7 @@ struct HelmCommandTests {
         let output = try await Helm(context: context)
             .executable("/opt/bin/helm")
             .workingDirectory("/charts")
-            .timeout(10)
+            .timeout(.seconds(10))
             .outputLimit(2048)
             .list()
             .stdout(.tee)
@@ -122,7 +122,7 @@ struct HelmCommandTests {
         #expect(output.stdout == "[]")
         #expect(command?.executableOverride == "/opt/bin/helm")
         #expect(command?.workingDirectoryOverride == "/charts")
-        #expect(command?.timeoutOverride == 10)
+        #expect(command?.timeoutOverride == .seconds(10))
         #expect(command?.outputLimitOverride == 2048)
         #expect(command?.stdoutDestination == .tee)
     }

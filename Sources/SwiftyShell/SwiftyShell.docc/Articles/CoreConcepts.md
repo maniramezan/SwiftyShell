@@ -186,7 +186,7 @@ let result = try await Command("ls", arguments: "-la")
     .run(in: context)
 ```
 
-The first stage receives closed stdin; each later stage receives the preceding stage's stdout. Successful output contains the final stage's captured stdout and captured stderr concatenated in stage order. All stages run concurrently, and an observed non-zero stage cancels the remaining stage tasks. Each stage resolves its own output limit; intermediate stdout is piped rather than captured, while captured stderr and final-stage stdout count against their stage limits. The shortest resolved stage timeout governs the pipeline. Timeout, cancellation, and output-limit errors carry captured partial output.
+The first stage receives closed stdin; each later stage receives the preceding stage's stdout. Successful output contains the final stage's captured stdout and captured stderr concatenated in stage order. All stages run concurrently, and an observed non-zero stage cancels the remaining stage tasks. A non-final stage terminated by `SIGPIPE` is not a failure, since it only means a downstream stage stopped reading early (`yes | head -n 1`). Each stage resolves its own output limit; intermediate stdout is piped rather than captured, while captured stderr and final-stage stdout count against their stage limits. The shortest resolved stage timeout governs the pipeline. Timeout, cancellation, and output-limit errors carry captured partial output.
 
 ## Executor Protocol
 

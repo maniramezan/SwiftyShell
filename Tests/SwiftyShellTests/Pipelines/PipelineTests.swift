@@ -99,6 +99,38 @@ struct PipelineTests {
         #expect(output.stderr.contains("second-err"))
     }
 
+    @Test func pipelineToleratesUpstreamBrokenPipe() async throws {
+        let output = try await Command("yes")
+            .pipe(to: Command("head", arguments: "-n", "1"))
+            .run(in: ShellContext())
+
+        #expect(output.stdout == "y\n")
+        #expect(output.exitCode == 0)
+    }
+
+    @Test func pipelineToleratesIntermediateStageKilledBySIGPIPE() async throws {
+        let output = try await Command("/bin/sh", arguments: "-c", "printf 'data'; kill -PIPE $$")
+            .pipe(to: Command("cat"))
+            .run(in: ShellContext())
+
+        #expect(output.stdout == "data")
+    }
+
+    @Test func pipelineFailsWhenFinalStageIsKilledBySIGPIPE() async throws {
+        do {
+            _ = try await Command("printf", arguments: "data")
+                .pipe(to: Command("/bin/sh", arguments: "-c", "cat; kill -PIPE $$"))
+                .run(in: ShellContext())
+            Issue.record("Expected exitFailure")
+        } catch let error as ShellError {
+            guard case let .exitFailure(_, output) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(output.exitCode == 128 + SIGPIPE)
+        }
+    }
+
     @Test func pipelineFailsOnIntermediateStage() async throws {
         do {
             _ = try await Command("/bin/sh", arguments: "-c", "printf 'broken' >&2; exit 9")

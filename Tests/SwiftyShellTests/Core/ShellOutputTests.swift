@@ -35,6 +35,14 @@ struct ShellOutputTests {
         )
     }
 
+    @Test func validatedTextDecodesEachStreamStrictly() {
+        let output = ShellOutput(stdoutData: Data("ok".utf8), stderrData: Data([0xFF]), exitCode: 0)
+
+        #expect(output.validatedText() == "ok")
+        #expect(output.validatedText(.stdout) == "ok")
+        #expect(output.validatedText(.stderr) == nil)
+    }
+
     @Test func validatedStdoutRejectsInvalidUTF8() throws {
         let command = Command("tool")
 

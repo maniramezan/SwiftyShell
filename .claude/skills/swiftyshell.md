@@ -230,6 +230,7 @@ public struct ShellOutput: Sendable, Equatable {
 
     public init(stdout: String = "", stderr: String = "", exitCode: Int32)
     public init(stdoutData: Data, stderrData: Data = Data(), exitCode: Int32)
+    public func validatedText(_ stream: StreamKind = .stdout) -> String?   // nil if not valid UTF-8
 }
 ```
 

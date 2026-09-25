@@ -41,8 +41,7 @@ public struct ShellOutput: Sendable, Equatable {
     /// The captured stdout text, decoded from ``stdoutData`` as UTF-8.
     ///
     /// Invalid UTF-8 sequences are replaced with U+FFFD, so this never fails. Use
-    /// `String(validating: output.stdoutData, as: UTF8.self)` when invalid bytes must be detected
-    /// instead. The text is decoded on each access, so keep it in a local when reading it
+    /// ``validatedText(_:)`` when invalid bytes must be detected instead. The text is decoded on each access, so keep it in a local when reading it
     /// repeatedly. Setting this property replaces ``stdoutData`` with the UTF-8 bytes of the new
     /// value.
     ///
@@ -112,6 +111,24 @@ public struct ShellOutput: Sendable, Equatable {
 }
 
 extension ShellOutput {
+    /// Returns a captured stream decoded strictly as UTF-8, or `nil` when it contains invalid bytes.
+    ///
+    /// Use this instead of the lossy ``stdout`` / ``stderr`` views when replacement characters
+    /// must not slip into parsed values:
+    ///
+    /// ```swift
+    /// let output = try await Command("git", arguments: "ls-files").run(in: context)
+    /// guard let files = output.validatedText() else {
+    ///     throw MyError.nonUTF8Path
+    /// }
+    /// ```
+    ///
+    /// - Parameter stream: The stream to decode. Defaults to ``StreamKind/stdout``.
+    /// - Returns: The decoded text, or `nil` if the bytes are not valid UTF-8.
+    public func validatedText(_ stream: StreamKind = .stdout) -> String? {
+        String(validating: stream == .stdout ? stdoutData : stderrData, as: UTF8.self)
+    }
+
     /// Returns stdout decoded strictly as UTF-8 for typed parsers.
     ///
     /// Typed families that parse paths or names out of stdout use this instead of the lossy
@@ -119,7 +136,7 @@ extension ShellOutput {
     ///
     /// - Throws: ``ShellError/decodingError(command:stream:)`` when stdout is not valid UTF-8.
     func validatedStdout(for command: Command) throws -> String {
-        guard let text = String(validating: stdoutData, as: UTF8.self) else {
+        guard let text = validatedText(.stdout) else {
             throw ShellError.decodingError(command: command.displayString(), stream: .stdout)
         }
         return text

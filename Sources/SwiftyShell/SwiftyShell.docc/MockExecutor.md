@@ -25,26 +25,54 @@ For simple scenarios, return a fixed ``ShellOutput`` for every call:
 }
 ```
 
-For richer tests, supply a closure that inspects the incoming ``Command`` and
-returns a tailored response. Combine it with an `actor` to record invocations
-across concurrent calls:
+Every mock records the commands it receives, so a test can assert exactly what
+ran without writing its own recorder:
 
 ```swift
-actor InvocationRecorder {
-    var commands: [Command] = []
-    func record(_ command: Command) { commands.append(command) }
-}
+@Test func deployRunsMigrationsBeforeRestart() async throws {
+    let mock = MockExecutor()
+    try await deploy(context: ShellContext(executor: mock))
 
-let recorder = InvocationRecorder()
+    #expect(mock.recordedCommands.map(\.arguments) == [
+        ["db:migrate"],
+        ["restart", "web"],
+    ])
+}
+```
+
+Use stubs to answer different commands differently. Stubs are checked in order,
+so list specific ones first. A command that matches no stub throws
+``ShellError/commandNotFound(_:)`` (with the executable name, as a missing
+binary does) unless you pass a `fallback`, which keeps
+unexpected commands from passing silently:
+
+```swift
+let mock = MockExecutor(stubs: [
+    .init("git", arguments: ["rev-parse", "HEAD"], returning: ShellOutput(stdout: "abc123\n", exitCode: 0)),
+    .init("git", returning: ShellOutput(stderr: "unexpected git call", exitCode: 1)),
+    .init(matching: { $0.workingDirectoryOverride == "/tmp" }, returning: ShellOutput(exitCode: 0)),
+])
+```
+
+For arbitrary logic, supply a handler closure that inspects the incoming
+``Command`` and ``ShellContext``:
+
+```swift
 let mock = MockExecutor { command, _ in
-    await recorder.record(command)
     if command.executableName == "git" {
         return ShellOutput(stdout: "on main\n", stderr: "", exitCode: 0)
     }
     return ShellOutput(stdout: "", stderr: "unsupported", exitCode: 1)
 }
-let context = ShellContext(executor: mock)
 ```
+
+Pipelines follow the production executor's semantics: every stage's
+configuration is validated first, every stage is invoked, the result has the
+final stage's stdout and every stage's stderr in order, and the first failing
+stage in pipeline order is reported through
+``ShellError/exitFailure(command:output:)``. As in production, a non-final
+stage that reports `128 + SIGPIPE` is not a failure. The mock does not feed one
+stage's stdout into the next.
 
 To exercise error paths, return a non-zero exit code — typed families and raw
 ``Command`` calls both throw ``ShellError/exitFailure(command:output:)`` exactly
@@ -65,6 +93,12 @@ await #expect(throws: ShellError.self) {
 
 - ``init(handler:)``
 - ``init(stdout:stderr:exitCode:)``
+- ``init(stubs:fallback:)``
+- ``Stub``
+
+### Inspecting Calls
+
+- ``recordedCommands``
 
 ### Executing
 

@@ -132,18 +132,8 @@ struct CurlTests {
     }
 
     @Test func preservesToolAndOutputConfiguration() async throws {
-        actor Recorder {
-            var command: Command?
-            func record(_ command: Command) { self.command = command }
-        }
-
-        let recorder = Recorder()
-        let context = ShellContext(
-            executor: MockExecutor { command, _ in
-                await recorder.record(command)
-                return ShellOutput(stdout: "response", stderr: "", exitCode: 0)
-            }
-        )
+        let mock = MockExecutor { _, _ in ShellOutput(stdout: "response", stderr: "", exitCode: 0) }
+        let context = ShellContext(executor: mock)
 
         let output = try await Curl("https://example.com", context: context)
             .executable("/usr/local/bin/curl")
@@ -155,7 +145,7 @@ struct CurlTests {
             .stderr(.discard)
             .run()
 
-        let command = await recorder.command
+        let command = mock.recordedCommands.last
         #expect(output.stdout == "response")
         #expect(command?.executableOverride == "/usr/local/bin/curl")
         #expect(command?.environmentOverrides == ["CURL_CA_BUNDLE": "/certs/ca.pem"])

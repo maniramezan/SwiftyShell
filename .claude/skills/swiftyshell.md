@@ -1779,6 +1779,14 @@ public struct MockExecutor: CommandExecutor {
 
     public init(handler: @escaping Handler)
     public init(stdout: String = "", stderr: String = "", exitCode: Int32 = 0)
+    public init(stubs: [Stub], fallback: ShellOutput? = nil)   // unmatched + nil fallback → commandNotFound(executableName)
+
+    public var recordedCommands: [Command] { get }   // every command received, in order; copies share it
+
+    public struct Stub: Sendable {
+        public init(_ executable: String, arguments: [String]? = nil, returning output: ShellOutput)
+        public init(matching predicate: @escaping @Sendable (Command) -> Bool, returning output: ShellOutput)
+    }
 }
 
 public struct MockSpawnedProcess: SpawnedProcess, Sendable {
@@ -1801,7 +1809,7 @@ public struct MockSpawnedProcess: SpawnedProcess, Sendable {
 }
 ```
 
-`MockExecutor` mirrors real `run()` semantics for invalid configuration and non-zero exits so unit tests behave like subprocess-backed execution. Its `spawn` support returns `MockSpawnedProcess`, which records signals, teardown, and the configured `TeardownStrategy`.
+`MockExecutor` mirrors real `run()` semantics for invalid configuration and non-zero exits so unit tests behave like subprocess-backed execution. Assert on `recordedCommands` instead of writing recorder actors. Pipelines validate every stage, invoke every stage, return final-stage stdout with every stage's stderr, and report the first failing stage in pipeline order (a non-final `128 + SIGPIPE` is not a failure). Its `spawn` support returns `MockSpawnedProcess`, which records signals, teardown, and the configured `TeardownStrategy`.
 
 For pipelines, all stages run concurrently. The shortest resolved stage timeout governs the pipeline, each stage has its own captured-output limit, intermediate stdout is piped rather than captured, and captured stderr is aggregated in stage order. A non-zero stage cancels remaining stage tasks, but simultaneous failures do not guarantee a pipeline-order winner. A non-final stage killed by `SIGPIPE` (downstream stopped reading, e.g. `yes | head -n 1`) is not a failure.
 

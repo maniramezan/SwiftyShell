@@ -244,4 +244,21 @@ struct UnzipEntriesWorkflowTests {
     }
 }
 
+/// Every Boolean flag setter adds exactly its flag when enabled and removes it when disabled.
+struct UnzipFlagSetterTests {
+    @Test func eachFlagSetterTogglesItsFlag() {
+        let base = Unzip()
+        let setters: [(flag: String, set: (Unzip, Bool) -> Unzip)] = [
+            ("-q", { $0.quiet($1) }),
+            ("-j", { $0.junkPaths($1) }),
+            ("-K", { $0.restoreSecurityMetadata($1) }),
+        ]
+        for (flag, set) in setters {
+            #expect(!base.command().arguments.contains(flag), "\(flag) present before enabling")
+            let enabled = set(base, true)
+            #expect(enabled.command().arguments.contains(flag), "\(flag) missing after enabling")
+            #expect(!set(enabled, false).command().arguments.contains(flag), "\(flag) kept after disabling")
+        }
+    }
+}
 #endif

@@ -450,4 +450,49 @@ struct FzfTests {
         #expect(command.arguments.contains("--no-mouse"))
     }
 }
+
+/// Every Boolean flag setter adds exactly its flag when enabled and removes it when disabled.
+struct FzfFlagSetterTests {
+    @Test func eachFlagSetterTogglesItsFlag() {
+        let base = Fzf()
+        let setters: [(flag: String, set: (Fzf, Bool) -> Fzf)] = [
+            ("--exact", { $0.exact($1) }),
+            ("--ignore-case", { $0.ignoreCase($1) }),
+            ("--no-ignore-case", { $0.caseSensitive($1) }),
+            ("--literal", { $0.literal($1) }),
+            ("--no-sort", { $0.noSort($1) }),
+            ("--disabled", { $0.disabled($1) }),
+            ("--read0", { $0.read0($1) }),
+            ("--print0", { $0.print0($1) }),
+            ("--ansi", { $0.ansi($1) }),
+            ("--sync", { $0.sync($1) }),
+            ("--highlight-line", { $0.highlightLine($1) }),
+            ("--cycle", { $0.cycle($1) }),
+            ("--no-multi-line", { $0.noMultiLine($1) }),
+            ("--raw", { $0.raw($1) }),
+            ("--track", { $0.track($1) }),
+            ("--tac", { $0.tac($1) }),
+            ("--keep-right", { $0.keepRight($1) }),
+            ("--no-hscroll", { $0.noHscroll($1) }),
+            ("--no-input", { $0.noInput($1) }),
+            ("--filepath-word", { $0.filepathWord($1) }),
+            ("--header-first", { $0.headerFirst($1) }),
+            ("--select-1", { $0.select1($1) }),
+            ("--exit-0", { $0.exit0($1) }),
+            ("--print-query", { $0.printQuery($1) }),
+            ("--no-clear", { $0.noClear($1) }),
+            ("--no-bold", { $0.noBold($1) }),
+            ("--black", { $0.black($1) }),
+            ("--no-mouse", { $0.noMouse($1) }),
+            ("--no-unicode", { $0.noUnicode($1) }),
+            ("--ambidouble", { $0.ambidouble($1) }),
+        ]
+        for (flag, set) in setters {
+            #expect(!base.command().arguments.contains(flag), "\(flag) present before enabling")
+            let enabled = set(base, true)
+            #expect(enabled.command().arguments.contains(flag), "\(flag) missing after enabling")
+            #expect(!set(enabled, false).command().arguments.contains(flag), "\(flag) kept after disabling")
+        }
+    }
+}
 #endif

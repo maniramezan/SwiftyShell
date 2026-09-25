@@ -214,4 +214,46 @@ struct RsyncCommandTests {
         #expect(!FileManager.default.fileExists(atPath: copied.path))
     }
 }
+
+/// Every Boolean flag setter adds exactly its flag when enabled and removes it when disabled.
+struct RsyncFlagSetterTests {
+    @Test func eachFlagSetterTogglesItsFlag() {
+        let base = Rsync()
+        let setters: [(flag: String, set: (Rsync, Bool) -> Rsync)] = [
+            ("-a", { $0.archive($1) }),
+            ("-r", { $0.recursive($1) }),
+            ("-z", { $0.compress($1) }),
+            ("-v", { $0.verbose($1) }),
+            ("-q", { $0.quiet($1) }),
+            ("-n", { $0.dryRun($1) }),
+            ("-c", { $0.checksum($1) }),
+            ("-u", { $0.update($1) }),
+            ("--delete", { $0.delete($1) }),
+            ("--delete-excluded", { $0.deleteExcluded($1) }),
+            ("-l", { $0.links($1) }),
+            ("-L", { $0.copyLinks($1) }),
+            ("-p", { $0.permissions($1) }),
+            ("-t", { $0.times($1) }),
+            ("-o", { $0.owner($1) }),
+            ("-g", { $0.group($1) }),
+            ("-H", { $0.hardLinks($1) }),
+            ("-S", { $0.sparse($1) }),
+            ("-x", { $0.oneFileSystem($1) }),
+            ("-i", { $0.itemizeChanges($1) }),
+            ("-h", { $0.humanReadable($1) }),
+            ("--progress", { $0.progress($1) }),
+            ("--partial", { $0.partial($1) }),
+            ("--existing", { $0.existing($1) }),
+            ("--ignore-existing", { $0.ignoreExisting($1) }),
+            ("--remove-source-files", { $0.removeSourceFiles($1) }),
+            ("--from0", { $0.from0($1) }),
+        ]
+        for (flag, set) in setters {
+            #expect(!base.command().arguments.contains(flag), "\(flag) present before enabling")
+            let enabled = set(base, true)
+            #expect(enabled.command().arguments.contains(flag), "\(flag) missing after enabling")
+            #expect(!set(enabled, false).command().arguments.contains(flag), "\(flag) kept after disabling")
+        }
+    }
+}
 #endif

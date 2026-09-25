@@ -473,4 +473,68 @@ struct RgTests {
         return fileURL
     }
 }
+
+/// Every Boolean flag setter adds exactly its flag when enabled and removes it when disabled.
+struct RgFlagSetterTests {
+    @Test func eachFlagSetterTogglesItsFlag() {
+        let base = Rg("needle")
+        let setters: [(flag: String, set: (Rg, Bool) -> Rg)] = [
+            ("-z", { $0.searchZip($1) }),
+            ("-F", { $0.fixedStrings($1) }),
+            ("-v", { $0.invertMatch($1) }),
+            ("-w", { $0.wordRegexp($1) }),
+            ("-x", { $0.lineRegexp($1) }),
+            ("-U", { $0.multiline($1) }),
+            ("--multiline-dotall", { $0.multilineDotAll($1) }),
+            ("--crlf", { $0.crlf($1) }),
+            ("--null-data", { $0.nullData($1) }),
+            ("--no-unicode", { $0.noUnicode($1) }),
+            ("-a", { $0.text($1) }),
+            ("--stop-on-nonmatch", { $0.stopOnNonmatch($1) }),
+            ("--auto-hybrid-regex", { $0.autoHybridRegex($1) }),
+            ("--no-pcre2-unicode", { $0.noPcre2Unicode($1) }),
+            ("--glob-case-insensitive", { $0.globCaseInsensitive($1) }),
+            ("--hidden", { $0.hidden($1) }),
+            ("-L", { $0.follow($1) }),
+            ("--no-ignore", { $0.noIgnore($1) }),
+            ("--no-ignore-dot", { $0.noIgnoreDot($1) }),
+            ("--no-ignore-exclude", { $0.noIgnoreExclude($1) }),
+            ("--no-ignore-parent", { $0.noIgnoreParent($1) }),
+            ("--no-ignore-global", { $0.noIgnoreGlobal($1) }),
+            ("--no-ignore-vcs", { $0.noIgnoreVcs($1) }),
+            ("--no-ignore-files", { $0.noIgnoreFiles($1) }),
+            ("--ignore-file-case-insensitive", { $0.ignoreFileCaseInsensitive($1) }),
+            ("--no-require-git", { $0.noRequireGit($1) }),
+            ("--one-file-system", { $0.oneFileSystem($1) }),
+            ("--binary", { $0.binary($1) }),
+            ("--column", { $0.column($1) }),
+            ("--heading", { $0.heading($1) }),
+            ("--max-columns-preview", { $0.maxColumnsPreview($1) }),
+            ("-o", { $0.onlyMatching($1) }),
+            ("--passthru", { $0.passthru($1) }),
+            ("-p", { $0.pretty($1) }),
+            ("-q", { $0.quiet($1) }),
+            ("--trim", { $0.trim($1) }),
+            ("--vimgrep", { $0.vimgrep($1) }),
+            ("-c", { $0.count($1) }),
+            ("--count-matches", { $0.countMatches($1) }),
+            ("-l", { $0.filesWithMatches($1) }),
+            ("--files-without-match", { $0.filesWithoutMatch($1) }),
+            ("--json", { $0.json($1) }),
+            ("-0", { $0.nullTerminated($1) }),
+            ("-b", { $0.byteOffset($1) }),
+            ("--include-zero", { $0.includeZero($1) }),
+            ("--stats", { $0.stats($1) }),
+            ("--debug", { $0.debug($1) }),
+            ("--trace", { $0.trace($1) }),
+            ("--no-config", { $0.noConfig($1) }),
+        ]
+        for (flag, set) in setters {
+            #expect(!base.command().arguments.contains(flag), "\(flag) present before enabling")
+            let enabled = set(base, true)
+            #expect(enabled.command().arguments.contains(flag), "\(flag) missing after enabling")
+            #expect(!set(enabled, false).command().arguments.contains(flag), "\(flag) kept after disabling")
+        }
+    }
+}
 #endif

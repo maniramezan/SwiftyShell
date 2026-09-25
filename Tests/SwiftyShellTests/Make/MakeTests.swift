@@ -65,4 +65,23 @@ struct MakeCommandTests {
         #expect(command?.arguments == ["check"])
     }
 }
+
+/// Every Boolean flag setter adds exactly its flag when enabled and removes it when disabled.
+struct MakeFlagSetterTests {
+    @Test func eachFlagSetterTogglesItsFlag() {
+        let base = Make()
+        let setters: [(flag: String, set: (Make, Bool) -> Make)] = [
+            ("--keep-going", { $0.keepGoing($1) }),
+            ("--silent", { $0.silent($1) }),
+            ("--dry-run", { $0.dryRun($1) }),
+            ("--always-make", { $0.alwaysMake($1) }),
+        ]
+        for (flag, set) in setters {
+            #expect(!base.command().arguments.contains(flag), "\(flag) present before enabling")
+            let enabled = set(base, true)
+            #expect(enabled.command().arguments.contains(flag), "\(flag) missing after enabling")
+            #expect(!set(enabled, false).command().arguments.contains(flag), "\(flag) kept after disabling")
+        }
+    }
+}
 #endif

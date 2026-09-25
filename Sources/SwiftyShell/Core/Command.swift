@@ -94,7 +94,7 @@ public struct Command: Sendable {
     ///
     /// When non-`nil`, this value replaces ``ShellContext/defaultOutputLimit``. A value of `0`
     /// means unlimited (no cap). A positive value enforces that byte limit — exceeding it
-    /// raises ``ShellError/outputLimitExceeded(command:limit:partialOutput:)``. Set with
+    /// raises ``ShellError/outputLimitExceeded(command:limit:partialOutput:)-enum.case``. Set with
     /// ``outputLimit(_:)``.
     public var outputLimitOverride: Int? { options.outputLimitOverride }
 
@@ -292,7 +292,7 @@ public struct Command: Sendable {
     /// Returns a copy of the command with a per-command timeout.
     ///
     /// When the running process exceeds `duration`, the executor terminates it and throws
-    /// ``ShellError/timeout(command:duration:partialOutput:)`` containing whatever output was
+    /// ``ShellError/timeout(command:duration:partialOutput:)-enum.case`` containing whatever output was
     /// captured before termination. The value must not be negative — negative values raise
     /// ``ShellError/invalidConfiguration(description:)`` at execution time.
     ///
@@ -323,7 +323,7 @@ public struct Command: Sendable {
     ///
     /// The limit applies to the combined size of captured stdout and stderr. When exceeded,
     /// the executor terminates the process and throws
-    /// ``ShellError/outputLimitExceeded(command:limit:partialOutput:)`` containing the captured
+    /// ``ShellError/outputLimitExceeded(command:limit:partialOutput:)-enum.case`` containing the captured
     /// portion. Pass `0` for unlimited (no cap), or a positive value for a byte limit.
     ///
     /// Streams routed through ``OutputDestination/file(path:append:)`` or
@@ -424,7 +424,7 @@ public struct Command: Sendable {
     ///
     /// Resolution, environment merging, working-directory selection, timeout and output-limit
     /// enforcement, and exit-code handling are all delegated to ``ShellContext/executor``. A
-    /// non-zero exit raises ``ShellError/exitFailure(command:output:)``; other failure modes
+    /// non-zero exit raises ``ShellError/exitFailure(command:output:)-enum.case``; other failure modes
     /// surface as the matching ``ShellError`` case.
     ///
     /// ```swift

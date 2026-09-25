@@ -16,8 +16,8 @@ SwiftyShell has a small set of core primitives that every typed command family b
 | `searchPaths` | Platform `PATH` | Where executables are resolved |
 | `environment` | Inherited from the process | Base env vars for every command |
 | `workingDirectory` | `nil` (inherits from the process) | Default directory for commands |
-| `defaultTimeout` | `nil` (unlimited) | Seconds before ``ShellError/timeout(command:duration:partialOutput:)`` is thrown |
-| `defaultOutputLimit` | `0` (unlimited) | Bytes before ``ShellError/outputLimitExceeded(command:limit:partialOutput:)`` is thrown; `0` means no cap |
+| `defaultTimeout` | `nil` (unlimited) | Seconds before ``ShellError/timeout(command:duration:partialOutput:)-enum.case`` is thrown |
+| `defaultOutputLimit` | `0` (unlimited) | Bytes before ``ShellError/outputLimitExceeded(command:limit:partialOutput:)-enum.case`` is thrown; `0` means no cap |
 
 ### Creating a Context
 
@@ -161,7 +161,7 @@ if output.isSuccess {
 }
 ```
 
-> Note: The built-in executors throw ``ShellError/exitFailure(command:output:)`` on non-zero exits for both raw ``Command`` calls and typed families. Inspect the output associated with that error for failed-process diagnostics. Custom executors can define different behavior.
+> Note: The built-in executors throw ``ShellError/exitFailure(command:output:)-enum.case`` on non-zero exits for both raw ``Command`` calls and typed families. Inspect the output associated with that error for failed-process diagnostics. Custom executors can define different behavior.
 
 ## Pipeline
 

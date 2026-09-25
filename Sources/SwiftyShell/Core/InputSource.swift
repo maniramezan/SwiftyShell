@@ -45,7 +45,7 @@ public enum InputSource: Sendable, Equatable {
     /// The contents of the file at `path`, like shell `<` redirection.
     ///
     /// Relative paths are resolved against the command's effective working directory. A missing or
-    /// unreadable file fails the run with ``ShellError/spawnError(command:reason:)``.
+    /// unreadable file fails the run with ``ShellError/spawnError(command:reason:)-enum.case``.
     ///
     /// - Parameter path: The absolute or relative path of the file to read.
     case file(path: String)

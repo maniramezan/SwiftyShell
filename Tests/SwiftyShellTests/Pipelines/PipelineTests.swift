@@ -58,7 +58,7 @@ struct PipelineTests {
                 Issue.record("Unexpected error: \(error)")
                 return
             }
-            #expect(command == "first")
+            #expect(command.displayString == "first")
             #expect(output.exitCode == 9)
             #expect(output.stdout == "second")
             #expect(output.stderr == "boom")
@@ -127,7 +127,7 @@ struct PipelineTests {
                 Issue.record("Unexpected error: \(error)")
                 return
             }
-            #expect(command.contains("/bin/sh"))
+            #expect(command.displayString.contains("/bin/sh"))
             #expect(output.stderr.contains("broken"))
             #expect(output.exitCode == 9)
         }

@@ -3,7 +3,7 @@
 A fluent wrapper for removing files and directories with `rm`.
 
 Successful removals usually produce no output, so completion is the important
-result. Failures throw ``ShellError/exitFailure(command:output:)`` with the tool's
+result. Failures throw ``ShellError/exitFailure(command:output:)-enum.case`` with the tool's
 diagnostic text in `stderr`.
 
 Remove a single file by passing its path:

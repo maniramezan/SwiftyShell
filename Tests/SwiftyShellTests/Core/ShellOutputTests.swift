@@ -51,7 +51,7 @@ struct ShellOutputTests {
             try ShellOutput(stdoutData: Self.binary, exitCode: 0).validatedStdout(for: command)
         } throws: { error in
             guard case let .decodingError(command, stream) = error as? ShellError else { return false }
-            return command == "tool" && stream == .stdout
+            return command.displayString == "tool" && stream == .stdout
         }
     }
 

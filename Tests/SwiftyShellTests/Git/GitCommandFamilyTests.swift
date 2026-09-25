@@ -866,7 +866,7 @@ struct GitCommandFamilyTests {
             _ = try await Git(context: context).branch().entries().run()
             Issue.record("Expected parsingError")
         } catch let ShellError.parsingError(command, reason) {
-            #expect(command.contains("git branch"))
+            #expect(command.displayString.contains("git branch"))
             #expect(reason.contains("malformed record"))
         } catch {
             Issue.record("Expected parsingError, got \(error)")

@@ -39,7 +39,7 @@ public protocol CommandExecutor: Sendable {
     /// Conformers are responsible for resolving the executable against
     /// ``ShellContext/searchPaths``, merging ``ShellContext/environment`` with
     /// ``Command/environmentOverrides``, applying any timeout and output-limit overrides, and
-    /// translating non-zero exits into ``ShellError/exitFailure(command:output:)``.
+    /// translating non-zero exits into ``ShellError/exitFailure(command:output:)-enum.case``.
     ///
     /// - Parameters:
     ///   - command: The command to run.

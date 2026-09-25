@@ -203,7 +203,7 @@ Verify your work: after editing, scan the file for `public ` lines without a pre
 
 ### Error Handling
 
-Built-in execution failures surface as `ShellError`. Workflow closures, transforms, custom gate errors, and custom executors may throw other `Error` values. Use `ShellError.spawnError` when the built-in executor maps an unexpected process-launch failure.
+Built-in execution failures surface as `ShellError`. Workflow closures, transforms, custom gate errors, and custom executors may throw other `Error` values. Use `ShellError.spawnError` when the built-in executor maps an unexpected process-launch failure. Command-bearing cases carry a `CommandSnapshot` (executable, argv, resolved path; never environment values or stdin): build it with `CommandSnapshot(command, resolvedExecutable:)` in executors, and use the `String`-taking static factories only when no `Command` is available. DocC links to those cases need the `-enum.case` suffix.
 
 ### Execution Engine
 

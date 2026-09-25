@@ -12,7 +12,7 @@ enum GitParsers {
         } catch let error as ShellError {
             throw error
         } catch {
-            throw ShellError.parsingError(command: command.displayString(), reason: String(describing: error))
+            throw ShellError.parsingError(command: CommandSnapshot(command), reason: String(describing: error))
         }
     }
 

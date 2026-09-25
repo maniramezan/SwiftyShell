@@ -174,7 +174,7 @@ public enum BrewSubcommand: Sendable, Equatable, Hashable {
 /// mutating the system.
 ///
 /// Homebrew output is tool-defined text, so ``Brew`` returns raw ``ShellOutput``. Inspect `stdout`
-/// for command results and handle ``ShellError/exitFailure(command:output:)`` when Homebrew reports
+/// for command results and handle ``ShellError/exitFailure(command:output:)-enum.case`` when Homebrew reports
 /// a non-zero exit.
 ///
 /// Install formulae by selecting the `install` subcommand and passing one or more names:

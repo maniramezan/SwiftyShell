@@ -86,6 +86,7 @@ Arguments are forwarded as distinct argv entries without shell parsing, but Swif
 ### Error Handling
 
 - ``ShellError``
+- ``CommandSnapshot``
 - ``StreamKind``
 
 ### Workflow

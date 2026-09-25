@@ -63,10 +63,10 @@ public struct Npm: RunnableCommandFamily {
     }
 
     /// Returns a copy that selects an npm subcommand.
-    public func subcommand(_ value: NpmSubcommand) -> Self { copy(subcommand: value.rawValue, scriptName: nil) }
+    public func subcommand(_ value: NpmSubcommand) -> Self { copy(subcommand: value.rawValue, scriptName: .some(nil)) }
 
     /// Returns a copy that selects a raw npm subcommand.
-    public func subcommand(_ value: String) -> Self { copy(subcommand: value, scriptName: nil) }
+    public func subcommand(_ value: String) -> Self { copy(subcommand: value, scriptName: .some(nil)) }
 
     /// Returns a copy configured for `npm install`.
     public func install() -> Self { subcommand(.install) }
@@ -79,7 +79,7 @@ public struct Npm: RunnableCommandFamily {
 
     /// Returns a copy configured for `npm exec <binary>`.
     public func exec(_ binary: String? = nil) -> Self {
-        copy(subcommand: "exec", scriptName: nil, positionals: binary.map { [$0] } ?? [])
+        copy(subcommand: "exec", scriptName: .some(nil), positionals: binary.map { [$0] } ?? [])
     }
 
     /// Returns a copy configured for `npm run <name>`.

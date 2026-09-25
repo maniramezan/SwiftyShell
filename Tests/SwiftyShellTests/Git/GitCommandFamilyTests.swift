@@ -4,6 +4,12 @@ import Testing
 @testable import SwiftyShell
 
 struct GitCommandFamilyTests {
+    @Test func disablingConfigScopeClearsIt() {
+        #expect(Git().gitConfig().local().local(false).command().arguments == ["config", "--list"])
+        #expect(Git().gitConfig().global().global(false).command().arguments == ["config", "--list"])
+        #expect(Git().gitConfig().global().local().command().arguments == ["config", "--local", "--list"])
+    }
+
     @Test func buildsBranchListCommand() {
         let command = Git()
             .workingDirectory("/tmp/repo")

@@ -557,10 +557,18 @@ public struct HelmUpgrade: RunnableCommandFamily {
     public func createNamespace(_ enabled: Bool = true) -> Self { copy(state: state.copy(createNamespace: enabled)) }
 
     /// Returns a copy that merges the previous release values into new overrides.
-    public func reuseValues(_ enabled: Bool = true) -> Self { copy(reuseValuesEnabled: enabled) }
+    ///
+    /// Mutually exclusive with ``resetValues(_:)``; the last one enabled wins.
+    public func reuseValues(_ enabled: Bool = true) -> Self {
+        copy(reuseValuesEnabled: enabled, resetValuesEnabled: enabled ? false : nil)
+    }
 
     /// Returns a copy that resets values to those built into the chart.
-    public func resetValues(_ enabled: Bool = true) -> Self { copy(resetValuesEnabled: enabled) }
+    ///
+    /// Mutually exclusive with ``reuseValues(_:)``; the last one enabled wins.
+    public func resetValues(_ enabled: Bool = true) -> Self {
+        copy(reuseValuesEnabled: enabled ? false : nil, resetValuesEnabled: enabled)
+    }
 
     /// Returns a copy that removes newly created resources when the upgrade fails.
     public func cleanupOnFailure(_ enabled: Bool = true) -> Self { copy(cleanupOnFailureEnabled: enabled) }

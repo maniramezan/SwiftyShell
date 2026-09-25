@@ -4,6 +4,27 @@ import Testing
 @testable import SwiftyShell
 
 struct RgTests {
+    @Test func exclusiveTransportAndFormattingModesUseLastSelection() {
+        #expect(Rg("x").mmap().noMmap().command().arguments == ["--no-mmap", "--", "x"])
+        #expect(Rg("x").noMmap().mmap(false).command().arguments == ["--no-mmap", "--", "x"])
+        #expect(Rg("x").lineBuffered().blockBuffered().command().arguments == ["--block-buffered", "--", "x"])
+        #expect(Rg("x").smartCase().caseSensitive(false).command().arguments == ["-S", "--", "x"])
+        #expect(Rg("x").noLineNumber().lineNumber(false).command().arguments == ["-N", "--", "x"])
+        #expect(Rg("x").noFilename().withFilename(false).command().arguments == ["-I", "--", "x"])
+    }
+
+    @Test func disabledModesPreserveSearchStateAndOriginalBuilder() {
+        let original = Rg("needle").engine(.auto).path("Sources")
+        let expected = original.command().arguments
+        #expect(original.pcre2(false).command().arguments == expected)
+        #expect(original.listFiles(false).command().arguments == expected)
+        #expect(original.typeList(false).command().arguments == expected)
+        #expect(original.pcre2().command().arguments == ["-P", "--", "needle", "Sources"])
+        #expect(original.listFiles().command().arguments == ["--engine", "auto", "--files", "Sources"])
+        #expect(original.typeList().command().arguments == ["--engine", "auto", "--type-list"])
+        #expect(original.command().arguments == expected)
+    }
+
     @Test func buildsBasicCommand() {
         let command = Rg("TODO").lineNumber().path("Sources").command()
         #expect(command.executableName == "rg")

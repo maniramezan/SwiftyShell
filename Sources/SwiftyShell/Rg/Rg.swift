@@ -213,8 +213,12 @@ public struct Rg: RunnableCommandFamily {
     public func noUnicode(_ enabled: Bool = true) -> Self { copy(disablesUnicode: enabled) }
     public func text(_ enabled: Bool = true) -> Self { copy(treatsAsText: enabled) }
     public func stopOnNonmatch(_ enabled: Bool = true) -> Self { copy(stopsOnNonmatch: enabled) }
-    public func mmap(_ enabled: Bool = true) -> Self { copy(usesMmap: enabled) }
-    public func noMmap(_ enabled: Bool = true) -> Self { copy(disablesMmap: enabled) }
+    public func mmap(_ enabled: Bool = true) -> Self {
+        copy(usesMmap: enabled, disablesMmap: enabled ? false : nil)
+    }
+    public func noMmap(_ enabled: Bool = true) -> Self {
+        copy(usesMmap: enabled ? false : nil, disablesMmap: enabled)
+    }
     public func threads(_ count: Int) -> Self { copy(threadCount: count) }
     public func dfaSizeLimit(_ limit: String) -> Self { copy(dfaSizeLimitOverride: limit) }
     public func regexSizeLimit(_ limit: String) -> Self { copy(regexSizeLimitOverride: limit) }
@@ -290,8 +294,12 @@ public struct Rg: RunnableCommandFamily {
     public func json(_ enabled: Bool = true) -> Self { copy(outputsJson: enabled) }
     public func nullTerminated(_ enabled: Bool = true) -> Self { copy(usesNullTerminator: enabled) }
     public func byteOffset(_ enabled: Bool = true) -> Self { copy(showsByteOffset: enabled) }
-    public func blockBuffered(_ enabled: Bool = true) -> Self { copy(usesBlockBuffering: enabled) }
-    public func lineBuffered(_ enabled: Bool = true) -> Self { copy(usesLineBuffering: enabled) }
+    public func blockBuffered(_ enabled: Bool = true) -> Self {
+        copy(usesBlockBuffering: enabled, usesLineBuffering: enabled ? false : nil)
+    }
+    public func lineBuffered(_ enabled: Bool = true) -> Self {
+        copy(usesBlockBuffering: enabled ? false : nil, usesLineBuffering: enabled)
+    }
     public func pathSeparator(_ separator: String) -> Self { copy(pathSeparatorOverride: separator) }
     public func hyperlinkFormat(_ format: String) -> Self { copy(hyperlinkFormatOverride: format) }
     public func hostnameBin(_ command: String) -> Self { copy(hostnameBinOverride: command) }

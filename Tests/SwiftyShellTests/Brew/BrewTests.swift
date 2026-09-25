@@ -4,6 +4,14 @@ import Testing
 @testable import SwiftyShell
 
 struct BrewTests {
+    @Test func exclusiveModesPreserveOtherSelections() {
+        let base = Brew().cask()
+        #expect(base.formulaFlag().command().arguments == ["list", "--formula"])
+        #expect(base.formulaFlag(false).command().arguments == ["list", "--cask"])
+        #expect(base.cask(false).command().arguments == ["list"])
+        #expect(base.command().arguments == ["list", "--cask"])
+    }
+
     @Test func defaultsToListSubcommand() {
         let command = Brew().command()
 

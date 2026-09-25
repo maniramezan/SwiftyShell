@@ -84,6 +84,20 @@ public extension ToolConfigurableCommandFamily {
         updatingConfiguration { $0.env(values) }
     }
 
+    /// Returns a copy of the family that removes environment variables from built commands.
+    ///
+    /// See ``Command/unsetEnv(_:)-(String...)`` for the underlying semantics.
+    ///
+    /// ```swift
+    /// try await Git().unsetEnv("GIT_DIR", "GIT_WORK_TREE").status().run()
+    /// ```
+    ///
+    /// - Parameter names: The environment variable names to remove.
+    /// - Returns: A new family value with the variables removed.
+    func unsetEnv(_ names: String...) -> Self {
+        updatingConfiguration { $0.unsetEnv(names) }
+    }
+
     /// Returns a copy of the family that runs built commands in the given directory.
     ///
     /// The path replaces ``ShellContext/workingDirectory`` for commands built by this family.

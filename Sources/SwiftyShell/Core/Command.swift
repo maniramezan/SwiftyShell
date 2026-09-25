@@ -68,6 +68,13 @@ public struct Command: Sendable {
     /// Use ``env(_:_:)`` or ``env(_:)`` to populate.
     public let environmentOverrides: [String: String]
 
+    /// Environment variables removed from the inherited environment for this invocation.
+    ///
+    /// Names here are absent from the child's environment even when ``ShellContext/environment``
+    /// defines them. Use ``unsetEnv(_:)-(String...)`` to populate. A name is never in both this set and
+    /// ``environmentOverrides``: whichever call came last wins.
+    public let unsetEnvironmentVariables: Set<String>
+
     /// An optional working directory override applied when running the command.
     ///
     /// When non-`nil`, this path replaces ``ShellContext/workingDirectory`` for this invocation
@@ -144,6 +151,7 @@ public struct Command: Sendable {
         self.arguments = arguments
         self.executableOverride = nil
         self.environmentOverrides = [:]
+        self.unsetEnvironmentVariables = []
         self.workingDirectoryOverride = nil
         self.timeoutOverride = nil
         self.outputLimitOverride = nil
@@ -157,6 +165,7 @@ public struct Command: Sendable {
         arguments: [String],
         executableOverride: String?,
         environmentOverrides: [String: String],
+        unsetEnvironmentVariables: Set<String>,
         workingDirectoryOverride: String?,
         timeoutOverride: Duration?,
         outputLimitOverride: Int?,
@@ -168,6 +177,7 @@ public struct Command: Sendable {
         self.arguments = arguments
         self.executableOverride = executableOverride
         self.environmentOverrides = environmentOverrides
+        self.unsetEnvironmentVariables = unsetEnvironmentVariables
         self.workingDirectoryOverride = workingDirectoryOverride
         self.timeoutOverride = timeoutOverride
         self.outputLimitOverride = outputLimitOverride
@@ -231,8 +241,8 @@ public struct Command: Sendable {
     ///
     /// The override is merged onto ``ShellContext/environment`` at execution time. If the same
     /// `name` is supplied to this method multiple times, the last value wins. To remove a
-    /// variable from the inherited environment, set its value to the empty string and let the
-    /// child process treat it as unset.
+    /// variable from the inherited environment, use ``unsetEnv(_:)-(String...)``; an empty value is not the
+    /// same as an unset variable for most tools.
     ///
     /// ```swift
     /// try await Command("ruby", arguments: "deploy.rb")
@@ -247,7 +257,10 @@ public struct Command: Sendable {
     public func env(_ name: String, _ value: String) -> Self {
         var overrides = environmentOverrides
         overrides[name] = value
-        return copy(environmentOverrides: overrides)
+        return copy(
+            environmentOverrides: overrides,
+            unsetEnvironmentVariables: unsetEnvironmentVariables.subtracting([name])
+        )
     }
 
     /// Returns a copy of the command with multiple environment variable overrides merged in.
@@ -265,7 +278,44 @@ public struct Command: Sendable {
     /// - Parameter values: A dictionary of environment variable name/value pairs to merge.
     /// - Returns: A new ``Command`` with the merged environment overrides applied.
     public func env(_ values: [String: String]) -> Self {
-        copy(environmentOverrides: environmentOverrides.merging(values) { _, new in new })
+        copy(
+            environmentOverrides: environmentOverrides.merging(values) { _, new in new },
+            unsetEnvironmentVariables: unsetEnvironmentVariables.subtracting(values.keys)
+        )
+    }
+
+    /// Returns a copy of the command with environment variables removed from its environment.
+    ///
+    /// The named variables are absent from the child's environment even when
+    /// ``ShellContext/environment`` defines them, and any override for them set earlier with
+    /// ``env(_:_:)`` is dropped. A later ``env(_:_:)`` for the same name sets it again.
+    ///
+    /// ```swift
+    /// // Make sure the tool does not pick up the caller's credentials.
+    /// try await Command("aws", arguments: "sts", "get-caller-identity")
+    ///     .unsetEnv("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN")
+    ///     .run(in: context)
+    /// ```
+    ///
+    /// - Parameter names: The environment variable names to remove.
+    /// - Returns: A new ``Command`` without those variables in its environment.
+    public func unsetEnv(_ names: String...) -> Self {
+        unsetEnv(names)
+    }
+
+    /// Returns a copy of the command with environment variables removed from its environment.
+    ///
+    /// - Parameter names: The environment variable names to remove.
+    /// - Returns: A new ``Command`` without those variables in its environment.
+    public func unsetEnv(_ names: [String]) -> Self {
+        var overrides = environmentOverrides
+        for name in names {
+            overrides.removeValue(forKey: name)
+        }
+        return copy(
+            environmentOverrides: overrides,
+            unsetEnvironmentVariables: unsetEnvironmentVariables.union(names)
+        )
     }
 
     /// Returns a copy of the command that runs in the given working directory.
@@ -513,6 +563,7 @@ public struct Command: Sendable {
         arguments: [String]? = nil,
         executableOverride: String?? = nil,
         environmentOverrides: [String: String]? = nil,
+        unsetEnvironmentVariables: Set<String>? = nil,
         workingDirectoryOverride: String?? = nil,
         timeoutOverride: Duration?? = nil,
         outputLimitOverride: Int?? = nil,
@@ -525,6 +576,7 @@ public struct Command: Sendable {
             arguments: arguments ?? self.arguments,
             executableOverride: executableOverride ?? self.executableOverride,
             environmentOverrides: environmentOverrides ?? self.environmentOverrides,
+            unsetEnvironmentVariables: unsetEnvironmentVariables ?? self.unsetEnvironmentVariables,
             workingDirectoryOverride: workingDirectoryOverride ?? self.workingDirectoryOverride,
             timeoutOverride: timeoutOverride ?? self.timeoutOverride,
             outputLimitOverride: outputLimitOverride ?? self.outputLimitOverride,
@@ -548,6 +600,7 @@ extension Command: CustomDebugStringConvertible {
         var parts = ["Command(\(displayString().debugDescription)"]
         if let override = executableOverride { parts.append("executable: \(override.debugDescription)") }
         if !environmentOverrides.isEmpty { parts.append("env: \(environmentOverrides)") }
+        if !unsetEnvironmentVariables.isEmpty { parts.append("unsetEnv: \(unsetEnvironmentVariables.sorted())") }
         if let wd = workingDirectoryOverride { parts.append("workingDirectory: \(wd.debugDescription)") }
         if let timeout = timeoutOverride { parts.append("timeout: \(timeout)") }
         if let limit = outputLimitOverride { parts.append("outputLimit: \(limit)") }

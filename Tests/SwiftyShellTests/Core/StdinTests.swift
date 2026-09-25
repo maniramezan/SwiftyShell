@@ -36,6 +36,21 @@ struct StdinTests {
         #expect(output.stdoutData == bytes)
     }
 
+    @Test func inputTheCommandNeverReadsDoesNotKillTheCaller() async throws {
+        // On Linux, writing stdin into a pipe whose reader exited raises SIGPIPE in this process.
+        let bytes = Data(repeating: 0x61, count: 4 * 1024 * 1024)
+
+        let output = try await Command("true").stdin(.data(bytes)).run()
+        #expect(output.exitCode == 0)
+
+        await #expect(throws: ShellError.self) {
+            try await Command("/bin/sh", arguments: "-c", "exit 3").stdin(.string("unread")).run()
+        }
+
+        let process = try await Command("true").stdin(.data(bytes)).spawn()
+        #expect(await process.waitForExit().exitCode == 0)
+    }
+
     @Test func fileSourceIsReadLikeShellRedirection() async throws {
         let path = temporaryPath()
         defer { try? FileManager.default.removeItem(atPath: path) }

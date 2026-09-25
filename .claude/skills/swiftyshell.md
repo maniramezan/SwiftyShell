@@ -147,6 +147,9 @@ public struct Pipeline: Sendable {
 ```swift
 public protocol SpawnedProcess: Sendable {
     var processIdentifier: Int32 { get }
+    // Arbitrary-size chunks (not lines) that never split a UTF-8 character. The built-in
+    // executor buffers the 1,024 most recent unread chunks; use `.stdout(.discard)` on
+    // long-lived processes to stream without retaining output for the final ShellOutput.
     var standardOutput: AsyncStream<String> { get }
     var standardError: AsyncStream<String> { get }
 

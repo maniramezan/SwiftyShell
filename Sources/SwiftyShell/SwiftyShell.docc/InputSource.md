@@ -37,8 +37,8 @@ let lineCount = try await Command("wc", arguments: "-l")
     .run(in: context)
 ```
 
-Input is written concurrently with reading output, so large inputs do not
-deadlock against large outputs. In a ``Pipeline`` only the first stage
+Large inputs do not deadlock against large outputs, and a command that exits
+without reading all of its input is not an error for the caller. In a ``Pipeline`` only the first stage
 may set a source; each later stage reads the previous stage's stdout, and a
 source set on a later stage fails with
 ``ShellError/invalidConfiguration(description:)`` before anything runs.

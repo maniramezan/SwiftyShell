@@ -325,42 +325,65 @@ public struct Tar: RunnableCommandFamily {
 
     /// Returns a copy that preserves owner when extracting (`--same-owner`).
     ///
+    /// Mutually exclusive with ``noSameOwner(_:)``; the last one enabled wins.
+    ///
     /// - Parameter enabled: `true` to add `--same-owner`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func sameOwner(_ enabled: Bool = true) -> Self {
-        copy(preservesOwner: enabled)
+        copy(preservesOwner: enabled, skipsOwnerPreservation: enabled ? false : nil)
     }
 
     /// Returns a copy that avoids preserving owner when extracting (`--no-same-owner`).
     ///
+    /// Mutually exclusive with ``sameOwner(_:)``; the last one enabled wins.
+    ///
     /// - Parameter enabled: `true` to add `--no-same-owner`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func noSameOwner(_ enabled: Bool = true) -> Self {
-        copy(skipsOwnerPreservation: enabled)
+        copy(preservesOwner: enabled ? false : nil, skipsOwnerPreservation: enabled)
     }
 
     /// Returns a copy that does not overwrite existing files while extracting (`-k`).
     ///
+    /// ``keepOldFiles(_:)``, ``skipOldFiles(_:)``, and ``overwrite(_:)`` are mutually exclusive; the
+    /// last one enabled wins.
+    ///
     /// - Parameter enabled: `true` to add `-k`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func keepOldFiles(_ enabled: Bool = true) -> Self {
-        copy(keepsOldFiles: enabled)
+        copy(
+            keepsOldFiles: enabled,
+            skipsOldFiles: enabled ? false : nil,
+            overwritesExistingFiles: enabled ? false : nil
+        )
     }
 
     /// Returns a copy that skips existing files while extracting (`--skip-old-files`).
     ///
+    /// Mutually exclusive with ``keepOldFiles(_:)`` and ``overwrite(_:)``; the last one enabled wins.
+    ///
     /// - Parameter enabled: `true` to add `--skip-old-files`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func skipOldFiles(_ enabled: Bool = true) -> Self {
-        copy(skipsOldFiles: enabled)
+        copy(
+            keepsOldFiles: enabled ? false : nil,
+            skipsOldFiles: enabled,
+            overwritesExistingFiles: enabled ? false : nil
+        )
     }
 
     /// Returns a copy that overwrites existing files while extracting (`--overwrite`).
     ///
+    /// Mutually exclusive with ``keepOldFiles(_:)`` and ``skipOldFiles(_:)``; the last one enabled wins.
+    ///
     /// - Parameter enabled: `true` to add `--overwrite`. Defaults to `true`.
     /// - Returns: A new ``Tar`` value with the flag applied.
     public func overwrite(_ enabled: Bool = true) -> Self {
-        copy(overwritesExistingFiles: enabled)
+        copy(
+            keepsOldFiles: enabled ? false : nil,
+            skipsOldFiles: enabled ? false : nil,
+            overwritesExistingFiles: enabled
+        )
     }
 
     /// Returns a copy that omits recursion when archiving directories (`--no-recursion`).

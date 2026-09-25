@@ -526,11 +526,13 @@ private struct SpawnedCommandRunner: Sendable {
         let stderrStream = AsyncStream.makeStream(of: String.self)
         let state = SubprocessSpawnedProcessState(teardown: teardown)
         let task = Task<ShellOutput, Never> {
-            await runSpawnedProcess(
+            let output = await runSpawnedProcess(
                 state: state,
                 stdoutContinuation: stdoutStream.continuation,
                 stderrContinuation: stderrStream.continuation
             )
+            await state.markExited()
+            return output
         }
         await state.attachTask(task)
         let execution = try await state.waitForExecution()
@@ -667,6 +669,7 @@ private actor SubprocessSpawnedProcessState {
     private var executionResult: Result<StreamingExecution, any Error>?
     private var executionContinuations: [CheckedContinuation<Result<StreamingExecution, any Error>, Never>] = []
     private var didTeardown = false
+    private var hasExited = false
 
     init(teardown: TeardownStrategy) {
         self.teardown = teardown
@@ -716,11 +719,25 @@ private actor SubprocessSpawnedProcessState {
     func teardownAndWait() async -> ShellOutput {
         if !didTeardown {
             didTeardown = true
-            if let execution = try? await waitForExecution() {
+            if !hasExited, let execution = try? await waitForExecution() {
                 await execution.teardown(using: teardown.subprocessSteps)
+                // swift-subprocess stops tearing down as soon as the process itself exits, so a
+                // descendant that ignored an earlier step's signal (for example a background job,
+                // which starts with SIGINT ignored) would survive. Kill whatever is left of the
+                // group. This is sent unconditionally: the process may already have been reaped
+                // (swift-subprocess stops waiting on the output pipes once it exits) while
+                // descendants live on, so `hasExited` cannot tell whether anything remains. A group
+                // ID cannot be reused while any member is alive; only if every member exited during
+                // the teardown await could the ID be free, and it would have to be reused by an
+                // unrelated group within that instant for this kill to reach it.
+                try? execution.send(signal: .kill, toProcessGroup: true)
             }
         }
         return await output()
+    }
+
+    func markExited() {
+        hasExited = true
     }
 
     func waitForExit() async -> ShellOutput {
@@ -1355,8 +1372,17 @@ private func subprocessPlatformOptions(teardownSequence: [TeardownStep]) -> Plat
 
 private extension TeardownStrategy {
     var subprocessSteps: [TeardownStep] {
-        steps.map { step in
-            TeardownStep.send(signal: step.signal.subprocessSignal, allowedDurationToNextStep: step.gracePeriod)
+        // swift-subprocess's implicit final kill inherits the last step's process-group targeting,
+        // so an empty strategy needs an explicit group kill to reach descendants.
+        guard !steps.isEmpty else { return forcedTeardownSequence }
+        return steps.map { step in
+            // Signal the whole process group (the child leads its own group) so wrappers such as
+            // `sh -c` or `npm run` do not leave their descendants running.
+            TeardownStep.send(
+                signal: step.signal.subprocessSignal,
+                toProcessGroup: true,
+                allowedDurationToNextStep: step.gracePeriod
+            )
         }
     }
 }

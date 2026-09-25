@@ -18,35 +18,6 @@ private func waitForFile(at path: String) async throws {
     Issue.record("Timed out waiting for marker file at \(path)")
 }
 
-private func waitForProcessExit(processIdentifier: Int32) async throws {
-    for _ in 0..<500 {
-        if !processIsRunning(processIdentifier) {
-            return
-        }
-        try await Task.sleep(for: .milliseconds(10))
-    }
-    Issue.record("Timed out waiting for descendant process exit for pid \(processIdentifier)")
-}
-
-private func processIsRunning(_ processIdentifier: Int32) -> Bool {
-    if kill(processIdentifier, 0) == -1, errno == ESRCH {
-        return false
-    }
-
-    #if canImport(Glibc)
-    if let stat = try? String(contentsOfFile: "/proc/\(processIdentifier)/stat", encoding: .utf8),
-        let closeParen = stat.lastIndex(of: ")")
-    {
-        let remainder = stat[stat.index(after: closeParen)...].trimmingCharacters(in: .whitespacesAndNewlines)
-        if remainder.first == "Z" {
-            return false
-        }
-    }
-    #endif
-
-    return true
-}
-
 struct CommandTests {
     @Test func shellPlatformCurrentProvidesDefaultSearchPaths() {
         #expect(ShellPlatform.current.defaultSearchPaths.isEmpty == false)

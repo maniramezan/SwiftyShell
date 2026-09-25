@@ -63,6 +63,10 @@ for await chunk in server.standardOutput {
 seconds, then relies on the subprocess backend's final kill step if the process
 does not exit.
 
+Every teardown signal, including the final kill, goes to the spawned process's
+process group, so descendants started by wrappers such as `sh -c` or `npm run`
+are stopped too.
+
 ```swift
 let server = try await Command("server").spawn(teardown: .graceful)
 let output = await server.teardownAndWait()

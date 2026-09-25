@@ -8,26 +8,6 @@ import Darwin
 import Glibc
 #endif
 
-private struct ProcessExitTimeout: Error {}
-
-private func waitForProcessExit(
-    processIdentifier: Int32,
-    timeoutNanoseconds: UInt64 = 12_000_000_000
-) async throws {
-    let pollInterval: UInt64 = 10_000_000
-    let attempts = Int(timeoutNanoseconds / pollInterval)
-
-    for _ in 0..<attempts {
-        if kill(processIdentifier, 0) == -1, errno == ESRCH {
-            return
-        }
-        try await Task.sleep(nanoseconds: pollInterval)
-    }
-
-    Issue.record("Timed out waiting for process exit for pid \(processIdentifier)")
-    throw ProcessExitTimeout()
-}
-
 struct SpawnTests {
     @Test func mockSpawnReturnsPresetOutputAndStreams() async throws {
         let context = ShellContext(executor: MockExecutor(stdout: "ready\n", stderr: "warn\n"))
@@ -176,6 +156,22 @@ struct SpawnTests {
 
         let output = await process.teardownAndWait()
         #expect(output.exitCode == 143)
+    }
+
+    @Test(arguments: [TeardownStrategy.graceful, .immediate, .interruptThenTerminate])
+    func teardownStopsDescendantProcesses(strategy: TeardownStrategy) async throws {
+        let process = try await Command("/bin/sh", arguments: "-c", "sleep 300 & echo $!; wait")
+            .spawn(teardown: strategy)
+
+        var reported = ""
+        for await chunk in process.standardOutput {
+            reported += chunk
+            if reported.hasSuffix("\n") { break }
+        }
+        let descendant = try #require(Int32(reported.trimmingCharacters(in: .whitespacesAndNewlines)))
+
+        _ = await process.teardownAndWait()
+        try await waitForProcessExit(processIdentifier: descendant, timeout: .seconds(3))
     }
 
     @Test func droppingSpawnedProcessHandleTriggersBestEffortTeardown() async throws {

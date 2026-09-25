@@ -97,17 +97,8 @@ struct HelmCommandTests {
     }
 
     @Test func preservesExecutionAndOutputConfiguration() async throws {
-        actor Recorder {
-            var command: Command?
-            func record(_ command: Command) { self.command = command }
-        }
-        let recorder = Recorder()
-        let context = ShellContext(
-            executor: MockExecutor { command, _ in
-                await recorder.record(command)
-                return ShellOutput(stdout: "[]", stderr: "", exitCode: 0)
-            }
-        )
+        let mock = MockExecutor { _, _ in ShellOutput(stdout: "[]", stderr: "", exitCode: 0) }
+        let context = ShellContext(executor: mock)
 
         let output = try await Helm(context: context)
             .executable("/opt/bin/helm")
@@ -118,7 +109,7 @@ struct HelmCommandTests {
             .stdout(.tee)
             .run()
 
-        let command = await recorder.command
+        let command = mock.recordedCommands.last
         #expect(output.stdout == "[]")
         #expect(command?.executableOverride == "/opt/bin/helm")
         #expect(command?.workingDirectoryOverride == "/charts")

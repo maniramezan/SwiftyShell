@@ -46,14 +46,8 @@ struct PythonCommandTests {
     }
 
     @Test func preservesToolConfigurationOverrides() async throws {
-        actor Recorder { var command: Command?; func record(_ command: Command) { self.command = command } }
-        let recorder = Recorder()
-        let context = ShellContext(
-            executor: MockExecutor { command, _ in
-                await recorder.record(command)
-                return ShellOutput(stdout: "Python 3.13", stderr: "", exitCode: 0)
-            }
-        )
+        let mock = MockExecutor { _, _ in ShellOutput(stdout: "Python 3.13", stderr: "", exitCode: 0) }
+        let context = ShellContext(executor: mock)
 
         let output = try await Python(context: context)
             .executable("/opt/bin/python3.13")
@@ -63,7 +57,7 @@ struct PythonCommandTests {
             .version()
             .run()
 
-        let command = await recorder.command
+        let command = mock.recordedCommands.last
         #expect(output.stdout == "Python 3.13")
         #expect(command?.executableName == "python3")
         #expect(command?.executableOverride == "/opt/bin/python3.13")

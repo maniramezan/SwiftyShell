@@ -1012,22 +1012,30 @@ public struct Fzf: RunnableCommandFamily {
     /// Returns a copy with the given color configuration.
     ///
     /// Maps to `--color=SPEC`. Accepts base scheme and/or color name mappings.
-    /// Can be called multiple times; each call appends a separate `--color` argument.
+    /// Can be called multiple times; each call appends a separate `--color` argument. Adding a
+    /// color specification clears an earlier ``noColor(_:)``; the last one wins.
     ///
     /// - Parameter value: The color specification string.
     /// - Returns: A new ``Fzf`` value with the option applied.
     public func color(_ value: String) -> Self {
-        modified(self) { $0.state.colors += [value] }
+        modified(self) {
+            $0.state.colors += [value]
+            $0.state.noColor = false
+        }
     }
 
     /// Returns a copy that disables all colors.
     ///
-    /// Maps to `--no-color`.
+    /// Maps to `--no-color`. Enabling it drops color specifications added earlier with
+    /// ``color(_:)``; the last one wins.
     ///
     /// - Parameter enabled: `true` to disable colors; `false` to omit. Defaults to `true`.
     /// - Returns: A new ``Fzf`` value with the flag applied.
     public func noColor(_ enabled: Bool = true) -> Self {
-        modified(self) { $0.state.noColor = enabled }
+        modified(self) {
+            if enabled { $0.state.colors = [] }
+            $0.state.noColor = enabled
+        }
     }
 
     /// Returns a copy that disables bold text.

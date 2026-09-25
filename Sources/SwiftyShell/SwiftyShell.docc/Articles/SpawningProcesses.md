@@ -22,9 +22,12 @@ let output = await server.teardownAndWait()
 
 ## Stream Output
 
-Spawned processes expose stdout and stderr as async streams. Chunks are also
-captured for the final ``ShellOutput`` returned by ``SpawnedProcess/waitForExit()``
-or ``SpawnedProcess/teardownAndWait()``.
+Spawned processes expose stdout and stderr as async streams of text
+(``SpawnedProcess/standardOutput``) and of raw bytes
+(``SpawnedProcess/standardOutputData``, for binary output). By default the output
+is only streamed, not retained, so a long-running server cannot grow memory over
+its lifetime; ``SpawnedProcess/waitForExit()`` and
+``SpawnedProcess/teardownAndWait()`` then report the exit code with empty output.
 
 ```swift
 let process = try await Command("long-running-tool").spawn()
@@ -36,25 +39,22 @@ Task {
 }
 ```
 
-Chunks have arbitrary sizes and are not split on line boundaries, but a chunk never
-ends in the middle of a multi-byte UTF-8 character. Each stream keeps the 1,024 most
-recent chunks you have not read yet and drops older ones, so an unread stream cannot
-grow without limit.
+Chunks have arbitrary sizes and are not split on line boundaries, but a text chunk
+never ends in the middle of a multi-byte UTF-8 character. Each stream keeps the
+1,024 most recent chunks you have not read yet and drops older ones, so an unread
+stream cannot grow without limit.
 
-If you do not consume the streams, output is still captured up to the configured
-``Command/outputLimit(_:)`` or ``ShellContext/defaultOutputLimit``. Exceeding that
-limit tears the process down. For a long-lived process whose output you only watch
-live, route the stream to ``OutputDestination/discard`` so it is streamed but not
-retained; the live chunks are still delivered:
+When the final output matters (for example a build you also want to parse), pass
+`captureOutput: true`. Captured streams are then kept up to the configured
+``Command/outputLimit(_:)`` or ``ShellContext/defaultOutputLimit``, and exceeding
+that limit tears the process down:
 
 ```swift
-let server = try await Command("server")
-    .stdout(.discard)
-    .spawn()
-
-for await chunk in server.standardOutput {
+let build = try await Command("swift", arguments: "build").spawn(captureOutput: true)
+for await chunk in build.standardOutput {
     print(chunk, terminator: "")
 }
+let output = await build.waitForExit()  // output.stdout holds the full log
 ```
 
 ## Choose a Teardown Strategy

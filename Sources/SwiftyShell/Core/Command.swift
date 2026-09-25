@@ -109,6 +109,13 @@ public struct Command: Sendable {
     /// Defaults to ``InputSource/none``, an empty stdin. Change with ``stdin(_:)``.
     public private(set) var stdinSource: InputSource = .none
 
+    /// Whether a spawned process keeps its captured output for ``SpawnedProcess/waitForExit()``.
+    ///
+    /// `false` (the default for ``spawn(in:teardown:)``) streams output live without retaining it,
+    /// so a long-running process cannot grow memory over its lifetime. Set it with
+    /// ``spawn(captureOutput:in:teardown:)``. Custom executors read it to honor the same contract.
+    public private(set) var spawnRetainsOutput = false
+
     /// The stderr handling strategy for this command.
     ///
     /// Defaults to ``OutputDestination/capture``, which retains stderr in ``ShellOutput/stderr``.
@@ -448,6 +455,10 @@ public struct Command: Sendable {
     /// file watchers, or recorders. The returned ``SpawnedProcess`` provides real-time output
     /// streams and methods for signaling or gracefully tearing down the process.
     ///
+    /// Output is streamed live but not retained, so ``SpawnedProcess/waitForExit()`` and
+    /// ``SpawnedProcess/teardownAndWait()`` report the exit code with empty output. Use
+    /// ``spawn(captureOutput:in:teardown:)`` when the final output is needed.
+    ///
     /// ```swift
     /// let server = try await Command("python3", arguments: "-m", "http.server", "8080")
     ///     .spawn(in: context)
@@ -467,7 +478,35 @@ public struct Command: Sendable {
         in context: ShellContext = .init(),
         teardown: TeardownStrategy = .graceful
     ) async throws -> any SpawnedProcess {
-        try await context.executor.spawn(self, in: context, teardown: teardown)
+        try await spawn(captureOutput: false, in: context, teardown: teardown)
+    }
+
+    /// Spawns the command without waiting for it to exit, optionally retaining its output.
+    ///
+    /// With `captureOutput: true`, captured streams are also kept (up to the output limit) and
+    /// returned by ``SpawnedProcess/waitForExit()`` and ``SpawnedProcess/teardownAndWait()``.
+    /// Exceeding the output limit tears the process down, so prefer the default for long-running
+    /// processes and read the live streams instead.
+    ///
+    /// ```swift
+    /// let build = try await Command("swift", arguments: "build").spawn(captureOutput: true)
+    /// for await chunk in build.standardOutput { print(chunk, terminator: "") }
+    /// let output = await build.waitForExit()   // output.stdout holds the full log
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - captureOutput: Whether to retain captured output for the final ``ShellOutput``.
+    ///   - context: The shell context that provides defaults and the executor.
+    ///   - teardown: The strategy used by ``SpawnedProcess/teardownAndWait()``.
+    /// - Returns: A handle to the running process.
+    /// - Throws: ``ShellError`` describing invalid configuration or spawn failure.
+    public func spawn(
+        captureOutput: Bool,
+        in context: ShellContext = .init(),
+        teardown: TeardownStrategy = .graceful
+    ) async throws -> any SpawnedProcess {
+        let command = modified(self) { $0.spawnRetainsOutput = captureOutput }
+        return try await context.executor.spawn(command, in: context, teardown: teardown)
     }
 
     /// Returns a shell-quoted string representation of the command suitable for display or logging.

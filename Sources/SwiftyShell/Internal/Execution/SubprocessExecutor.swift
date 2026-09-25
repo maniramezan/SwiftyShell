@@ -447,23 +447,47 @@ private enum SpawnedCommandTaskResult: Sendable {
 }
 
 /// Keeps the most recent chunks of a live spawned-process stream that the caller has not read yet.
-private let liveStreamBufferingPolicy = AsyncStream<String>.Continuation.BufferingPolicy.bufferingNewest(1024)
+private let liveStreamBufferLimit = 1024
+
+/// The live text and byte streams for one output stream of a spawned process.
+///
+/// Both keep the most recent ``liveStreamBufferLimit`` unread chunks, so an unread stream cannot
+/// grow without limit over a long-lived process.
+private struct LiveStream: Sendable {
+    let text: AsyncStream<String>
+    let data: AsyncStream<Data>
+    private let textContinuation: AsyncStream<String>.Continuation
+    private let dataContinuation: AsyncStream<Data>.Continuation
+
+    init() {
+        (text, textContinuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(liveStreamBufferLimit))
+        (data, dataContinuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(liveStreamBufferLimit))
+    }
+
+    func yield(text chunk: String) {
+        textContinuation.yield(chunk)
+    }
+
+    func yield(data chunk: Data) {
+        dataContinuation.yield(chunk)
+    }
+
+    func finish() {
+        textContinuation.finish()
+        dataContinuation.finish()
+    }
+}
 
 private struct SpawnedCommandRunner: Sendable {
     let resolved: ResolvedCommand
     let teardown: TeardownStrategy
 
     func spawn() async throws -> any SpawnedProcess {
-        // Bounded so an unread stream cannot grow without limit over a long-lived process.
-        let stdoutStream = AsyncStream.makeStream(of: String.self, bufferingPolicy: liveStreamBufferingPolicy)
-        let stderrStream = AsyncStream.makeStream(of: String.self, bufferingPolicy: liveStreamBufferingPolicy)
+        let stdout = LiveStream()
+        let stderr = LiveStream()
         let state = SubprocessSpawnedProcessState(teardown: teardown)
         let task = Task<ShellOutput, Never> {
-            let output = await runSpawnedProcess(
-                state: state,
-                stdoutContinuation: stdoutStream.continuation,
-                stderrContinuation: stderrStream.continuation
-            )
+            let output = await runSpawnedProcess(state: state, stdout: stdout, stderr: stderr)
             await state.markExited()
             return output
         }
@@ -471,16 +495,16 @@ private struct SpawnedCommandRunner: Sendable {
         let execution = try await state.waitForExecution()
         return SubprocessSpawnedProcess(
             processIdentifier: execution.processIdentifier,
-            standardOutput: stdoutStream.stream,
-            standardError: stderrStream.stream,
+            stdout: stdout,
+            stderr: stderr,
             state: state
         )
     }
 
     private func runSpawnedProcess(
         state: SubprocessSpawnedProcessState,
-        stdoutContinuation: AsyncStream<String>.Continuation,
-        stderrContinuation: AsyncStream<String>.Continuation
+        stdout: LiveStream,
+        stderr: LiveStream
     ) async -> ShellOutput {
         let store = OutputCaptureStore(limit: resolved.outputLimit)
         do {
@@ -489,16 +513,17 @@ private struct SpawnedCommandRunner: Sendable {
             defer {
                 try? stdoutHandle?.close()
                 try? stderrHandle?.close()
-                stdoutContinuation.finish()
-                stderrContinuation.finish()
+                stdout.finish()
+                stderr.finish()
             }
 
             let streams = SpawnedStreams(
                 stdoutHandle: stdoutHandle,
                 stderrHandle: stderrHandle,
                 store: store,
-                stdoutContinuation: stdoutContinuation,
-                stderrContinuation: stderrContinuation
+                retainsOutput: resolved.original.spawnRetainsOutput,
+                stdout: stdout,
+                stderr: stderr
             )
             let terminationStatus: TerminationStatus
             switch try makeStdinRoute(for: resolved.stdinSource) {
@@ -545,8 +570,8 @@ private struct SpawnedCommandRunner: Sendable {
                         stream: .stdout,
                         destination: resolved.stdoutDestination,
                         fileHandle: streams.stdoutHandle,
-                        store: streams.store,
-                        continuation: streams.stdoutContinuation
+                        store: streams.retainsOutput ? streams.store : nil,
+                        live: streams.stdout
                     )
                     return .streamComplete
                 }
@@ -556,8 +581,8 @@ private struct SpawnedCommandRunner: Sendable {
                         stream: .stderr,
                         destination: resolved.stderrDestination,
                         fileHandle: streams.stderrHandle,
-                        store: streams.store,
-                        continuation: streams.stderrContinuation
+                        store: streams.retainsOutput ? streams.store : nil,
+                        live: streams.stderr
                     )
                     return .streamComplete
                 }
@@ -588,26 +613,27 @@ private struct SpawnedStreams: Sendable {
     let stdoutHandle: FileHandle?
     let stderrHandle: FileHandle?
     let store: OutputCaptureStore
-    let stdoutContinuation: AsyncStream<String>.Continuation
-    let stderrContinuation: AsyncStream<String>.Continuation
+    /// Whether captured streams are kept for the final output (``Command/spawnRetainsOutput``).
+    let retainsOutput: Bool
+    let stdout: LiveStream
+    let stderr: LiveStream
 }
 
 private final class SubprocessSpawnedProcess: SpawnedProcess, @unchecked Sendable {
     let processIdentifier: Int32
     let standardOutput: AsyncStream<String>
     let standardError: AsyncStream<String>
+    let standardOutputData: AsyncStream<Data>
+    let standardErrorData: AsyncStream<Data>
 
     private let state: SubprocessSpawnedProcessState
 
-    init(
-        processIdentifier: Int32,
-        standardOutput: AsyncStream<String>,
-        standardError: AsyncStream<String>,
-        state: SubprocessSpawnedProcessState
-    ) {
+    init(processIdentifier: Int32, stdout: LiveStream, stderr: LiveStream, state: SubprocessSpawnedProcessState) {
         self.processIdentifier = processIdentifier
-        self.standardOutput = standardOutput
-        self.standardError = standardError
+        self.standardOutput = stdout.text
+        self.standardError = stderr.text
+        self.standardOutputData = stdout.data
+        self.standardErrorData = stderr.data
         self.state = state
     }
 
@@ -727,21 +753,32 @@ private func routeSpawnStream(
     stream: StreamKind,
     destination: OutputDestination,
     fileHandle: FileHandle?,
-    store: OutputCaptureStore,
-    continuation: AsyncStream<String>.Continuation
+    store: OutputCaptureStore?,
+    live: LiveStream
 ) async throws {
     var decoder = UTF8ChunkDecoder()
     defer {
         if let text = decoder.finish() {
-            continuation.yield(text)
+            live.yield(text: text)
         }
     }
     for try await buffer in sequence {
         let data = Data(buffer: buffer)
+        live.yield(data: data)
         if let text = decoder.decode(data) {
-            continuation.yield(text)
+            live.yield(text: text)
         }
-        try routeData(data, stream: stream, destination: destination, fileHandle: fileHandle, store: store)
+        switch destination {
+        case .capture:
+            try store?.append(data, to: stream)
+        case .tee:
+            try store?.append(data, to: stream)
+            try writeTee(data, to: stream)
+        case .file:
+            try fileHandle?.write(contentsOf: data)
+        case .discard:
+            break
+        }
     }
 }
 
@@ -1083,28 +1120,6 @@ private func runRouted<Input: InputProtocol, Output: OutputProtocol, Error: Erro
         try await body(outputSequence, errorSequence, terminate)
     }
     return result.terminationStatus
-}
-
-private func routeData(
-    _ data: Data,
-    stream: StreamKind,
-    destination: OutputDestination,
-    fileHandle: FileHandle?,
-    store: OutputCaptureStore
-) throws {
-    switch destination {
-    case .capture:
-        try store.append(data, to: stream)
-    case .discard:
-        break
-    case .file:
-        try fileHandle?.write(contentsOf: data)
-    case .tee:
-        // Capture for ShellOutput…
-        try store.append(data, to: stream)
-        // …and echo live to the parent process stream.
-        try writeTee(data, to: stream)
-    }
 }
 
 /// Serializes live `.tee` writes to the parent process's standard output and standard error.

@@ -13,7 +13,7 @@ struct SpawnTests {
         let context = ShellContext(executor: MockExecutor(stdout: "ready\n", stderr: "warn\n"))
 
         let process = try await Command("server", arguments: "--port", "8080")
-            .spawn(in: context)
+            .spawn(captureOutput: true, in: context)
 
         var stdout = ""
         for await chunk in process.standardOutput {
@@ -66,7 +66,7 @@ struct SpawnTests {
 
     @Test func realSpawnStreamsAndWaitsForNaturalExit() async throws {
         let process = try await Command("/bin/sh", arguments: "-c", "printf spawned; printf err >&2")
-            .spawn()
+            .spawn(captureOutput: true)
 
         var stdout = ""
         for await chunk in process.standardOutput {
@@ -91,7 +91,7 @@ struct SpawnTests {
         try Data(text.utf8).write(to: URL(fileURLWithPath: path))
         defer { try? FileManager.default.removeItem(atPath: path) }
 
-        let process = try await Command("cat", arguments: path).spawn()
+        let process = try await Command("cat", arguments: path).spawn(captureOutput: true)
         var streamed = ""
         for await chunk in process.standardOutput {
             streamed += chunk
@@ -115,6 +115,50 @@ struct SpawnTests {
 
         #expect(streamed == "live")
         #expect(output.stdout.isEmpty)
+    }
+
+    @Test func defaultSpawnStreamsWithoutRetainingOutput() async throws {
+        let process = try await Command("/bin/sh", arguments: "-c", "printf out; printf err >&2").spawn()
+
+        var streamed = ""
+        for await chunk in process.standardOutput {
+            streamed += chunk
+        }
+        let output = await process.waitForExit()
+
+        #expect(streamed == "out")
+        #expect(output == ShellOutput(exitCode: 0))
+    }
+
+    @Test func spawnDataStreamsCarryRawBytes() async throws {
+        let process = try await Command("printf", arguments: "\\377\\000\\200").spawn()
+
+        var bytes = Data()
+        for await chunk in process.standardOutputData {
+            bytes.append(chunk)
+        }
+        _ = await process.waitForExit()
+
+        #expect(bytes == Data([0xFF, 0x00, 0x80]))
+    }
+
+    @Test(arguments: [false, true])
+    func mockSpawnHonorsCaptureOutput(captureOutput: Bool) async throws {
+        let context = ShellContext(executor: MockExecutor(stdout: "ready\n"))
+        let process = try await Command("server").spawn(captureOutput: captureOutput, in: context)
+
+        var streamed = ""
+        for await chunk in process.standardOutput {
+            streamed += chunk
+        }
+        var bytes = Data()
+        for await chunk in process.standardOutputData {
+            bytes.append(chunk)
+        }
+
+        #expect(streamed == "ready\n")
+        #expect(bytes == Data("ready\n".utf8))
+        #expect(await process.waitForExit().stdout == (captureOutput ? "ready\n" : ""))
     }
 
     @Test func realSpawnCanBeInterrupted() async throws {
@@ -141,7 +185,7 @@ struct SpawnTests {
 
     @Test func waitForExitIsIdempotent() async throws {
         let process = try await Command("/bin/sh", arguments: "-c", "printf spawned")
-            .spawn()
+            .spawn(captureOutput: true)
 
         let firstOutput = await process.waitForExit()
         let secondOutput = await process.waitForExit()

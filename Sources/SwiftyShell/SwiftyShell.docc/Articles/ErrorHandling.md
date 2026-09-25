@@ -138,7 +138,12 @@ try await Command("swift", arguments: "build", "--verbose")
 
 #### `decodingError`
 
-The captured output could not be decoded as UTF-8. This happens with binary output (e.g. compiled artifacts, compressed archives). Use ``OutputDestination/file(path:append:)`` to write such output to a file and read it as `Data` yourself.
+A typed workflow that parses stdout (such as `Git` status or `Which` lookup) received bytes that are not valid UTF-8. Plain `run()` calls never throw this: binary output such as archives or images is returned unchanged in ``ShellOutput/stdoutData``, and ``ShellOutput/stdout`` decodes it lossily.
+
+```swift
+let archive = try await Command("tar", arguments: "-cz", "Sources").run(in: context)
+try archive.stdoutData.write(to: URL(fileURLWithPath: "sources.tgz"))
+```
 
 ### Task and Workflow Errors
 
@@ -208,6 +213,6 @@ do {
 | `spawnError` | OS could not create process | Check executable path and permissions |
 | `timeout` | Exceeded time limit | Inspect `partialOutput`; increase limit or redirect to file |
 | `outputLimitExceeded` | Output exceeded limit | Increase `outputLimit` or redirect to file |
-| `decodingError` | Output is not valid UTF-8 | Redirect to file; read as `Data` |
+| `decodingError` | A typed workflow parsed stdout that is not valid UTF-8 | Run the raw `command()` and read `stdoutData` |
 | `canceled` | Parent Swift task was canceled | Inspect `partialOutput`; propagate cancellation |
 | `workflowConditionFailed` | A `require` predicate returned false | Handle the specific gate condition |

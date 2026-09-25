@@ -21,7 +21,7 @@ import Foundation
 ///     .run()
 /// ```
 public struct Mkdir: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -54,7 +54,7 @@ public struct Mkdir: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `mkdir` command's stdout to the given destination.
@@ -64,7 +64,7 @@ public struct Mkdir: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Mkdir`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `mkdir` command's stderr to the given destination.
@@ -75,7 +75,7 @@ public struct Mkdir: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Mkdir`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that creates intermediate parent directories as needed.
@@ -94,7 +94,7 @@ public struct Mkdir: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-p`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Mkdir`` value with the flag applied.
     public func parents(_ enabled: Bool = true) -> Self {
-        copy(createsIntermediateDirectories: enabled)
+        modified(self) { $0.state.createsIntermediateDirectories = enabled }
     }
 
     /// Returns a copy with the mode passed to `mkdir -m` set from a typed ``FileMode``.
@@ -105,7 +105,7 @@ public struct Mkdir: RunnableCommandFamily {
     /// - Parameter value: The typed file-mode value rendered as the `-m` argument.
     /// - Returns: A new ``Mkdir`` value with the mode applied.
     public func mode(_ value: FileMode) -> Self {
-        copy(modeValue: value.rawValue)
+        modified(self) { $0.state.modeValue = value.rawValue }
     }
 
     /// Returns a copy with the mode passed to `mkdir -m` set from a raw mode string.
@@ -117,7 +117,7 @@ public struct Mkdir: RunnableCommandFamily {
     /// - Parameter value: The literal `-m` argument value.
     /// - Returns: A new ``Mkdir`` value with the mode applied.
     public func mode(_ value: String) -> Self {
-        copy(modeValue: value)
+        modified(self) { $0.state.modeValue = value }
     }
 
     /// Returns a copy with one additional directory path appended for creation.
@@ -125,7 +125,7 @@ public struct Mkdir: RunnableCommandFamily {
     /// - Parameter path: The directory path to create.
     /// - Returns: A new ``Mkdir`` value with the path appended.
     public func directory(_ path: String) -> Self {
-        copy(directories: state.directories + [path])
+        modified(self) { $0.state.directories += [path] }
     }
 
     /// Returns a copy with multiple directory paths appended for creation.
@@ -133,7 +133,7 @@ public struct Mkdir: RunnableCommandFamily {
     /// - Parameter paths: The directory paths to append, in order.
     /// - Returns: A new ``Mkdir`` value with the paths appended.
     public func directories(_ paths: [String]) -> Self {
-        copy(directories: state.directories + paths)
+        modified(self) { $0.state.directories += paths }
     }
 
     /// Builds the raw `mkdir` command represented by the current builder state.
@@ -162,50 +162,14 @@ public struct Mkdir: RunnableCommandFamily {
 
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        createsIntermediateDirectories: Bool? = nil,
-        modeValue: String?? = nil,
-        directories: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                createsIntermediateDirectories: createsIntermediateDirectories ?? state.createsIntermediateDirectories,
-                modeValue: modeValue ?? state.modeValue,
-                directories: directories ?? state.directories
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let createsIntermediateDirectories: Bool
-    let modeValue: String?
-    let directories: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        createsIntermediateDirectories: Bool = false,
-        modeValue: String? = nil,
-        directories: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.createsIntermediateDirectories = createsIntermediateDirectories
-        self.modeValue = modeValue
-        self.directories = directories
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var createsIntermediateDirectories: Bool = false
+    var modeValue: String? = nil
+    var directories: [String] = []
 }
 #endif

@@ -64,7 +64,7 @@ public struct UnzipEntry: Sendable, Equatable, Hashable {
 /// > Important: ``password(_:)`` puts the password directly on the subprocess argv, where it
 /// > may be visible to other users via `ps`.
 public struct Unzip: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -98,7 +98,7 @@ public struct Unzip: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `unzip` command's stdout to the given destination.
@@ -109,7 +109,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Unzip`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `unzip` command's stderr to the given destination.
@@ -119,7 +119,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Unzip`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that sets the archive path to operate on.
@@ -130,7 +130,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter path: The path to the `.zip` archive.
     /// - Returns: A new ``Unzip`` value with the archive set.
     public func archive(_ path: String) -> Self {
-        copy(archivePath: path)
+        modified(self) { $0.state.archivePath = path }
     }
 
     /// Returns a copy with one additional member pattern appended.
@@ -141,7 +141,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter pattern: A glob pattern such as `"docs/*.md"`.
     /// - Returns: A new ``Unzip`` value with the member pattern appended.
     public func member(_ pattern: String) -> Self {
-        copy(members: state.members + [pattern])
+        modified(self) { $0.state.members += [pattern] }
     }
 
     /// Returns a copy with multiple member patterns appended.
@@ -149,7 +149,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter patterns: Glob patterns to append in order.
     /// - Returns: A new ``Unzip`` value with the patterns appended.
     public func members(_ patterns: [String]) -> Self {
-        copy(members: state.members + patterns)
+        modified(self) { $0.state.members += patterns }
     }
 
     /// Returns a copy with one exclude pattern appended (`-x <pattern>`).
@@ -159,7 +159,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter pattern: A glob pattern such as `"*.tmp"`.
     /// - Returns: A new ``Unzip`` value with the exclude pattern appended.
     public func exclude(_ pattern: String) -> Self {
-        copy(excludes: state.excludes + [pattern])
+        modified(self) { $0.state.excludes += [pattern] }
     }
 
     /// Returns a copy with multiple exclude patterns appended.
@@ -167,7 +167,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter patterns: Glob patterns to append in order.
     /// - Returns: A new ``Unzip`` value with the exclude patterns appended.
     public func excludes(_ patterns: [String]) -> Self {
-        copy(excludes: state.excludes + patterns)
+        modified(self) { $0.state.excludes += patterns }
     }
 
     /// Returns a copy that toggles list mode (`-l`).
@@ -179,7 +179,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-l`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func list(_ enabled: Bool = true) -> Self {
-        copy(mode: .some(toggledMode(state.mode, .list, enabled: enabled)))
+        modified(self) { $0.state.mode = toggledMode(state.mode, .list, enabled: enabled) }
     }
 
     /// Returns a copy that toggles test mode (`-t`).
@@ -191,7 +191,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-t`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func test(_ enabled: Bool = true) -> Self {
-        copy(mode: .some(toggledMode(state.mode, .test, enabled: enabled)))
+        modified(self) { $0.state.mode = toggledMode(state.mode, .test, enabled: enabled) }
     }
 
     /// Returns a copy that toggles pipe-to-stdout mode (`-p`).
@@ -203,7 +203,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-p`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func printToStdout(_ enabled: Bool = true) -> Self {
-        copy(mode: .some(toggledMode(state.mode, .print, enabled: enabled)))
+        modified(self) { $0.state.mode = toggledMode(state.mode, .print, enabled: enabled) }
     }
 
     /// Returns a copy that sets the extraction destination directory (`-d <dir>`).
@@ -214,7 +214,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter path: The directory to extract into.
     /// - Returns: A new ``Unzip`` value with the destination set.
     public func destination(_ path: String) -> Self {
-        copy(destinationPath: path)
+        modified(self) { $0.state.destinationPath = path }
     }
 
     /// Returns a copy that toggles always-overwrite mode (`-o`).
@@ -226,7 +226,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-o`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func overwrite(_ enabled: Bool = true) -> Self {
-        copy(overwrite: .some(toggledMode(state.overwrite, .always, enabled: enabled)))
+        modified(self) { $0.state.overwrite = toggledMode(state.overwrite, .always, enabled: enabled) }
     }
 
     /// Returns a copy that toggles never-overwrite mode (`-n`).
@@ -237,7 +237,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-n`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func neverOverwrite(_ enabled: Bool = true) -> Self {
-        copy(overwrite: .some(toggledMode(state.overwrite, .never, enabled: enabled)))
+        modified(self) { $0.state.overwrite = toggledMode(state.overwrite, .never, enabled: enabled) }
     }
 
     /// Returns a copy that toggles quiet mode (`-q`).
@@ -247,7 +247,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-q`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func quiet(_ enabled: Bool = true) -> Self {
-        copy(isQuiet: enabled)
+        modified(self) { $0.state.isQuiet = enabled }
     }
 
     /// Returns a copy that toggles junk-paths mode (`-j`).
@@ -257,7 +257,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-j`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func junkPaths(_ enabled: Bool = true) -> Self {
-        copy(junksPaths: enabled)
+        modified(self) { $0.state.junksPaths = enabled }
     }
 
     /// Returns a copy that restores archived setuid, setgid, and sticky permission bits (`-K`).
@@ -269,7 +269,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-K`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func restoreSecurityMetadata(_ enabled: Bool = true) -> Self {
-        copy(restoresSecurityMetadata: enabled)
+        modified(self) { $0.state.restoresSecurityMetadata = enabled }
     }
 
     /// Returns a copy that toggles freshen mode (`-f`).
@@ -280,7 +280,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-f`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func freshen(_ enabled: Bool = true) -> Self {
-        copy(refresh: .some(toggledMode(state.refresh, .freshen, enabled: enabled)))
+        modified(self) { $0.state.refresh = toggledMode(state.refresh, .freshen, enabled: enabled) }
     }
 
     /// Returns a copy that toggles update mode (`-u`).
@@ -291,7 +291,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-u`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func updateOnly(_ enabled: Bool = true) -> Self {
-        copy(refresh: .some(toggledMode(state.refresh, .update, enabled: enabled)))
+        modified(self) { $0.state.refresh = toggledMode(state.refresh, .update, enabled: enabled) }
     }
 
     /// Returns a copy that supplies a password on the command line (`-P <password>`).
@@ -302,7 +302,7 @@ public struct Unzip: RunnableCommandFamily {
     /// - Parameter value: The password to forward to `unzip`.
     /// - Returns: A new ``Unzip`` value with the password applied.
     public func password(_ value: String) -> Self {
-        copy(password: value)
+        modified(self) { $0.state.password = value }
     }
 
     /// Builds the raw `unzip` command represented by the current builder state.
@@ -368,51 +368,15 @@ public struct Unzip: RunnableCommandFamily {
     /// - Returns: A ``Workflow`` producing parsed ``UnzipEntry`` values.
     public func entries() -> Workflow<[UnzipEntry]> {
         let context = state.config.context
-        let cmd = copy(
-            stdoutDestination: .capture,
-            destinationPath: .some(nil),
-            mode: .some(.list)
-        ).command()
+        let cmd = modified(self) {
+            $0.state.stdoutDestination = .capture
+            $0.state.destinationPath = nil
+            $0.state.mode = .list
+        }.command()
         return Workflow {
             let output = try await cmd.run(in: context)
             return UnzipEntryParser.parse(try output.validatedStdout(for: cmd))
         }
-    }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        archivePath: String?? = nil,
-        members: [String]? = nil,
-        excludes: [String]? = nil,
-        destinationPath: String?? = nil,
-        mode: UnzipMode?? = nil,
-        refresh: UnzipRefresh?? = nil,
-        overwrite: UnzipOverwrite?? = nil,
-        isQuiet: Bool? = nil,
-        junksPaths: Bool? = nil,
-        restoresSecurityMetadata: Bool? = nil,
-        password: String?? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                archivePath: archivePath ?? state.archivePath,
-                members: members ?? state.members,
-                excludes: excludes ?? state.excludes,
-                destinationPath: destinationPath ?? state.destinationPath,
-                mode: mode ?? state.mode,
-                refresh: refresh ?? state.refresh,
-                overwrite: overwrite ?? state.overwrite,
-                isQuiet: isQuiet ?? state.isQuiet,
-                junksPaths: junksPaths ?? state.junksPaths,
-                restoresSecurityMetadata: restoresSecurityMetadata ?? state.restoresSecurityMetadata,
-                password: password ?? state.password
-            )
-        )
     }
 }
 
@@ -458,52 +422,20 @@ private enum UnzipOverwrite: Sendable, Equatable {
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let archivePath: String?
-    let members: [String]
-    let excludes: [String]
-    let destinationPath: String?
-    let mode: UnzipMode?
-    let refresh: UnzipRefresh?
-    let overwrite: UnzipOverwrite?
-    let isQuiet: Bool
-    let junksPaths: Bool
-    let restoresSecurityMetadata: Bool
-    let password: String?
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        archivePath: String? = nil,
-        members: [String] = [],
-        excludes: [String] = [],
-        destinationPath: String? = nil,
-        mode: UnzipMode? = nil,
-        refresh: UnzipRefresh? = nil,
-        overwrite: UnzipOverwrite? = nil,
-        isQuiet: Bool = false,
-        junksPaths: Bool = false,
-        restoresSecurityMetadata: Bool = false,
-        password: String? = nil
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.archivePath = archivePath
-        self.members = members
-        self.excludes = excludes
-        self.destinationPath = destinationPath
-        self.mode = mode
-        self.refresh = refresh
-        self.overwrite = overwrite
-        self.isQuiet = isQuiet
-        self.junksPaths = junksPaths
-        self.restoresSecurityMetadata = restoresSecurityMetadata
-        self.password = password
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var archivePath: String? = nil
+    var members: [String] = []
+    var excludes: [String] = []
+    var destinationPath: String? = nil
+    var mode: UnzipMode? = nil
+    var refresh: UnzipRefresh? = nil
+    var overwrite: UnzipOverwrite? = nil
+    var isQuiet: Bool = false
+    var junksPaths: Bool = false
+    var restoresSecurityMetadata: Bool = false
+    var password: String? = nil
 }
 
 /// Internal parser for `unzip -l` output. Made `internal` (not `fileprivate`) so the test

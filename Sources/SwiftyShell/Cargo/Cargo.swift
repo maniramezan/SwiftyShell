@@ -89,7 +89,7 @@ public enum CargoTarget: Sendable, Equatable, Hashable {
 ///     .run()
 /// ```
 public struct Cargo: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -105,22 +105,26 @@ public struct Cargo: RunnableCommandFamily {
 
     /// Returns a copy with updated shared tool configuration.
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that selects a Cargo operation.
     public func subcommand(_ value: CargoSubcommand) -> Self {
-        copy(subcommand: value, testFilter: .some(nil), forwardedArguments: [])
+        modified(self) {
+            $0.state.subcommand = value
+            $0.state.testFilter = nil
+            $0.state.forwardedArguments = []
+        }
     }
 
     /// Returns a copy that selects a raw Cargo operation.
@@ -134,7 +138,11 @@ public struct Cargo: RunnableCommandFamily {
     /// - Parameter filter: An optional test-name filter emitted before the `--`
     ///   test-harness argument boundary.
     public func test(_ filter: String? = nil) -> Self {
-        copy(subcommand: .test, testFilter: .some(filter), forwardedArguments: [])
+        modified(self) {
+            $0.state.subcommand = .test
+            $0.state.testFilter = filter
+            $0.state.forwardedArguments = []
+        }
     }
 
     /// Returns a copy configured for `cargo check`.
@@ -144,12 +152,12 @@ public struct Cargo: RunnableCommandFamily {
     ///
     /// - Parameter binary: An optional binary target selected with `--bin`.
     public func runBinary(_ binary: String? = nil) -> Self {
-        copy(
-            subcommand: .run,
-            targets: binary.map { [.binary($0)] } ?? [],
-            testFilter: .some(nil),
-            forwardedArguments: []
-        )
+        modified(self) {
+            $0.state.subcommand = .run
+            $0.state.targets = binary.map { [.binary($0)] } ?? []
+            $0.state.testFilter = nil
+            $0.state.forwardedArguments = []
+        }
     }
 
     /// Returns a copy configured for `cargo fmt`.
@@ -165,34 +173,36 @@ public struct Cargo: RunnableCommandFamily {
     public func version() -> Self { subcommand(.version) }
 
     /// Returns a copy that uses a specific `Cargo.toml` file (`--manifest-path`).
-    public func manifestPath(_ path: String) -> Self { copy(manifestPath: path) }
+    public func manifestPath(_ path: String) -> Self { modified(self) { $0.state.manifestPath = path } }
 
     /// Returns a copy that selects a package (`--package`).
-    public func package(_ name: String) -> Self { copy(packages: state.packages + [name]) }
+    public func package(_ name: String) -> Self { modified(self) { $0.state.packages += [name] } }
 
     /// Returns a copy that selects packages (`--package` for each value).
-    public func packages(_ names: [String]) -> Self { copy(packages: state.packages + names) }
+    public func packages(_ names: [String]) -> Self { modified(self) { $0.state.packages += names } }
 
     /// Returns a copy that selects the workspace.
     ///
     /// This emits `--workspace` for Cargo operations and `--all` for `cargo fmt`,
     /// matching cargo-fmt's current workspace spelling.
-    public func workspace(_ enabled: Bool = true) -> Self { copy(workspaceEnabled: enabled) }
+    public func workspace(_ enabled: Bool = true) -> Self { modified(self) { $0.state.workspaceEnabled = enabled } }
 
     /// Returns a copy that activates Cargo features (`--features`).
-    public func features(_ names: [String]) -> Self { copy(features: names) }
+    public func features(_ names: [String]) -> Self { modified(self) { $0.state.features = names } }
 
     /// Returns a copy that activates Cargo features (`--features`).
     public func features(_ names: String...) -> Self { features(names) }
 
     /// Returns a copy that activates every feature (`--all-features`).
-    public func allFeatures(_ enabled: Bool = true) -> Self { copy(allFeaturesEnabled: enabled) }
+    public func allFeatures(_ enabled: Bool = true) -> Self { modified(self) { $0.state.allFeaturesEnabled = enabled } }
 
     /// Returns a copy that disables default features (`--no-default-features`).
-    public func noDefaultFeatures(_ enabled: Bool = true) -> Self { copy(noDefaultFeaturesEnabled: enabled) }
+    public func noDefaultFeatures(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.noDefaultFeaturesEnabled = enabled }
+    }
 
     /// Returns a copy that adds a target selection.
-    public func target(_ value: CargoTarget) -> Self { copy(targets: state.targets + [value]) }
+    public func target(_ value: CargoTarget) -> Self { modified(self) { $0.state.targets += [value] } }
 
     /// Returns a copy that selects the library target (`--lib`).
     public func library() -> Self { target(.library) }
@@ -225,26 +235,26 @@ public struct Cargo: RunnableCommandFamily {
     public func allTargets() -> Self { target(.all) }
 
     /// Returns a copy that requests optimized artifacts (`--release`).
-    public func release(_ enabled: Bool = true) -> Self { copy(releaseEnabled: enabled) }
+    public func release(_ enabled: Bool = true) -> Self { modified(self) { $0.state.releaseEnabled = enabled } }
 
     /// Returns a copy that appends a raw Cargo argument before target and forwarded arguments.
-    public func argument(_ value: String) -> Self { copy(extraArguments: state.extraArguments + [value]) }
+    public func argument(_ value: String) -> Self { modified(self) { $0.state.extraArguments += [value] } }
 
     /// Returns a copy that appends raw Cargo arguments before target and forwarded arguments.
-    public func arguments(_ values: [String]) -> Self { copy(extraArguments: state.extraArguments + values) }
+    public func arguments(_ values: [String]) -> Self { modified(self) { $0.state.extraArguments += values } }
 
     /// Returns a copy that appends an argument for the program selected by `cargo run`.
     ///
     /// ``command()`` inserts `--` before program arguments.
     public func programArgument(_ value: String) -> Self {
-        copy(forwardedArguments: state.forwardedArguments + [value])
+        modified(self) { $0.state.forwardedArguments += [value] }
     }
 
     /// Returns a copy that appends arguments for the program selected by `cargo run`.
     ///
     /// ``command()`` inserts `--` before program arguments.
     public func programArguments(_ values: [String]) -> Self {
-        copy(forwardedArguments: state.forwardedArguments + values)
+        modified(self) { $0.state.forwardedArguments += values }
     }
 
     /// Returns a copy that appends an argument for the `cargo test` harness.
@@ -293,95 +303,23 @@ public struct Cargo: RunnableCommandFamily {
             .stderr(state.stderrDestination)
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        subcommand: CargoSubcommand? = nil,
-        manifestPath: String?? = nil,
-        packages: [String]? = nil,
-        workspaceEnabled: Bool? = nil,
-        features: [String]? = nil,
-        allFeaturesEnabled: Bool? = nil,
-        noDefaultFeaturesEnabled: Bool? = nil,
-        targets: [CargoTarget]? = nil,
-        releaseEnabled: Bool? = nil,
-        testFilter: String?? = nil,
-        extraArguments: [String]? = nil,
-        forwardedArguments: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                subcommand: subcommand ?? state.subcommand,
-                manifestPath: manifestPath ?? state.manifestPath,
-                packages: packages ?? state.packages,
-                workspaceEnabled: workspaceEnabled ?? state.workspaceEnabled,
-                features: features ?? state.features,
-                allFeaturesEnabled: allFeaturesEnabled ?? state.allFeaturesEnabled,
-                noDefaultFeaturesEnabled: noDefaultFeaturesEnabled ?? state.noDefaultFeaturesEnabled,
-                targets: targets ?? state.targets,
-                releaseEnabled: releaseEnabled ?? state.releaseEnabled,
-                testFilter: testFilter ?? state.testFilter,
-                extraArguments: extraArguments ?? state.extraArguments,
-                forwardedArguments: forwardedArguments ?? state.forwardedArguments
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let subcommand: CargoSubcommand
-    let manifestPath: String?
-    let packages: [String]
-    let workspaceEnabled: Bool
-    let features: [String]
-    let allFeaturesEnabled: Bool
-    let noDefaultFeaturesEnabled: Bool
-    let targets: [CargoTarget]
-    let releaseEnabled: Bool
-    let testFilter: String?
-    let extraArguments: [String]
-    let forwardedArguments: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        subcommand: CargoSubcommand = .version,
-        manifestPath: String? = nil,
-        packages: [String] = [],
-        workspaceEnabled: Bool = false,
-        features: [String] = [],
-        allFeaturesEnabled: Bool = false,
-        noDefaultFeaturesEnabled: Bool = false,
-        targets: [CargoTarget] = [],
-        releaseEnabled: Bool = false,
-        testFilter: String? = nil,
-        extraArguments: [String] = [],
-        forwardedArguments: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.subcommand = subcommand
-        self.manifestPath = manifestPath
-        self.packages = packages
-        self.workspaceEnabled = workspaceEnabled
-        self.features = features
-        self.allFeaturesEnabled = allFeaturesEnabled
-        self.noDefaultFeaturesEnabled = noDefaultFeaturesEnabled
-        self.targets = targets
-        self.releaseEnabled = releaseEnabled
-        self.testFilter = testFilter
-        self.extraArguments = extraArguments
-        self.forwardedArguments = forwardedArguments
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var subcommand: CargoSubcommand = .version
+    var manifestPath: String? = nil
+    var packages: [String] = []
+    var workspaceEnabled: Bool = false
+    var features: [String] = []
+    var allFeaturesEnabled: Bool = false
+    var noDefaultFeaturesEnabled: Bool = false
+    var targets: [CargoTarget] = []
+    var releaseEnabled: Bool = false
+    var testFilter: String? = nil
+    var extraArguments: [String] = []
+    var forwardedArguments: [String] = []
 }
 #endif

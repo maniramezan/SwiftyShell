@@ -20,26 +20,28 @@ public struct ToolConfiguration: Sendable {
     /// context separately.
     public let context: ShellContext
 
+    private var options = ExecutionOptions()
+
     /// An optional executable override; `nil` means use ``ShellContext/searchPaths`` resolution.
-    public let executableOverride: String?
+    public var executableOverride: String? { options.executableOverride }
 
     /// Environment variable overrides applied to the final command.
     ///
     /// Merged on top of ``ShellContext/environment`` at execution time.
-    public let environmentOverrides: [String: String]
+    public var environmentOverrides: [String: String] { options.environmentOverrides }
 
     /// Environment variables removed from the final command's environment.
-    public let unsetEnvironmentVariables: Set<String>
+    public var unsetEnvironmentVariables: Set<String> { options.unsetEnvironmentVariables }
 
     /// An optional working directory override; `nil` means use ``ShellContext/workingDirectory``.
-    public let workingDirectoryOverride: String?
+    public var workingDirectoryOverride: String? { options.workingDirectoryOverride }
 
     /// An optional timeout override; `nil` means use ``ShellContext/defaultTimeout``.
-    public let timeoutOverride: Duration?
+    public var timeoutOverride: Duration? { options.timeoutOverride }
 
     /// An optional output limit override in bytes; `nil` means use
     /// ``ShellContext/defaultOutputLimit``.
-    public let outputLimitOverride: Int?
+    public var outputLimitOverride: Int? { options.outputLimitOverride }
 
     /// Creates a tool configuration with optional execution overrides.
     ///
@@ -66,12 +68,14 @@ public struct ToolConfiguration: Sendable {
         outputLimitOverride: Int? = nil
     ) {
         self.context = context
-        self.executableOverride = executableOverride
-        self.environmentOverrides = environmentOverrides
-        self.unsetEnvironmentVariables = unsetEnvironmentVariables
-        self.workingDirectoryOverride = workingDirectoryOverride
-        self.timeoutOverride = timeoutOverride
-        self.outputLimitOverride = outputLimitOverride
+        self.options = ExecutionOptions(
+            executableOverride: executableOverride,
+            environmentOverrides: environmentOverrides,
+            unsetEnvironmentVariables: unsetEnvironmentVariables,
+            workingDirectoryOverride: workingDirectoryOverride,
+            timeoutOverride: timeoutOverride,
+            outputLimitOverride: outputLimitOverride
+        )
     }
 
     /// Creates a tool configuration with a per-command timeout in seconds.
@@ -107,7 +111,7 @@ public struct ToolConfiguration: Sendable {
     /// - Parameter path: An absolute or relative path to the executable.
     /// - Returns: A new configuration with the executable override applied.
     public func executable(_ path: String) -> Self {
-        copy(executableOverride: path)
+        modified(self) { $0.options.executableOverride = path }
     }
 
     /// Returns a copy with one environment variable set or replaced.
@@ -117,12 +121,7 @@ public struct ToolConfiguration: Sendable {
     ///   - value: The value to assign.
     /// - Returns: A new configuration with the environment override applied.
     public func env(_ name: String, _ value: String) -> Self {
-        var overrides = environmentOverrides
-        overrides[name] = value
-        return copy(
-            environmentOverrides: overrides,
-            unsetEnvironmentVariables: unsetEnvironmentVariables.subtracting([name])
-        )
+        modified(self) { $0.options.setEnvironment([name: value]) }
     }
 
     /// Returns a copy with multiple environment variable overrides merged in.
@@ -132,10 +131,7 @@ public struct ToolConfiguration: Sendable {
     /// - Parameter values: A dictionary of environment variable name/value pairs to merge.
     /// - Returns: A new configuration with the merged environment overrides applied.
     public func env(_ values: [String: String]) -> Self {
-        copy(
-            environmentOverrides: environmentOverrides.merging(values) { _, new in new },
-            unsetEnvironmentVariables: unsetEnvironmentVariables.subtracting(values.keys)
-        )
+        modified(self) { $0.options.setEnvironment(values) }
     }
 
     /// Returns a copy that removes environment variables from built commands' environment.
@@ -145,14 +141,7 @@ public struct ToolConfiguration: Sendable {
     /// - Parameter names: The environment variable names to remove.
     /// - Returns: A new configuration with the variables removed.
     public func unsetEnv(_ names: [String]) -> Self {
-        var overrides = environmentOverrides
-        for name in names {
-            overrides.removeValue(forKey: name)
-        }
-        return copy(
-            environmentOverrides: overrides,
-            unsetEnvironmentVariables: unsetEnvironmentVariables.union(names)
-        )
+        modified(self) { $0.options.unsetEnvironment(names) }
     }
 
     /// Returns a copy that runs the final command in the given working directory.
@@ -160,7 +149,7 @@ public struct ToolConfiguration: Sendable {
     /// - Parameter path: The directory in which to spawn the command.
     /// - Returns: A new configuration with the working-directory override applied.
     public func workingDirectory(_ path: String) -> Self {
-        copy(workingDirectoryOverride: path)
+        modified(self) { $0.options.workingDirectoryOverride = path }
     }
 
     /// Returns a copy with a per-command timeout.
@@ -171,7 +160,7 @@ public struct ToolConfiguration: Sendable {
     /// - Parameter duration: The maximum time to wait for the built command.
     /// - Returns: A new configuration with the timeout override applied.
     public func timeout(_ duration: Duration) -> Self {
-        copy(timeoutOverride: duration)
+        modified(self) { $0.options.timeoutOverride = duration }
     }
 
     /// Returns a copy with a per-command timeout in seconds.
@@ -180,7 +169,7 @@ public struct ToolConfiguration: Sendable {
     /// - Returns: A new configuration with the timeout override applied.
     @available(*, deprecated, message: "Pass a Duration, for example timeout(.seconds(120))")
     public func timeout(_ seconds: TimeInterval) -> Self {
-        copy(timeoutOverride: Duration(timeoutSeconds: seconds))
+        modified(self) { $0.options.timeoutOverride = Duration(timeoutSeconds: seconds) }
     }
 
     /// Returns a copy with a per-command captured-output limit in bytes.
@@ -190,7 +179,7 @@ public struct ToolConfiguration: Sendable {
     /// - Parameter bytes: The maximum number of captured-output bytes to retain in memory.
     /// - Returns: A new configuration with the output-limit override applied.
     public func outputLimit(_ bytes: Int) -> Self {
-        copy(outputLimitOverride: bytes)
+        modified(self) { $0.options.outputLimitOverride = bytes }
     }
 
     /// Applies all non-nil overrides in this configuration to a command, returning the updated command.
@@ -221,24 +210,5 @@ public struct ToolConfiguration: Sendable {
             cmd = cmd.outputLimit(outputLimitOverride)
         }
         return cmd
-    }
-
-    private func copy(
-        executableOverride: String?? = nil,
-        environmentOverrides: [String: String]? = nil,
-        unsetEnvironmentVariables: Set<String>? = nil,
-        workingDirectoryOverride: String?? = nil,
-        timeoutOverride: Duration?? = nil,
-        outputLimitOverride: Int?? = nil
-    ) -> Self {
-        Self(
-            context: context,
-            executableOverride: executableOverride ?? self.executableOverride,
-            environmentOverrides: environmentOverrides ?? self.environmentOverrides,
-            unsetEnvironmentVariables: unsetEnvironmentVariables ?? self.unsetEnvironmentVariables,
-            workingDirectoryOverride: workingDirectoryOverride ?? self.workingDirectoryOverride,
-            timeoutOverride: timeoutOverride ?? self.timeoutOverride,
-            outputLimitOverride: outputLimitOverride ?? self.outputLimitOverride
-        )
     }
 }

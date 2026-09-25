@@ -36,7 +36,7 @@ public enum KubectlSubcommand: String, Sendable, Equatable, Hashable {
 ///     .run()
 /// ```
 public struct Kubectl: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -50,24 +50,34 @@ public struct Kubectl: RunnableCommandFamily {
 
     /// Returns a copy with updated shared tool configuration.
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that selects a kubectl subcommand.
-    public func subcommand(_ value: KubectlSubcommand) -> Self { copy(subcommand: value.rawValue, resources: []) }
+    public func subcommand(_ value: KubectlSubcommand) -> Self {
+        modified(self) {
+            $0.state.subcommand = value.rawValue
+            $0.state.resources = []
+        }
+    }
 
     /// Returns a copy that selects a raw kubectl subcommand.
-    public func subcommand(_ value: String) -> Self { copy(subcommand: value, resources: []) }
+    public func subcommand(_ value: String) -> Self {
+        modified(self) {
+            $0.state.subcommand = value
+            $0.state.resources = []
+        }
+    }
 
     /// Returns a copy configured for `kubectl get <resource>`.
     public func get(_ resource: String? = nil) -> Self { resourceCommand(.get, resource) }
@@ -93,47 +103,53 @@ public struct Kubectl: RunnableCommandFamily {
     ///   - resource: The pod or resource containing the target container.
     ///   - command: The executable and arguments to run in the container.
     public func exec(_ resource: String, command: [String]) -> Self {
-        copy(subcommand: KubectlSubcommand.exec.rawValue, resources: [resource], remoteCommand: command)
+        modified(self) {
+            $0.state.subcommand = KubectlSubcommand.exec.rawValue
+            $0.state.resources = [resource]
+            $0.state.remoteCommand = command
+        }
     }
 
     /// Returns a copy that passes `--kubeconfig <path>`.
-    public func kubeconfig(_ path: String) -> Self { copy(kubeconfigPath: path) }
+    public func kubeconfig(_ path: String) -> Self { modified(self) { $0.state.kubeconfigPath = path } }
 
     /// Returns a copy that passes `--context <name>`.
     ///
     /// The method is named `contextName` to avoid colliding with the ``ShellContext``-backed
     /// ``context`` property shared by command families.
-    public func contextName(_ name: String) -> Self { copy(kubeContextName: name) }
+    public func contextName(_ name: String) -> Self { modified(self) { $0.state.kubeContextName = name } }
 
     /// Returns a copy that passes `--namespace <name>`.
-    public func namespace(_ name: String) -> Self { copy(namespaceName: name) }
+    public func namespace(_ name: String) -> Self { modified(self) { $0.state.namespaceName = name } }
 
     /// Returns a copy that passes `--output <format>`.
-    public func output(_ format: String) -> Self { copy(outputFormat: format) }
+    public func output(_ format: String) -> Self { modified(self) { $0.state.outputFormat = format } }
 
     /// Returns a copy that passes `--filename <path>`.
-    public func filename(_ path: String) -> Self { copy(filenames: state.filenames + [path]) }
+    public func filename(_ path: String) -> Self { modified(self) { $0.state.filenames += [path] } }
 
     /// Returns a copy that passes `--selector <selector>`.
-    public func selector(_ value: String) -> Self { copy(selectorValue: value) }
+    public func selector(_ value: String) -> Self { modified(self) { $0.state.selectorValue = value } }
 
     /// Returns a copy that passes `--container <name>`.
-    public func container(_ name: String) -> Self { copy(containerName: name) }
+    public func container(_ name: String) -> Self { modified(self) { $0.state.containerName = name } }
 
     /// Returns a copy that passes `--all-namespaces`.
-    public func allNamespaces(_ enabled: Bool = true) -> Self { copy(allNamespacesEnabled: enabled) }
+    public func allNamespaces(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.allNamespacesEnabled = enabled }
+    }
 
     /// Returns a copy that appends a raw option before positional arguments.
-    public func argument(_ value: String) -> Self { copy(extraArguments: state.extraArguments + [value]) }
+    public func argument(_ value: String) -> Self { modified(self) { $0.state.extraArguments += [value] } }
 
     /// Returns a copy that appends raw options before positional arguments.
-    public func arguments(_ values: [String]) -> Self { copy(extraArguments: state.extraArguments + values) }
+    public func arguments(_ values: [String]) -> Self { modified(self) { $0.state.extraArguments += values } }
 
     /// Returns a copy that appends a resource or command argument.
-    public func positionalArgument(_ value: String) -> Self { copy(resources: state.resources + [value]) }
+    public func positionalArgument(_ value: String) -> Self { modified(self) { $0.state.resources += [value] } }
 
     /// Returns a copy that appends resources or command arguments.
-    public func positionalArguments(_ values: [String]) -> Self { copy(resources: state.resources + values) }
+    public func positionalArguments(_ values: [String]) -> Self { modified(self) { $0.state.resources += values } }
 
     /// Builds the raw `kubectl` command represented by the current builder state.
     public func command() -> Command {
@@ -161,95 +177,23 @@ public struct Kubectl: RunnableCommandFamily {
         if let resource { result = result.positionalArgument(resource) }
         return result
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        subcommand: String? = nil,
-        kubeconfigPath: String?? = nil,
-        kubeContextName: String?? = nil,
-        namespaceName: String?? = nil,
-        outputFormat: String?? = nil,
-        filenames: [String]? = nil,
-        selectorValue: String?? = nil,
-        containerName: String?? = nil,
-        allNamespacesEnabled: Bool? = nil,
-        extraArguments: [String]? = nil,
-        resources: [String]? = nil,
-        remoteCommand: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                subcommand: subcommand ?? state.subcommand,
-                kubeconfigPath: kubeconfigPath ?? state.kubeconfigPath,
-                kubeContextName: kubeContextName ?? state.kubeContextName,
-                namespaceName: namespaceName ?? state.namespaceName,
-                outputFormat: outputFormat ?? state.outputFormat,
-                filenames: filenames ?? state.filenames,
-                selectorValue: selectorValue ?? state.selectorValue,
-                containerName: containerName ?? state.containerName,
-                allNamespacesEnabled: allNamespacesEnabled ?? state.allNamespacesEnabled,
-                extraArguments: extraArguments ?? state.extraArguments,
-                resources: resources ?? state.resources,
-                remoteCommand: remoteCommand ?? state.remoteCommand
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let subcommand: String
-    let kubeconfigPath: String?
-    let kubeContextName: String?
-    let namespaceName: String?
-    let outputFormat: String?
-    let filenames: [String]
-    let selectorValue: String?
-    let containerName: String?
-    let allNamespacesEnabled: Bool
-    let extraArguments: [String]
-    let resources: [String]
-    let remoteCommand: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        subcommand: String = KubectlSubcommand.version.rawValue,
-        kubeconfigPath: String? = nil,
-        kubeContextName: String? = nil,
-        namespaceName: String? = nil,
-        outputFormat: String? = nil,
-        filenames: [String] = [],
-        selectorValue: String? = nil,
-        containerName: String? = nil,
-        allNamespacesEnabled: Bool = false,
-        extraArguments: [String] = [],
-        resources: [String] = [],
-        remoteCommand: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.subcommand = subcommand
-        self.kubeconfigPath = kubeconfigPath
-        self.kubeContextName = kubeContextName
-        self.namespaceName = namespaceName
-        self.outputFormat = outputFormat
-        self.filenames = filenames
-        self.selectorValue = selectorValue
-        self.containerName = containerName
-        self.allNamespacesEnabled = allNamespacesEnabled
-        self.extraArguments = extraArguments
-        self.resources = resources
-        self.remoteCommand = remoteCommand
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var subcommand: String = KubectlSubcommand.version.rawValue
+    var kubeconfigPath: String? = nil
+    var kubeContextName: String? = nil
+    var namespaceName: String? = nil
+    var outputFormat: String? = nil
+    var filenames: [String] = []
+    var selectorValue: String? = nil
+    var containerName: String? = nil
+    var allNamespacesEnabled: Bool = false
+    var extraArguments: [String] = []
+    var resources: [String] = []
+    var remoteCommand: [String] = []
 }
 #endif

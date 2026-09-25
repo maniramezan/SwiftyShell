@@ -35,7 +35,7 @@ public enum NpmSubcommand: String, Sendable, Equatable, Hashable {
 ///     .run()
 /// ```
 public struct Npm: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -49,24 +49,34 @@ public struct Npm: RunnableCommandFamily {
 
     /// Returns a copy with updated shared tool configuration.
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that selects an npm subcommand.
-    public func subcommand(_ value: NpmSubcommand) -> Self { copy(subcommand: value.rawValue, scriptName: .some(nil)) }
+    public func subcommand(_ value: NpmSubcommand) -> Self {
+        modified(self) {
+            $0.state.subcommand = value.rawValue
+            $0.state.scriptName = nil
+        }
+    }
 
     /// Returns a copy that selects a raw npm subcommand.
-    public func subcommand(_ value: String) -> Self { copy(subcommand: value, scriptName: .some(nil)) }
+    public func subcommand(_ value: String) -> Self {
+        modified(self) {
+            $0.state.subcommand = value
+            $0.state.scriptName = nil
+        }
+    }
 
     /// Returns a copy configured for `npm install`.
     public func install() -> Self { subcommand(.install) }
@@ -79,47 +89,57 @@ public struct Npm: RunnableCommandFamily {
 
     /// Returns a copy configured for `npm exec <binary>`.
     public func exec(_ binary: String? = nil) -> Self {
-        copy(subcommand: "exec", scriptName: .some(nil), positionals: binary.map { [$0] } ?? [])
+        modified(self) {
+            $0.state.subcommand = "exec"
+            $0.state.scriptName = nil
+            $0.state.positionals = binary.map { [$0] } ?? []
+        }
     }
 
     /// Returns a copy configured for `npm run <name>`.
-    public func runScript(_ name: String) -> Self { copy(subcommand: "run", scriptName: name, positionals: []) }
+    public func runScript(_ name: String) -> Self {
+        modified(self) {
+            $0.state.subcommand = "run"
+            $0.state.scriptName = name
+            $0.state.positionals = []
+        }
+    }
 
     /// Returns a copy that passes `--prefix <path>`.
-    public func prefix(_ path: String) -> Self { copy(prefixPath: path) }
+    public func prefix(_ path: String) -> Self { modified(self) { $0.state.prefixPath = path } }
 
     /// Returns a copy that passes `--global`.
     ///
     /// Combining this with ``prefix(_:)`` mirrors npm's permissive CLI behavior,
     /// but npm treats global installs as outside the project prefix workflow.
-    public func global(_ enabled: Bool = true) -> Self { copy(isGlobal: enabled) }
+    public func global(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isGlobal = enabled } }
 
     /// Returns a copy that passes `--production`.
-    public func production(_ enabled: Bool = true) -> Self { copy(isProduction: enabled) }
+    public func production(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isProduction = enabled } }
 
     /// Returns a copy that passes `--if-present`.
-    public func ifPresent(_ enabled: Bool = true) -> Self { copy(ifPresentEnabled: enabled) }
+    public func ifPresent(_ enabled: Bool = true) -> Self { modified(self) { $0.state.ifPresentEnabled = enabled } }
 
     /// Returns a copy that passes `--silent`.
-    public func silent(_ enabled: Bool = true) -> Self { copy(isSilent: enabled) }
+    public func silent(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isSilent = enabled } }
 
     /// Returns a copy that passes `--json`.
-    public func json(_ enabled: Bool = true) -> Self { copy(outputsJSON: enabled) }
+    public func json(_ enabled: Bool = true) -> Self { modified(self) { $0.state.outputsJSON = enabled } }
 
     /// Returns a copy that appends a raw option before positional arguments.
-    public func argument(_ value: String) -> Self { copy(extraArguments: state.extraArguments + [value]) }
+    public func argument(_ value: String) -> Self { modified(self) { $0.state.extraArguments += [value] } }
 
     /// Returns a copy that appends raw options before positional arguments.
-    public func arguments(_ values: [String]) -> Self { copy(extraArguments: state.extraArguments + values) }
+    public func arguments(_ values: [String]) -> Self { modified(self) { $0.state.extraArguments += values } }
 
     /// Returns a copy that appends a positional package, binary, or script argument.
     ///
     /// For ``runScript(_:)``, these values are emitted after an automatically inserted `--` so
     /// npm forwards them to the package script.
-    public func positionalArgument(_ value: String) -> Self { copy(positionals: state.positionals + [value]) }
+    public func positionalArgument(_ value: String) -> Self { modified(self) { $0.state.positionals += [value] } }
 
     /// Returns a copy that appends positional package, binary, or script arguments.
-    public func positionalArguments(_ values: [String]) -> Self { copy(positionals: state.positionals + values) }
+    public func positionalArguments(_ values: [String]) -> Self { modified(self) { $0.state.positionals += values } }
 
     /// Builds the raw `npm` command represented by the current builder state.
     public func command() -> Command {
@@ -139,85 +159,21 @@ public struct Npm: RunnableCommandFamily {
         let base = Command("npm").args(arguments).stdout(state.stdoutDestination).stderr(state.stderrDestination)
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        subcommand: String? = nil,
-        scriptName: String?? = nil,
-        prefixPath: String?? = nil,
-        isGlobal: Bool? = nil,
-        isProduction: Bool? = nil,
-        ifPresentEnabled: Bool? = nil,
-        isSilent: Bool? = nil,
-        outputsJSON: Bool? = nil,
-        extraArguments: [String]? = nil,
-        positionals: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                subcommand: subcommand ?? state.subcommand,
-                scriptName: scriptName ?? state.scriptName,
-                prefixPath: prefixPath ?? state.prefixPath,
-                isGlobal: isGlobal ?? state.isGlobal,
-                isProduction: isProduction ?? state.isProduction,
-                ifPresentEnabled: ifPresentEnabled ?? state.ifPresentEnabled,
-                isSilent: isSilent ?? state.isSilent,
-                outputsJSON: outputsJSON ?? state.outputsJSON,
-                extraArguments: extraArguments ?? state.extraArguments,
-                positionals: positionals ?? state.positionals
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let subcommand: String
-    let scriptName: String?
-    let prefixPath: String?
-    let isGlobal: Bool
-    let isProduction: Bool
-    let ifPresentEnabled: Bool
-    let isSilent: Bool
-    let outputsJSON: Bool
-    let extraArguments: [String]
-    let positionals: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        subcommand: String = "--version",
-        scriptName: String? = nil,
-        prefixPath: String? = nil,
-        isGlobal: Bool = false,
-        isProduction: Bool = false,
-        ifPresentEnabled: Bool = false,
-        isSilent: Bool = false,
-        outputsJSON: Bool = false,
-        extraArguments: [String] = [],
-        positionals: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.subcommand = subcommand
-        self.scriptName = scriptName
-        self.prefixPath = prefixPath
-        self.isGlobal = isGlobal
-        self.isProduction = isProduction
-        self.ifPresentEnabled = ifPresentEnabled
-        self.isSilent = isSilent
-        self.outputsJSON = outputsJSON
-        self.extraArguments = extraArguments
-        self.positionals = positionals
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var subcommand: String = "--version"
+    var scriptName: String? = nil
+    var prefixPath: String? = nil
+    var isGlobal: Bool = false
+    var isProduction: Bool = false
+    var ifPresentEnabled: Bool = false
+    var isSilent: Bool = false
+    var outputsJSON: Bool = false
+    var extraArguments: [String] = []
+    var positionals: [String] = []
 }
 #endif

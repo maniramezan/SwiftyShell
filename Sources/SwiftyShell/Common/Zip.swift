@@ -66,7 +66,7 @@ public enum ZipCompressionLevel: Sendable, Equatable, Hashable {
 /// > may be visible to other users via `ps`. For ad-hoc use this is acceptable; for sensitive
 /// > workloads prefer ``encryptInteractive(_:)`` so `zip` prompts on stdin instead.
 public struct Zip: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -100,7 +100,7 @@ public struct Zip: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `zip` command's stdout to the given destination.
@@ -111,7 +111,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Zip`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `zip` command's stderr to the given destination.
@@ -122,7 +122,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Zip`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that sets the destination archive path.
@@ -133,7 +133,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter path: The output archive path (typically ending in `.zip`).
     /// - Returns: A new ``Zip`` value with the archive set.
     public func archive(_ path: String) -> Self {
-        copy(archivePath: path)
+        modified(self) { $0.state.archivePath = path }
     }
 
     /// Returns a copy with one additional input path appended.
@@ -144,7 +144,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter value: A file or directory path to include in the archive.
     /// - Returns: A new ``Zip`` value with the path appended.
     public func path(_ value: String) -> Self {
-        copy(paths: state.paths + [value])
+        modified(self) { $0.state.paths += [value] }
     }
 
     /// Returns a copy with multiple input paths appended.
@@ -152,7 +152,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter values: The input paths to append, in order.
     /// - Returns: A new ``Zip`` value with the paths appended.
     public func paths(_ values: [String]) -> Self {
-        copy(paths: state.paths + values)
+        modified(self) { $0.state.paths += values }
     }
 
     /// Returns a copy that toggles the update mode (`-u`).
@@ -164,7 +164,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-u`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func update(_ enabled: Bool = true) -> Self {
-        copy(operation: .some(toggledMode(state.operation, .update, enabled: enabled)))
+        modified(self) { $0.state.operation = toggledMode(state.operation, .update, enabled: enabled) }
     }
 
     /// Returns a copy that toggles the freshen mode (`-f`).
@@ -176,7 +176,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-f`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func freshen(_ enabled: Bool = true) -> Self {
-        copy(operation: .some(toggledMode(state.operation, .freshen, enabled: enabled)))
+        modified(self) { $0.state.operation = toggledMode(state.operation, .freshen, enabled: enabled) }
     }
 
     /// Returns a copy that toggles the delete mode (`-d`).
@@ -187,7 +187,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-d`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func delete(_ enabled: Bool = true) -> Self {
-        copy(operation: .some(toggledMode(state.operation, .delete, enabled: enabled)))
+        modified(self) { $0.state.operation = toggledMode(state.operation, .delete, enabled: enabled) }
     }
 
     /// Returns a copy that toggles the move mode (`-m`).
@@ -198,7 +198,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-m`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func move(_ enabled: Bool = true) -> Self {
-        copy(modeMove: enabled)
+        modified(self) { $0.state.modeMove = enabled }
     }
 
     /// Returns a copy that toggles recursive directory traversal (`-r`).
@@ -209,7 +209,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-r`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func recursive(_ enabled: Bool = true) -> Self {
-        copy(isRecursive: enabled)
+        modified(self) { $0.state.isRecursive = enabled }
     }
 
     /// Returns a copy that toggles quiet mode (`-q`).
@@ -219,7 +219,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-q`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func quiet(_ enabled: Bool = true) -> Self {
-        copy(isQuiet: enabled)
+        modified(self) { $0.state.isQuiet = enabled }
     }
 
     /// Returns a copy that toggles verbose mode (`-v`).
@@ -229,7 +229,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-v`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func verbose(_ enabled: Bool = true) -> Self {
-        copy(isVerbose: enabled)
+        modified(self) { $0.state.isVerbose = enabled }
     }
 
     /// Returns a copy that toggles junked paths (`-j`).
@@ -239,7 +239,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-j`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func junkPaths(_ enabled: Bool = true) -> Self {
-        copy(junksPaths: enabled)
+        modified(self) { $0.state.junksPaths = enabled }
     }
 
     /// Returns a copy that toggles symlink storage (`-y`).
@@ -250,7 +250,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-y`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func storeSymlinks(_ enabled: Bool = true) -> Self {
-        copy(storesSymlinks: enabled)
+        modified(self) { $0.state.storesSymlinks = enabled }
     }
 
     /// Returns a copy that strips nonessential extra fields from archive entries (`-X` / `--no-extra`).
@@ -261,7 +261,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-X`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func stripExtraFields(_ enabled: Bool = true) -> Self {
-        copy(stripsExtraFields: enabled)
+        modified(self) { $0.state.stripsExtraFields = enabled }
     }
 
     /// Returns a copy that toggles interactive encryption (`-e`).
@@ -273,7 +273,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-e`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func encryptInteractive(_ enabled: Bool = true) -> Self {
-        copy(encryptsInteractively: enabled)
+        modified(self) { $0.state.encryptsInteractively = enabled }
     }
 
     /// Returns a copy that pins the compression level.
@@ -283,7 +283,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter level: The desired compression strength.
     /// - Returns: A new ``Zip`` value with the level applied.
     public func compressionLevel(_ level: ZipCompressionLevel) -> Self {
-        copy(compressionLevel: level)
+        modified(self) { $0.state.compressionLevel = level }
     }
 
     /// Returns a copy that splits the archive into chunks of `value` size (`-s <size>`).
@@ -294,7 +294,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter value: The split size string (e.g. `"100m"`).
     /// - Returns: A new ``Zip`` value with the split size applied.
     public func splitSize(_ value: String) -> Self {
-        copy(splitSize: value)
+        modified(self) { $0.state.splitSize = value }
     }
 
     /// Returns a copy that supplies a password on the command line (`-P <password>`).
@@ -306,7 +306,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter value: The password string to forward to `zip`.
     /// - Returns: A new ``Zip`` value with the password applied.
     public func password(_ value: String) -> Self {
-        copy(password: value)
+        modified(self) { $0.state.password = value }
     }
 
     /// Returns a copy with one include pattern appended (`-i <pattern>`).
@@ -316,7 +316,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter pattern: A glob pattern such as `"*.swift"`.
     /// - Returns: A new ``Zip`` value with the include pattern appended.
     public func include(_ pattern: String) -> Self {
-        copy(includes: state.includes + [pattern])
+        modified(self) { $0.state.includes += [pattern] }
     }
 
     /// Returns a copy with multiple include patterns appended.
@@ -324,7 +324,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter patterns: Glob patterns to append in order.
     /// - Returns: A new ``Zip`` value with the include patterns appended.
     public func includes(_ patterns: [String]) -> Self {
-        copy(includes: state.includes + patterns)
+        modified(self) { $0.state.includes += patterns }
     }
 
     /// Returns a copy with one exclude pattern appended (`-x <pattern>`).
@@ -334,7 +334,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter pattern: A glob pattern such as `"*.tmp"`.
     /// - Returns: A new ``Zip`` value with the exclude pattern appended.
     public func exclude(_ pattern: String) -> Self {
-        copy(excludes: state.excludes + [pattern])
+        modified(self) { $0.state.excludes += [pattern] }
     }
 
     /// Returns a copy with multiple exclude patterns appended.
@@ -342,7 +342,7 @@ public struct Zip: RunnableCommandFamily {
     /// - Parameter patterns: Glob patterns to append in order.
     /// - Returns: A new ``Zip`` value with the exclude patterns appended.
     public func excludes(_ patterns: [String]) -> Self {
-        copy(excludes: state.excludes + patterns)
+        modified(self) { $0.state.excludes += patterns }
     }
 
     /// Builds the raw `zip` command represented by the current builder state.
@@ -404,52 +404,6 @@ public struct Zip: RunnableCommandFamily {
 
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        archivePath: String?? = nil,
-        paths: [String]? = nil,
-        operation: ZipOperation?? = nil,
-        modeMove: Bool? = nil,
-        isRecursive: Bool? = nil,
-        isQuiet: Bool? = nil,
-        isVerbose: Bool? = nil,
-        junksPaths: Bool? = nil,
-        storesSymlinks: Bool? = nil,
-        stripsExtraFields: Bool? = nil,
-        encryptsInteractively: Bool? = nil,
-        compressionLevel: ZipCompressionLevel?? = nil,
-        splitSize: String?? = nil,
-        password: String?? = nil,
-        includes: [String]? = nil,
-        excludes: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                archivePath: archivePath ?? state.archivePath,
-                paths: paths ?? state.paths,
-                operation: operation ?? state.operation,
-                modeMove: modeMove ?? state.modeMove,
-                isRecursive: isRecursive ?? state.isRecursive,
-                isQuiet: isQuiet ?? state.isQuiet,
-                isVerbose: isVerbose ?? state.isVerbose,
-                junksPaths: junksPaths ?? state.junksPaths,
-                storesSymlinks: storesSymlinks ?? state.storesSymlinks,
-                stripsExtraFields: stripsExtraFields ?? state.stripsExtraFields,
-                encryptsInteractively: encryptsInteractively ?? state.encryptsInteractively,
-                compressionLevel: compressionLevel ?? state.compressionLevel,
-                splitSize: splitSize ?? state.splitSize,
-                password: password ?? state.password,
-                includes: includes ?? state.includes,
-                excludes: excludes ?? state.excludes
-            )
-        )
-    }
 }
 
 /// The mutually exclusive archive operations; `nil` means the default add operation.
@@ -468,66 +422,24 @@ private enum ZipOperation: Sendable, Equatable {
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let archivePath: String?
-    let paths: [String]
-    let operation: ZipOperation?
-    let modeMove: Bool
-    let isRecursive: Bool
-    let isQuiet: Bool
-    let isVerbose: Bool
-    let junksPaths: Bool
-    let storesSymlinks: Bool
-    let stripsExtraFields: Bool
-    let encryptsInteractively: Bool
-    let compressionLevel: ZipCompressionLevel?
-    let splitSize: String?
-    let password: String?
-    let includes: [String]
-    let excludes: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        archivePath: String? = nil,
-        paths: [String] = [],
-        operation: ZipOperation? = nil,
-        modeMove: Bool = false,
-        isRecursive: Bool = false,
-        isQuiet: Bool = false,
-        isVerbose: Bool = false,
-        junksPaths: Bool = false,
-        storesSymlinks: Bool = false,
-        stripsExtraFields: Bool = false,
-        encryptsInteractively: Bool = false,
-        compressionLevel: ZipCompressionLevel? = nil,
-        splitSize: String? = nil,
-        password: String? = nil,
-        includes: [String] = [],
-        excludes: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.archivePath = archivePath
-        self.paths = paths
-        self.operation = operation
-        self.modeMove = modeMove
-        self.isRecursive = isRecursive
-        self.isQuiet = isQuiet
-        self.isVerbose = isVerbose
-        self.junksPaths = junksPaths
-        self.storesSymlinks = storesSymlinks
-        self.stripsExtraFields = stripsExtraFields
-        self.encryptsInteractively = encryptsInteractively
-        self.compressionLevel = compressionLevel
-        self.splitSize = splitSize
-        self.password = password
-        self.includes = includes
-        self.excludes = excludes
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var archivePath: String? = nil
+    var paths: [String] = []
+    var operation: ZipOperation? = nil
+    var modeMove: Bool = false
+    var isRecursive: Bool = false
+    var isQuiet: Bool = false
+    var isVerbose: Bool = false
+    var junksPaths: Bool = false
+    var storesSymlinks: Bool = false
+    var stripsExtraFields: Bool = false
+    var encryptsInteractively: Bool = false
+    var compressionLevel: ZipCompressionLevel? = nil
+    var splitSize: String? = nil
+    var password: String? = nil
+    var includes: [String] = []
+    var excludes: [String] = []
 }
 #endif

@@ -15,7 +15,7 @@ import Foundation
 ///     .run()
 /// ```
 public struct Cp: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -50,7 +50,7 @@ public struct Cp: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `cp` command's stdout to the given destination.
@@ -61,7 +61,7 @@ public struct Cp: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Cp`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `cp` command's stderr to the given destination.
@@ -72,7 +72,7 @@ public struct Cp: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Cp`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that enables or disables recursive copying.
@@ -91,7 +91,7 @@ public struct Cp: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-R`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Cp`` value with the flag applied.
     public func recursive(_ enabled: Bool = true) -> Self {
-        copy(isRecursive: enabled)
+        modified(self) { $0.state.isRecursive = enabled }
     }
 
     /// Returns a copy that forces replacement of existing destinations.
@@ -102,7 +102,7 @@ public struct Cp: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-f`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Cp`` value with the flag applied.
     public func force(_ enabled: Bool = true) -> Self {
-        copy(forcesReplacement: enabled)
+        modified(self) { $0.state.forcesReplacement = enabled }
     }
 
     /// Returns a copy with one additional source path appended.
@@ -113,7 +113,7 @@ public struct Cp: RunnableCommandFamily {
     /// - Parameter path: A file or directory path to copy.
     /// - Returns: A new ``Cp`` value with the source appended.
     public func source(_ path: String) -> Self {
-        copy(sources: state.sources + [path])
+        modified(self) { $0.state.sources += [path] }
     }
 
     /// Returns a copy with multiple source paths appended.
@@ -121,7 +121,7 @@ public struct Cp: RunnableCommandFamily {
     /// - Parameter paths: The source paths to append, in order.
     /// - Returns: A new ``Cp`` value with the sources appended.
     public func sources(_ paths: [String]) -> Self {
-        copy(sources: state.sources + paths)
+        modified(self) { $0.state.sources += paths }
     }
 
     /// Returns a copy that uses `path` as the destination of the copy.
@@ -133,7 +133,7 @@ public struct Cp: RunnableCommandFamily {
     /// - Parameter path: The destination path.
     /// - Returns: A new ``Cp`` value with the destination set.
     public func destination(_ path: String) -> Self {
-        copy(destinationPath: path)
+        modified(self) { $0.state.destinationPath = path }
     }
 
     /// Builds the raw `cp` command represented by the current builder state.
@@ -166,55 +166,15 @@ public struct Cp: RunnableCommandFamily {
 
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        isRecursive: Bool? = nil,
-        forcesReplacement: Bool? = nil,
-        sources: [String]? = nil,
-        destinationPath: String?? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                isRecursive: isRecursive ?? state.isRecursive,
-                forcesReplacement: forcesReplacement ?? state.forcesReplacement,
-                sources: sources ?? state.sources,
-                destinationPath: destinationPath ?? state.destinationPath
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let isRecursive: Bool
-    let forcesReplacement: Bool
-    let sources: [String]
-    let destinationPath: String?
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        isRecursive: Bool = false,
-        forcesReplacement: Bool = false,
-        sources: [String] = [],
-        destinationPath: String? = nil
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.isRecursive = isRecursive
-        self.forcesReplacement = forcesReplacement
-        self.sources = sources
-        self.destinationPath = destinationPath
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var isRecursive: Bool = false
+    var forcesReplacement: Bool = false
+    var sources: [String] = []
+    var destinationPath: String? = nil
 }
 #endif

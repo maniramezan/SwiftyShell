@@ -2,9 +2,9 @@ import Foundation
 
 /// Identifies a command output stream.
 ///
-/// Carried by ``ShellError/decodingError(command:stream:)`` to indicate which stream failed to
+/// Carried by ``ShellError/decodingError(command:stream:)-enum.case`` to indicate which stream failed to
 /// decode as UTF-8.
-public enum StreamKind: Sendable {
+public enum StreamKind: Sendable, Equatable {
     /// Standard output.
     case stdout
     /// Standard error.
@@ -28,7 +28,7 @@ public enum StreamKind: Sendable {
 ///     print("\(cmd) timed out after \(duration)s")
 /// }
 /// ```
-public enum ShellError: Error, LocalizedError, Sendable {
+public enum ShellError: Error, LocalizedError, Sendable, Equatable {
     /// A timeout, output-limit, or other configuration value was invalid (for example negative).
     ///
     /// - Parameter description: A human-readable explanation of the misconfiguration.
@@ -42,17 +42,17 @@ public enum ShellError: Error, LocalizedError, Sendable {
     /// The command exited with a non-zero status code.
     ///
     /// - Parameters:
-    ///   - command: The shell-quoted display string of the command that failed.
+    ///   - command: The executable and argv snapshot of the command that failed.
     ///   - output: The captured ``ShellOutput`` (including ``ShellOutput/exitCode``).
-    case exitFailure(command: String, output: ShellOutput)
+    case exitFailure(command: CommandSnapshot, output: ShellOutput)
 
     /// The command exceeded the configured timeout and was terminated.
     ///
     /// - Parameters:
-    ///   - command: The shell-quoted display string of the command that timed out.
+    ///   - command: The executable and argv snapshot of the command that timed out.
     ///   - duration: The timeout that was exceeded.
     ///   - partialOutput: Whatever output was captured before the process was terminated.
-    case timeout(command: String, duration: Duration, partialOutput: ShellOutput)
+    case timeout(command: CommandSnapshot, duration: Duration, partialOutput: ShellOutput)
 
     /// A captured output stream contained bytes that could not be decoded as UTF-8.
     ///
@@ -61,39 +61,39 @@ public enum ShellError: Error, LocalizedError, Sendable {
     /// return the raw bytes in ``ShellOutput/stdoutData``.
     ///
     /// - Parameters:
-    ///   - command: The shell-quoted display string of the command whose output failed to decode.
+    ///   - command: The executable and argv snapshot of the command whose output failed to decode.
     ///   - stream: Which stream failed to decode (``StreamKind/stdout`` or
     ///     ``StreamKind/stderr``).
-    case decodingError(command: String, stream: StreamKind)
+    case decodingError(command: CommandSnapshot, stream: StreamKind)
 
     /// A command succeeded, but its structured output did not match the expected format.
     ///
     /// - Parameters:
-    ///   - command: The shell-quoted display string of the command that produced malformed output.
+    ///   - command: The executable and argv snapshot of the command that produced malformed output.
     ///   - reason: A human-readable description of the malformed record.
-    case parsingError(command: String, reason: String)
+    case parsingError(command: CommandSnapshot, reason: String)
 
     /// Captured output exceeded the configured limit and the process was terminated.
     ///
     /// - Parameters:
-    ///   - command: The shell-quoted display string of the command.
+    ///   - command: The executable and argv snapshot of the command.
     ///   - limit: The output limit in bytes that was exceeded.
     ///   - partialOutput: Whatever output was captured up to the limit.
-    case outputLimitExceeded(command: String, limit: Int, partialOutput: ShellOutput)
+    case outputLimitExceeded(command: CommandSnapshot, limit: Int, partialOutput: ShellOutput)
 
     /// The command was canceled (typically via task cancellation) before it completed.
     ///
     /// - Parameters:
-    ///   - command: The shell-quoted display string of the canceled command.
+    ///   - command: The executable and argv snapshot of the canceled command.
     ///   - partialOutput: Whatever output was captured before cancellation.
-    case canceled(command: String, partialOutput: ShellOutput)
+    case canceled(command: CommandSnapshot, partialOutput: ShellOutput)
 
     /// The process could not be started (for example missing permissions or invalid arguments).
     ///
     /// - Parameters:
-    ///   - command: The shell-quoted display string of the command.
+    ///   - command: The executable and argv snapshot of the command.
     ///   - reason: A human-readable description of why the spawn failed.
-    case spawnError(command: String, reason: String)
+    case spawnError(command: CommandSnapshot, reason: String)
 
     /// A workflow precondition supplied to ``Workflow/require(_:else:)`` (or its key-path
     /// overload) failed.
@@ -170,4 +170,46 @@ extension StreamKind: CustomStringConvertible {
         case .stderr: "stderr"
         }
     }
+}
+
+public extension ShellError {
+    /// Creates a `exitFailure` error from legacy display text without parsing argv.
+    static func exitFailure(command: String, output: ShellOutput) -> Self {
+        .exitFailure(command: CommandSnapshot(displayString: command), output: output)
+    }
+
+    /// Creates a `timeout` error from legacy display text without parsing argv.
+    static func timeout(command: String, duration: Duration, partialOutput: ShellOutput) -> Self {
+        .timeout(command: CommandSnapshot(displayString: command), duration: duration, partialOutput: partialOutput)
+    }
+
+    /// Creates a `decodingError` error from legacy display text without parsing argv.
+    static func decodingError(command: String, stream: StreamKind) -> Self {
+        .decodingError(command: CommandSnapshot(displayString: command), stream: stream)
+    }
+
+    /// Creates a `parsingError` error from legacy display text without parsing argv.
+    static func parsingError(command: String, reason: String) -> Self {
+        .parsingError(command: CommandSnapshot(displayString: command), reason: reason)
+    }
+
+    /// Creates a `outputLimitExceeded` error from legacy display text without parsing argv.
+    static func outputLimitExceeded(command: String, limit: Int, partialOutput: ShellOutput) -> Self {
+        .outputLimitExceeded(
+            command: CommandSnapshot(displayString: command),
+            limit: limit,
+            partialOutput: partialOutput
+        )
+    }
+
+    /// Creates a `canceled` error from legacy display text without parsing argv.
+    static func canceled(command: String, partialOutput: ShellOutput) -> Self {
+        .canceled(command: CommandSnapshot(displayString: command), partialOutput: partialOutput)
+    }
+
+    /// Creates a `spawnError` error from legacy display text without parsing argv.
+    static func spawnError(command: String, reason: String) -> Self {
+        .spawnError(command: CommandSnapshot(displayString: command), reason: reason)
+    }
+
 }

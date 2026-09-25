@@ -4,7 +4,7 @@ import Foundation
 /// A fluent wrapper for the `rm` command.
 ///
 /// Use ``Rm`` to remove files or directories. Successful removals usually produce no output;
-/// failures throw ``ShellError/exitFailure(command:output:)`` with the `rm` diagnostic text in
+/// failures throw ``ShellError/exitFailure(command:output:)-enum.case`` with the `rm` diagnostic text in
 /// `stderr`.
 ///
 /// ```swift

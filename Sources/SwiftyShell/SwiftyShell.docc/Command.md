@@ -51,6 +51,17 @@ configuring either stream to overwrite the shared file raises
 
 To compose with other commands, use ``pipe(to:)`` to build a ``Pipeline``.
 
+### Displaying Commands
+
+``description`` and ``displayString(using:)`` render the argv with POSIX single quoting: empty
+arguments and arguments containing spaces, quotes, `$`, globs, or command separators are quoted,
+so the string can be pasted into `sh`, `bash`, or `zsh` to run the same argv.
+
+```swift
+let command = Command("git", arguments: "commit", "-m", "it's $HOME")
+print(command)  // git commit -m 'it'\''s $HOME'
+```
+
 ## Topics
 
 ### Creating a Command

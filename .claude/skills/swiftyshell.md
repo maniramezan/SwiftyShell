@@ -128,6 +128,9 @@ public struct Command: Sendable {
         in context: ShellContext = .init(),
         teardown: TeardownStrategy = .graceful
     ) async throws -> any SpawnedProcess
+
+    // POSIX single-quoted display (also `description`); pasting it into sh/bash/zsh runs the same argv.
+    public func displayString(using resolvedExecutable: String? = nil) -> String
 }
 ```
 

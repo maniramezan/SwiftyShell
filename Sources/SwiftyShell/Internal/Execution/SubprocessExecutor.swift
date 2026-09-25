@@ -102,6 +102,7 @@ public struct SubprocessExecutor: CommandExecutor {
     /// - Throws: ``ShellError`` describing the first failing stage, a timeout, an output
     ///   limit overflow, a spawn error, or task cancellation.
     public func execute(_ pipeline: Pipeline, in context: ShellContext) async throws -> ShellOutput {
+        try pipeline.validateInputSources()
         let resolved = try pipeline.stages.map { try ResolvedCommand(command: $0, context: context) }
         return try await PipelineRunner(resolved: resolved).run()
     }

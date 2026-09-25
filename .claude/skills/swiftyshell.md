@@ -224,7 +224,7 @@ public enum InputSource: Sendable, Equatable {
     case file(path: String)    // like shell `<`; relative to the working directory
 }
 // Typed families: `try await Jq(".name").rawOutput().run(stdin: .string(json))`
-// Pipelines: only the first stage's stdin source is used.
+// Pipelines: only the first stage may set stdin; a later stage's source throws invalidConfiguration.
 
 public enum OutputDestination: Sendable, Equatable {
     case capture

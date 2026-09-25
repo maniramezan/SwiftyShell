@@ -342,7 +342,8 @@ public struct Command: Sendable {
     /// Returns a copy of the command that reads its stdin from the given source.
     ///
     /// The default is ``InputSource/none``, an empty stdin. In a ``Pipeline`` only the first
-    /// stage's source is used; later stages read the previous stage's stdout.
+    /// stage may set a source; later stages read the previous stage's stdout, and a source set on
+    /// one of them fails the run with ``ShellError/invalidConfiguration(description:)``.
     ///
     /// ```swift
     /// let name = try await Command("jq", arguments: "-r", ".name")

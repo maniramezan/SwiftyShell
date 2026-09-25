@@ -38,9 +38,11 @@ let lineCount = try await Command("wc", arguments: "-l")
 ```
 
 Input is written concurrently with reading output, so large inputs do not
-deadlock against large outputs. In a ``Pipeline`` only the first stage's source
-is used; each later stage reads the previous stage's stdout. Spawned processes
-read their source the same way.
+deadlock against large outputs. In a ``Pipeline`` only the first stage
+may set a source; each later stage reads the previous stage's stdout, and a
+source set on a later stage fails with
+``ShellError/invalidConfiguration(description:)`` before anything runs.
+Spawned processes read their source the same way.
 
 Input sources are fixed values. Writing to a running process's stdin
 interactively is not supported yet.

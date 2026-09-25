@@ -66,12 +66,22 @@ struct StdinTests {
         }
     }
 
-    @Test func pipelineFeedsFirstStageAndIgnoresLaterSources() async throws {
+    @Test func pipelineFeedsFirstStage() async throws {
         let output = try await Command("cat").stdin(.string("b\na\nc\n"))
-            .pipe(to: Command("sort").stdin(.string("ignored\n")))
+            .pipe(to: Command("sort"))
             .run()
 
         #expect(output.stdout == "a\nb\nc\n")
+    }
+
+    @Test(arguments: [ShellContext(), ShellContext(executor: MockExecutor())])
+    func pipelineRejectsStdinOnLaterStagesBeforeRunning(context: ShellContext) async throws {
+        await #expect {
+            try await Command("cat").pipe(to: Command("sort").stdin(.string("ignored\n"))).run(in: context)
+        } throws: { error in
+            guard case let .invalidConfiguration(description) = error as? ShellError else { return false }
+            return description.contains("Only the first pipeline stage may set stdin")
+        }
     }
 
     @Test func spawnedProcessReadsStdinSource() async throws {

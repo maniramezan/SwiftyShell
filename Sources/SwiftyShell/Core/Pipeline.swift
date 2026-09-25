@@ -30,7 +30,8 @@ public struct Pipeline: Sendable {
     ///
     /// Stages are connected stdout-to-stdin in declaration order. The first stage reads its own
     /// ``Command/stdinSource`` (an empty stdin by default); the last stage's stdout is what
-    /// ``run(in:)`` returns. Later stages' input sources are ignored.
+    /// ``run(in:)`` returns. Setting an input source on a later stage is rejected with
+    /// ``ShellError/invalidConfiguration(description:)`` before any stage starts.
     public let stages: [Command]
 
     internal init(stages: [Command]) {
@@ -69,6 +70,21 @@ public struct Pipeline: Sendable {
     ///   `yes | head -n 1`. Custom executors may throw other errors.
     public func run(in context: ShellContext = .init()) async throws -> ShellOutput {
         try await context.executor.execute(self, in: context)
+    }
+}
+
+extension Pipeline {
+    /// Throws when a stage other than the first sets an ``InputSource``.
+    ///
+    /// Later stages read the previous stage's stdout, so their own source could never be used.
+    /// Executors call this before starting any stage.
+    func validateInputSources() throws {
+        guard stages.dropFirst().allSatisfy({ $0.stdinSource == .none }) else {
+            throw ShellError.invalidConfiguration(
+                description:
+                    "Only the first pipeline stage may set stdin; later stages read the previous stage's stdout"
+            )
+        }
     }
 }
 

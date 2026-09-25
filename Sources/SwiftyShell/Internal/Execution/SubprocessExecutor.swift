@@ -354,7 +354,7 @@ private struct SingleCommandRunner {
         } catch is CancellationError {
             processTask.cancel()
             _ = await processTask.result
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
         }
     }
@@ -427,11 +427,7 @@ private struct SingleCommandRunner {
             }
 
             let snapshot = store.snapshot()
-            let output = try decodeOutput(
-                command: resolved.displayCommand,
-                snapshot: snapshot,
-                exitCode: outcome.terminationStatus.swiftyShellExitCode
-            )
+            let output = makeOutput(snapshot: snapshot, exitCode: outcome.terminationStatus.swiftyShellExitCode)
 
             if Task.isCancelled {
                 throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
@@ -443,14 +439,14 @@ private struct SingleCommandRunner {
 
             return output
         } catch is CaptureLimitExceeded {
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.outputLimitExceeded(
                 command: resolved.displayCommand,
                 limit: resolved.outputLimit,
                 partialOutput: output
             )
         } catch is CancellationError {
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
         } catch let error as ShellError {
             throw error
@@ -474,7 +470,7 @@ private struct SingleCommandRunner {
         case .timedOut:
             processTask.cancel()
             _ = await processTask.result
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.timeout(
                 command: resolved.displayCommand,
                 duration: resolved.timeout ?? 0,
@@ -485,13 +481,13 @@ private struct SingleCommandRunner {
             _ = await processTask.result
             switch reason {
             case let .outputLimitExceeded(command, limit):
-                let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+                let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
                 throw ShellError.outputLimitExceeded(command: command, limit: limit, partialOutput: output)
             }
         case .canceled:
             processTask.cancel()
             _ = await processTask.result
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
         }
     }
@@ -617,12 +613,12 @@ private struct SpawnedCommandRunner: Sendable {
                 }
             }
 
-            return lossyOutput(snapshot: store.snapshot(), exitCode: outcome.terminationStatus.swiftyShellExitCode)
+            return makeOutput(snapshot: store.snapshot(), exitCode: outcome.terminationStatus.swiftyShellExitCode)
         } catch is CaptureLimitExceeded {
-            return lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            return makeOutput(snapshot: store.snapshot(), exitCode: -1)
         } catch {
             await state.failStartupIfNeeded(error)
-            return lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            return makeOutput(snapshot: store.snapshot(), exitCode: -1)
         }
     }
 }
@@ -912,7 +908,7 @@ private struct PipelineRunner {
             let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.canceled(
                 command: finalCommand.displayCommand,
-                partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
+                partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
             )
         }
     }
@@ -1040,7 +1036,7 @@ private struct PipelineRunner {
                 if Task.isCancelled {
                     throw ShellError.canceled(
                         command: finalCommand.displayCommand,
-                        partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
+                        partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
                     )
                 }
 
@@ -1048,8 +1044,7 @@ private struct PipelineRunner {
                     throw firstThrownFailure
                 }
 
-                let output = try decodeOutput(
-                    command: finalCommand.displayCommand,
+                let output = makeOutput(
                     snapshot: snapshot,
                     exitCode: stageResults.first { $0.index == resolved.count - 1 }?.exitCode ?? 0
                 )
@@ -1067,8 +1062,8 @@ private struct PipelineRunner {
                     throw ShellError.exitFailure(
                         command: firstFailure.command.displayCommand,
                         output: ShellOutput(
-                            stdout: output.stdout,
-                            stderr: output.stderr,
+                            stdoutData: output.stdoutData,
+                            stderrData: output.stderrData,
                             exitCode: firstFailure.exitCode
                         )
                     )
@@ -1080,7 +1075,7 @@ private struct PipelineRunner {
             let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.canceled(
                 command: finalCommand.displayCommand,
-                partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
+                partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
             )
         }
     }
@@ -1103,14 +1098,14 @@ private struct PipelineRunner {
             throw ShellError.timeout(
                 command: finalCommand.displayCommand,
                 duration: duration,
-                partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
+                partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
             )
         case let .earlyTerminated(reason):
             processTask.cancel()
             _ = await processTask.result
             switch reason {
             case let .outputLimitExceeded(command, limit):
-                let output = lossyOutput(snapshot: pipelineSnapshot(stores: stores), exitCode: -1)
+                let output = makeOutput(snapshot: pipelineSnapshot(stores: stores), exitCode: -1)
                 throw ShellError.outputLimitExceeded(command: command, limit: limit, partialOutput: output)
             }
         case .canceled:
@@ -1119,7 +1114,7 @@ private struct PipelineRunner {
             let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.canceled(
                 command: finalCommand.displayCommand,
-                partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
+                partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
             )
         }
     }
@@ -1425,25 +1420,8 @@ private extension Execution {
     }
 }
 
-private func decodeOutput(command: String, snapshot: CaptureSnapshot, exitCode: Int32) throws -> ShellOutput {
-    let stdout = try decodeStrict(snapshot.stdout, stream: .stdout, command: command)
-    let stderr = try decodeStrict(snapshot.stderr, stream: .stderr, command: command)
-    return ShellOutput(stdout: stdout, stderr: stderr, exitCode: exitCode)
-}
-
-private func lossyOutput(snapshot: CaptureSnapshot, exitCode: Int32) -> ShellOutput {
-    ShellOutput(
-        stdout: String(decoding: snapshot.stdout, as: UTF8.self),
-        stderr: String(decoding: snapshot.stderr, as: UTF8.self),
-        exitCode: exitCode
-    )
-}
-
-private func decodeStrict(_ data: Data, stream: StreamKind, command: String) throws -> String {
-    guard let string = String(data: data, encoding: .utf8) else {
-        throw ShellError.decodingError(command: command, stream: stream)
-    }
-    return string
+private func makeOutput(snapshot: CaptureSnapshot, exitCode: Int32) -> ShellOutput {
+    ShellOutput(stdoutData: snapshot.stdout, stderrData: snapshot.stderr, exitCode: exitCode)
 }
 
 private func mapSubprocessError(_ error: SubprocessError, command: String, limit: Int) -> ShellError {

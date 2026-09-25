@@ -300,7 +300,11 @@ public struct GitBranch: RunnableCommandFamily {
         let command = git.makeCommand(arguments).stdout(.capture)
         return Workflow {
             let output = try await command.run(in: git.context)
-            return try GitParsers.parse(output.stdout, from: command, using: GitParsers.parseBranchEntries)
+            return try GitParsers.parse(
+                try output.validatedStdout(for: command),
+                from: command,
+                using: GitParsers.parseBranchEntries
+            )
         }
     }
 
@@ -892,7 +896,11 @@ public struct GitDiff: RunnableCommandFamily {
         let command = self.format(.nameStatus).settingStdoutDestination(.capture).buildCommand(nullTerminated: true)
         return Workflow {
             let output = try await command.run(in: git.context)
-            return try GitParsers.parse(output.stdout, from: command, using: GitParsers.parseDiffFileChanges)
+            return try GitParsers.parse(
+                try output.validatedStdout(for: command),
+                from: command,
+                using: GitParsers.parseDiffFileChanges
+            )
         }
     }
 
@@ -1055,7 +1063,11 @@ public struct GitLog: RunnableCommandFamily {
             .command()
         return Workflow {
             let output = try await command.run(in: git.context)
-            return try GitParsers.parse(output.stdout, from: command, using: GitParsers.parseLogEntries)
+            return try GitParsers.parse(
+                try output.validatedStdout(for: command),
+                from: command,
+                using: GitParsers.parseLogEntries
+            )
         }
     }
 

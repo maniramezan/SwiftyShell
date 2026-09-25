@@ -115,6 +115,10 @@ Test suite. Sub-folders mirror the source layout: `Brew/`, `Bun/`, `Cargo/`, `Co
 
 A standalone SwiftPM executable package that demonstrates real SwiftyShell usage. Depends on SwiftyShell via a local path reference.
 
+### `Benchmarks/`
+
+A standalone SwiftPM package (Swift 6.3+) with [package-benchmark](https://github.com/ordo-one/package-benchmark) benchmarks for process overhead, output routing, pipelines, and builder cost. It depends on SwiftyShell by local path, so the library has no benchmark dependency. Run `swift package --disable-sandbox benchmark` from `Benchmarks/`; use `baseline update` / `baseline compare` to measure an execution-engine change before and after. See `Benchmarks/README.md`.
+
 ### `.claude/skills/`
 
 `swiftyshell.md` — the shared SwiftyShell agent skill for Claude and Codex/GPT-style assistants. Claude loads it directly from `.claude/skills/swiftyshell.md`; Codex/GPT agents should read that same file when a task involves generating SwiftyShell code, changing public API, or authoring command families. **Keep `AGENTS.md` and `.claude/skills/swiftyshell.md` aligned and update both files in the same PR whenever shared agent guidance or public API expectations change.**

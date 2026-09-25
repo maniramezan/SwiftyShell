@@ -95,6 +95,11 @@ public struct Command: Sendable {
     /// Change with ``stdout(_:)`` to discard or write to a file.
     public let stdoutDestination: OutputDestination
 
+    /// Where this command's stdin comes from.
+    ///
+    /// Defaults to ``InputSource/none``, an empty stdin. Change with ``stdin(_:)``.
+    public let stdinSource: InputSource
+
     /// The stderr handling strategy for this command.
     ///
     /// Defaults to ``OutputDestination/capture``, which retains stderr in ``ShellOutput/stderr``.
@@ -142,6 +147,7 @@ public struct Command: Sendable {
         self.workingDirectoryOverride = nil
         self.timeoutOverride = nil
         self.outputLimitOverride = nil
+        self.stdinSource = .none
         self.stdoutDestination = .capture
         self.stderrDestination = .capture
     }
@@ -154,6 +160,7 @@ public struct Command: Sendable {
         workingDirectoryOverride: String?,
         timeoutOverride: Duration?,
         outputLimitOverride: Int?,
+        stdinSource: InputSource,
         stdoutDestination: OutputDestination,
         stderrDestination: OutputDestination
     ) {
@@ -164,6 +171,7 @@ public struct Command: Sendable {
         self.workingDirectoryOverride = workingDirectoryOverride
         self.timeoutOverride = timeoutOverride
         self.outputLimitOverride = outputLimitOverride
+        self.stdinSource = stdinSource
         self.stdoutDestination = stdoutDestination
         self.stderrDestination = stderrDestination
     }
@@ -331,6 +339,24 @@ public struct Command: Sendable {
         copy(outputLimitOverride: bytes)
     }
 
+    /// Returns a copy of the command that reads its stdin from the given source.
+    ///
+    /// The default is ``InputSource/none``, an empty stdin. In a ``Pipeline`` only the first
+    /// stage may set a source; later stages read the previous stage's stdout, and a source set on
+    /// one of them fails the run with ``ShellError/invalidConfiguration(description:)``.
+    ///
+    /// ```swift
+    /// let name = try await Command("jq", arguments: "-r", ".name")
+    ///     .stdin(.string(#"{"name": "SwiftyShell"}"#))
+    ///     .run(in: context)
+    /// ```
+    ///
+    /// - Parameter source: Where the command's stdin comes from.
+    /// - Returns: A new ``Command`` with the input source applied.
+    public func stdin(_ source: InputSource) -> Self {
+        copy(stdinSource: source)
+    }
+
     /// Returns a copy of the command that routes stdout to the given destination.
     ///
     /// The default destination is ``OutputDestination/capture``, which keeps stdout in memory
@@ -490,6 +516,7 @@ public struct Command: Sendable {
         workingDirectoryOverride: String?? = nil,
         timeoutOverride: Duration?? = nil,
         outputLimitOverride: Int?? = nil,
+        stdinSource: InputSource? = nil,
         stdoutDestination: OutputDestination? = nil,
         stderrDestination: OutputDestination? = nil
     ) -> Self {
@@ -501,6 +528,7 @@ public struct Command: Sendable {
             workingDirectoryOverride: workingDirectoryOverride ?? self.workingDirectoryOverride,
             timeoutOverride: timeoutOverride ?? self.timeoutOverride,
             outputLimitOverride: outputLimitOverride ?? self.outputLimitOverride,
+            stdinSource: stdinSource ?? self.stdinSource,
             stdoutDestination: stdoutDestination ?? self.stdoutDestination,
             stderrDestination: stderrDestination ?? self.stderrDestination
         )
@@ -523,6 +551,7 @@ extension Command: CustomDebugStringConvertible {
         if let wd = workingDirectoryOverride { parts.append("workingDirectory: \(wd.debugDescription)") }
         if let timeout = timeoutOverride { parts.append("timeout: \(timeout)") }
         if let limit = outputLimitOverride { parts.append("outputLimit: \(limit)") }
+        if stdinSource != .none { parts.append("stdin: \(stdinSource.debugSummary)") }
         if stdoutDestination != .capture { parts.append("stdout: \(stdoutDestination)") }
         if stderrDestination != .capture { parts.append("stderr: \(stderrDestination)") }
         return parts.joined(separator: ", ") + ")"

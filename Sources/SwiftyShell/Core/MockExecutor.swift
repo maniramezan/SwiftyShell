@@ -169,6 +169,7 @@ public struct MockExecutor: CommandExecutor {
     /// - Throws: Whatever the handler throws for any stage, plus the same configuration and
     ///   exit-code errors as ``execute(_:in:)-(Command,_)``.
     public func execute(_ pipeline: Pipeline, in context: ShellContext) async throws -> ShellOutput {
+        try pipeline.validateInputSources()
         for stage in pipeline.stages {
             try validateConfiguration(for: stage, in: context)
         }

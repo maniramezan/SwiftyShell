@@ -77,6 +77,7 @@ Arguments are forwarded as distinct argv entries without shell parsing, but Swif
 - ``ShellPlatform``
 - ``ShellOutput``
 - ``OutputDestination``
+- ``InputSource``
 - ``SubprocessExecutor``
 - ``FileMode``
 - ``FileMode/PermissionSet``

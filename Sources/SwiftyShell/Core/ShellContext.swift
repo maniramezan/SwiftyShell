@@ -17,13 +17,16 @@ public enum ShellPlatform: Sendable {
     case linux
 
     /// The platform for the current compilation target.
+    ///
+    /// Building for any other platform is a compile-time error rather than silently reporting
+    /// ``macOS``, which would apply macOS search paths on an unsupported system.
     public static let current: Self = {
         #if os(macOS)
         .macOS
         #elseif os(Linux)
         .linux
         #else
-        .macOS
+        #error("SwiftyShell supports macOS and Linux only")
         #endif
     }()
 

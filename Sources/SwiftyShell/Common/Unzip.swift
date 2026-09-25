@@ -173,34 +173,37 @@ public struct Unzip: RunnableCommandFamily {
     /// Returns a copy that toggles list mode (`-l`).
     ///
     /// In list mode `unzip` prints a tabular listing of archive entries to stdout instead of
-    /// extracting. ``entries()`` builds on top of this mode.
+    /// extracting. ``entries()`` builds on top of this mode. List, ``test(_:)``, and
+    /// ``printToStdout(_:)`` are mutually exclusive; the last one enabled wins.
     ///
     /// - Parameter enabled: `true` to add `-l`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func list(_ enabled: Bool = true) -> Self {
-        copy(modeList: enabled)
+        copy(mode: .some(toggledMode(state.mode, .list, enabled: enabled)))
     }
 
     /// Returns a copy that toggles test mode (`-t`).
     ///
     /// In test mode `unzip` validates archive integrity (CRC checks) without writing any
-    /// extracted files.
+    /// extracted files. Mutually exclusive with ``list(_:)`` and ``printToStdout(_:)``; the last
+    /// one enabled wins.
     ///
     /// - Parameter enabled: `true` to add `-t`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func test(_ enabled: Bool = true) -> Self {
-        copy(modeTest: enabled)
+        copy(mode: .some(toggledMode(state.mode, .test, enabled: enabled)))
     }
 
     /// Returns a copy that toggles pipe-to-stdout mode (`-p`).
     ///
     /// `unzip -p` writes the contents of selected entries to stdout, suitable for piping into
-    /// other commands. No filesystem entries are created.
+    /// other commands. No filesystem entries are created. Mutually exclusive with ``list(_:)`` and
+    /// ``test(_:)``; the last one enabled wins.
     ///
     /// - Parameter enabled: `true` to add `-p`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func printToStdout(_ enabled: Bool = true) -> Self {
-        copy(modePrint: enabled)
+        copy(mode: .some(toggledMode(state.mode, .print, enabled: enabled)))
     }
 
     /// Returns a copy that sets the extraction destination directory (`-d <dir>`).
@@ -218,22 +221,23 @@ public struct Unzip: RunnableCommandFamily {
     ///
     /// Without this flag `unzip` prompts on stdin before overwriting existing files; SwiftyShell
     /// does not feed stdin, so unattended extractions should pass `-o` (or ``neverOverwrite(_:)``)
-    /// to avoid hanging.
+    /// to avoid hanging. Mutually exclusive with ``neverOverwrite(_:)``; the last one enabled wins.
     ///
     /// - Parameter enabled: `true` to add `-o`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func overwrite(_ enabled: Bool = true) -> Self {
-        copy(overwrites: enabled)
+        copy(overwrite: .some(toggledMode(state.overwrite, .always, enabled: enabled)))
     }
 
     /// Returns a copy that toggles never-overwrite mode (`-n`).
     ///
-    /// With this flag `unzip` skips entries whose target already exists.
+    /// With this flag `unzip` skips entries whose target already exists. Mutually exclusive with
+    /// ``overwrite(_:)``; the last one enabled wins.
     ///
     /// - Parameter enabled: `true` to add `-n`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func neverOverwrite(_ enabled: Bool = true) -> Self {
-        copy(neverOverwrites: enabled)
+        copy(overwrite: .some(toggledMode(state.overwrite, .never, enabled: enabled)))
     }
 
     /// Returns a copy that toggles quiet mode (`-q`).
@@ -270,22 +274,24 @@ public struct Unzip: RunnableCommandFamily {
 
     /// Returns a copy that toggles freshen mode (`-f`).
     ///
-    /// Replaces only existing on-disk entries that are older than the archive copy.
+    /// Replaces only existing on-disk entries that are older than the archive copy. Mutually
+    /// exclusive with ``updateOnly(_:)``; the last one enabled wins.
     ///
     /// - Parameter enabled: `true` to add `-f`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func freshen(_ enabled: Bool = true) -> Self {
-        copy(modeFreshen: enabled)
+        copy(refresh: .some(toggledMode(state.refresh, .freshen, enabled: enabled)))
     }
 
     /// Returns a copy that toggles update mode (`-u`).
     ///
-    /// Like ``freshen(_:)`` but also creates new files that don't yet exist on disk.
+    /// Like ``freshen(_:)`` but also creates new files that don't yet exist on disk. Mutually
+    /// exclusive with ``freshen(_:)``; the last one enabled wins.
     ///
     /// - Parameter enabled: `true` to add `-u`. Defaults to `true`.
     /// - Returns: A new ``Unzip`` value with the flag applied.
     public func updateOnly(_ enabled: Bool = true) -> Self {
-        copy(modeUpdate: enabled)
+        copy(refresh: .some(toggledMode(state.refresh, .update, enabled: enabled)))
     }
 
     /// Returns a copy that supplies a password on the command line (`-P <password>`).
@@ -309,14 +315,10 @@ public struct Unzip: RunnableCommandFamily {
     public func command() -> Command {
         var arguments: [String] = []
 
-        if state.modeList { arguments.append("-l") }
-        if state.modeTest { arguments.append("-t") }
-        if state.modePrint { arguments.append("-p") }
-        if state.modeFreshen { arguments.append("-f") }
-        if state.modeUpdate { arguments.append("-u") }
+        if let mode = state.mode { arguments.append(mode.flag) }
+        if let refresh = state.refresh { arguments.append(refresh.flag) }
 
-        if state.overwrites { arguments.append("-o") }
-        if state.neverOverwrites { arguments.append("-n") }
+        if let overwrite = state.overwrite { arguments.append(overwrite.flag) }
         if state.isQuiet { arguments.append("-q") }
         if state.junksPaths { arguments.append("-j") }
         if state.restoresSecurityMetadata { arguments.append("-K") }
@@ -369,9 +371,7 @@ public struct Unzip: RunnableCommandFamily {
         let cmd = copy(
             stdoutDestination: .capture,
             destinationPath: .some(nil),
-            modeList: true,
-            modeTest: false,
-            modePrint: false
+            mode: .some(.list)
         ).command()
         return Workflow {
             let output = try await cmd.run(in: context)
@@ -387,13 +387,9 @@ public struct Unzip: RunnableCommandFamily {
         members: [String]? = nil,
         excludes: [String]? = nil,
         destinationPath: String?? = nil,
-        modeList: Bool? = nil,
-        modeTest: Bool? = nil,
-        modePrint: Bool? = nil,
-        modeFreshen: Bool? = nil,
-        modeUpdate: Bool? = nil,
-        overwrites: Bool? = nil,
-        neverOverwrites: Bool? = nil,
+        mode: UnzipMode?? = nil,
+        refresh: UnzipRefresh?? = nil,
+        overwrite: UnzipOverwrite?? = nil,
         isQuiet: Bool? = nil,
         junksPaths: Bool? = nil,
         restoresSecurityMetadata: Bool? = nil,
@@ -408,19 +404,56 @@ public struct Unzip: RunnableCommandFamily {
                 members: members ?? state.members,
                 excludes: excludes ?? state.excludes,
                 destinationPath: destinationPath ?? state.destinationPath,
-                modeList: modeList ?? state.modeList,
-                modeTest: modeTest ?? state.modeTest,
-                modePrint: modePrint ?? state.modePrint,
-                modeFreshen: modeFreshen ?? state.modeFreshen,
-                modeUpdate: modeUpdate ?? state.modeUpdate,
-                overwrites: overwrites ?? state.overwrites,
-                neverOverwrites: neverOverwrites ?? state.neverOverwrites,
+                mode: mode ?? state.mode,
+                refresh: refresh ?? state.refresh,
+                overwrite: overwrite ?? state.overwrite,
                 isQuiet: isQuiet ?? state.isQuiet,
                 junksPaths: junksPaths ?? state.junksPaths,
                 restoresSecurityMetadata: restoresSecurityMetadata ?? state.restoresSecurityMetadata,
                 password: password ?? state.password
             )
         )
+    }
+}
+
+/// The mutually exclusive non-extracting modes; `nil` means extract.
+private enum UnzipMode: Sendable, Equatable {
+    case list
+    case test
+    case print
+
+    var flag: String {
+        switch self {
+        case .list: "-l"
+        case .test: "-t"
+        case .print: "-p"
+        }
+    }
+}
+
+/// The mutually exclusive refresh policies for extraction.
+private enum UnzipRefresh: Sendable, Equatable {
+    case freshen
+    case update
+
+    var flag: String {
+        switch self {
+        case .freshen: "-f"
+        case .update: "-u"
+        }
+    }
+}
+
+/// The mutually exclusive answers to "overwrite an existing file?"; `nil` means prompt.
+private enum UnzipOverwrite: Sendable, Equatable {
+    case always
+    case never
+
+    var flag: String {
+        switch self {
+        case .always: "-o"
+        case .never: "-n"
+        }
     }
 }
 
@@ -432,13 +465,9 @@ private struct State: Sendable {
     let members: [String]
     let excludes: [String]
     let destinationPath: String?
-    let modeList: Bool
-    let modeTest: Bool
-    let modePrint: Bool
-    let modeFreshen: Bool
-    let modeUpdate: Bool
-    let overwrites: Bool
-    let neverOverwrites: Bool
+    let mode: UnzipMode?
+    let refresh: UnzipRefresh?
+    let overwrite: UnzipOverwrite?
     let isQuiet: Bool
     let junksPaths: Bool
     let restoresSecurityMetadata: Bool
@@ -452,13 +481,9 @@ private struct State: Sendable {
         members: [String] = [],
         excludes: [String] = [],
         destinationPath: String? = nil,
-        modeList: Bool = false,
-        modeTest: Bool = false,
-        modePrint: Bool = false,
-        modeFreshen: Bool = false,
-        modeUpdate: Bool = false,
-        overwrites: Bool = false,
-        neverOverwrites: Bool = false,
+        mode: UnzipMode? = nil,
+        refresh: UnzipRefresh? = nil,
+        overwrite: UnzipOverwrite? = nil,
         isQuiet: Bool = false,
         junksPaths: Bool = false,
         restoresSecurityMetadata: Bool = false,
@@ -471,13 +496,9 @@ private struct State: Sendable {
         self.members = members
         self.excludes = excludes
         self.destinationPath = destinationPath
-        self.modeList = modeList
-        self.modeTest = modeTest
-        self.modePrint = modePrint
-        self.modeFreshen = modeFreshen
-        self.modeUpdate = modeUpdate
-        self.overwrites = overwrites
-        self.neverOverwrites = neverOverwrites
+        self.mode = mode
+        self.refresh = refresh
+        self.overwrite = overwrite
         self.isQuiet = isQuiet
         self.junksPaths = junksPaths
         self.restoresSecurityMetadata = restoresSecurityMetadata

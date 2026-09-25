@@ -158,33 +158,36 @@ public struct Zip: RunnableCommandFamily {
     /// Returns a copy that toggles the update mode (`-u`).
     ///
     /// In update mode `zip` adds new entries and replaces existing entries that have a newer
-    /// timestamp than the copy in the archive.
+    /// timestamp than the copy in the archive. Update, ``freshen(_:)``, and ``delete(_:)`` are
+    /// mutually exclusive; the last one enabled wins.
     ///
     /// - Parameter enabled: `true` to add `-u`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func update(_ enabled: Bool = true) -> Self {
-        copy(modeUpdate: enabled)
+        copy(operation: .some(toggledMode(state.operation, .update, enabled: enabled)))
     }
 
     /// Returns a copy that toggles the freshen mode (`-f`).
     ///
     /// Freshen mode replaces entries that have a newer timestamp than the archive copy without
-    /// adding new files.
+    /// adding new files. Mutually exclusive with ``update(_:)`` and ``delete(_:)``; the last one
+    /// enabled wins.
     ///
     /// - Parameter enabled: `true` to add `-f`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func freshen(_ enabled: Bool = true) -> Self {
-        copy(modeFreshen: enabled)
+        copy(operation: .some(toggledMode(state.operation, .freshen, enabled: enabled)))
     }
 
     /// Returns a copy that toggles the delete mode (`-d`).
     ///
-    /// In delete mode the named entries are removed from an existing archive.
+    /// In delete mode the named entries are removed from an existing archive. Mutually exclusive
+    /// with ``update(_:)`` and ``freshen(_:)``; the last one enabled wins.
     ///
     /// - Parameter enabled: `true` to add `-d`. Defaults to `true`.
     /// - Returns: A new ``Zip`` value with the flag applied.
     public func delete(_ enabled: Bool = true) -> Self {
-        copy(modeDelete: enabled)
+        copy(operation: .some(toggledMode(state.operation, .delete, enabled: enabled)))
     }
 
     /// Returns a copy that toggles the move mode (`-m`).
@@ -353,9 +356,7 @@ public struct Zip: RunnableCommandFamily {
     public func command() -> Command {
         var arguments: [String] = []
 
-        if state.modeUpdate { arguments.append("-u") }
-        if state.modeFreshen { arguments.append("-f") }
-        if state.modeDelete { arguments.append("-d") }
+        if let operation = state.operation { arguments.append(operation.flag) }
         if state.modeMove { arguments.append("-m") }
 
         if state.isRecursive { arguments.append("-r") }
@@ -410,9 +411,7 @@ public struct Zip: RunnableCommandFamily {
         stderrDestination: OutputDestination? = nil,
         archivePath: String?? = nil,
         paths: [String]? = nil,
-        modeUpdate: Bool? = nil,
-        modeFreshen: Bool? = nil,
-        modeDelete: Bool? = nil,
+        operation: ZipOperation?? = nil,
         modeMove: Bool? = nil,
         isRecursive: Bool? = nil,
         isQuiet: Bool? = nil,
@@ -434,9 +433,7 @@ public struct Zip: RunnableCommandFamily {
                 stderrDestination: stderrDestination ?? state.stderrDestination,
                 archivePath: archivePath ?? state.archivePath,
                 paths: paths ?? state.paths,
-                modeUpdate: modeUpdate ?? state.modeUpdate,
-                modeFreshen: modeFreshen ?? state.modeFreshen,
-                modeDelete: modeDelete ?? state.modeDelete,
+                operation: operation ?? state.operation,
                 modeMove: modeMove ?? state.modeMove,
                 isRecursive: isRecursive ?? state.isRecursive,
                 isQuiet: isQuiet ?? state.isQuiet,
@@ -455,15 +452,28 @@ public struct Zip: RunnableCommandFamily {
     }
 }
 
+/// The mutually exclusive archive operations; `nil` means the default add operation.
+private enum ZipOperation: Sendable, Equatable {
+    case update
+    case freshen
+    case delete
+
+    var flag: String {
+        switch self {
+        case .update: "-u"
+        case .freshen: "-f"
+        case .delete: "-d"
+        }
+    }
+}
+
 private struct State: Sendable {
     let config: ToolConfiguration
     let stdoutDestination: OutputDestination
     let stderrDestination: OutputDestination
     let archivePath: String?
     let paths: [String]
-    let modeUpdate: Bool
-    let modeFreshen: Bool
-    let modeDelete: Bool
+    let operation: ZipOperation?
     let modeMove: Bool
     let isRecursive: Bool
     let isQuiet: Bool
@@ -484,9 +494,7 @@ private struct State: Sendable {
         stderrDestination: OutputDestination = .capture,
         archivePath: String? = nil,
         paths: [String] = [],
-        modeUpdate: Bool = false,
-        modeFreshen: Bool = false,
-        modeDelete: Bool = false,
+        operation: ZipOperation? = nil,
         modeMove: Bool = false,
         isRecursive: Bool = false,
         isQuiet: Bool = false,
@@ -506,9 +514,7 @@ private struct State: Sendable {
         self.stderrDestination = stderrDestination
         self.archivePath = archivePath
         self.paths = paths
-        self.modeUpdate = modeUpdate
-        self.modeFreshen = modeFreshen
-        self.modeDelete = modeDelete
+        self.operation = operation
         self.modeMove = modeMove
         self.isRecursive = isRecursive
         self.isQuiet = isQuiet

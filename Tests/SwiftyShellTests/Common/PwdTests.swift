@@ -4,6 +4,12 @@ import Testing
 @testable import SwiftyShell
 
 struct PwdCommandTests {
+    @Test func exclusiveModesPreserveOtherSelections() {
+        #expect(Pwd().physical().logical().command().arguments == ["-L"])
+        #expect(Pwd().logical().physical(false).command().arguments == ["-L"])
+        #expect(Pwd().physical().physical(false).command().arguments.isEmpty)
+    }
+
     @Test func buildsPwdCommand() {
         let command = Pwd()
             .physical()

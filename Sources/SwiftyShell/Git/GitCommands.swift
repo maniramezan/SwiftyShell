@@ -99,6 +99,13 @@ public enum GitConfigFormat: Sendable, Equatable, Hashable {
     }
 }
 
+/// The mutually exclusive `git branch` operations; `nil` means create (or list when no name is set).
+enum GitBranchMode: Sendable, Equatable {
+    case list
+    case delete(force: Bool)
+    case move
+}
+
 /// A fluent wrapper for `git branch`.
 ///
 /// Use ``GitBranch`` for branch listing and branch mutations. Calling ``run()`` returns raw
@@ -163,18 +170,21 @@ public struct GitBranch: RunnableCommandFamily {
 
     /// Returns a copy that lists branches instead of creating one.
     ///
-    /// Maps to the `--list` flag. Combine with ``all(_:)`` to also list remote-tracking branches,
+    /// Maps to the `--list` flag. Listing, ``delete(_:)``, ``forceDelete(_:)``, and ``move(to:)``
+    /// are mutually exclusive; the last one selected wins. With ``named(_:)``, the name is used
+    /// as a `--list` pattern. Combine with ``all(_:)`` to also list remote-tracking branches,
     /// or use ``entries()`` for parsed ``GitBranchEntry`` values.
     ///
     /// - Parameter enabled: `true` to add `--list`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``GitBranch`` value with the flag applied.
     public func list(_ enabled: Bool = true) -> Self {
-        copy(listsBranches: enabled)
+        copy(mode: .some(toggledMode(state.mode, .list, enabled: enabled)))
     }
 
     /// Returns a copy that includes remote-tracking branches when listing.
     ///
-    /// Maps to the `--all` flag.
+    /// Maps to the `--all` flag. Only emitted when listing: in list mode, or when no operation
+    /// and no branch name is set (plain `git branch --all` lists).
     ///
     /// - Parameter enabled: `true` to add `--all`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``GitBranch`` value with the flag applied.
@@ -190,7 +200,7 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Parameter name: The branch to delete.
     /// - Returns: A new ``GitBranch`` value configured to delete the branch.
     public func delete(_ name: String) -> Self {
-        copy(deletesBranch: true, forceDeletesBranch: false, branchName: name)
+        copy(mode: .some(.delete(force: false)), branchName: name)
     }
 
     /// Returns a copy that force-deletes the named branch.
@@ -201,7 +211,7 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Parameter name: The branch to force-delete.
     /// - Returns: A new ``GitBranch`` value configured to force-delete the branch.
     public func forceDelete(_ name: String) -> Self {
-        copy(deletesBranch: false, forceDeletesBranch: true, branchName: name)
+        copy(mode: .some(.delete(force: true)), branchName: name)
     }
 
     /// Returns a copy that sets the branch name for create, move, or delete operations.
@@ -219,7 +229,8 @@ public struct GitBranch: RunnableCommandFamily {
     /// Returns a copy that sets the start-point ref used when creating a branch.
     ///
     /// Forwarded to git as a positional argument after the new branch name (e.g.
-    /// `git branch new-feature origin/main`).
+    /// `git branch new-feature origin/main`). Only emitted when creating a branch; it is ignored
+    /// once ``list(_:)``, ``delete(_:)``, ``forceDelete(_:)``, or ``move(to:)`` is selected.
     ///
     /// - Parameter value: The commit, branch, or tag to start the new branch from.
     /// - Returns: A new ``GitBranch`` value with the start point applied.
@@ -235,7 +246,7 @@ public struct GitBranch: RunnableCommandFamily {
     /// - Parameter newName: The new branch name.
     /// - Returns: A new ``GitBranch`` value configured to perform the rename.
     public func move(to newName: String) -> Self {
-        copy(movesBranch: true, newBranchName: newName)
+        copy(mode: .some(.move), newBranchName: newName)
     }
 
     /// Builds the raw `git branch` command represented by the current builder state.
@@ -247,29 +258,38 @@ public struct GitBranch: RunnableCommandFamily {
     public func command() -> Command {
         var arguments = ["branch"]
 
-        if state.listsBranches {
+        switch state.mode {
+        case nil:
+            if state.includesAllBranches, state.branchName == nil {
+                arguments.append("--all")
+            }
+            if let branchName = state.branchName {
+                arguments.append(branchName)
+                if let startPoint = state.startPoint {
+                    arguments.append(startPoint)
+                }
+            }
+        case .list:
             arguments.append("--list")
-        }
-        if state.includesAllBranches {
-            arguments.append("--all")
-        }
-        if state.deletesBranch {
-            arguments.append("-d")
-        }
-        if state.forceDeletesBranch {
-            arguments.append("-D")
-        }
-        if state.movesBranch {
+            if state.includesAllBranches {
+                arguments.append("--all")
+            }
+            if let branchName = state.branchName {
+                arguments.append(branchName)
+            }
+        case let .delete(force):
+            arguments.append(force ? "-D" : "-d")
+            if let branchName = state.branchName {
+                arguments.append(branchName)
+            }
+        case .move:
             arguments.append("-m")
-        }
-        if let branchName = state.branchName {
-            arguments.append(branchName)
-        }
-        if let newBranchName = state.newBranchName {
-            arguments.append(newBranchName)
-        }
-        if let startPoint = state.startPoint {
-            arguments.append(startPoint)
+            if let branchName = state.branchName {
+                arguments.append(branchName)
+            }
+            if let newBranchName = state.newBranchName {
+                arguments.append(newBranchName)
+            }
         }
 
         return state.git.makeCommand(arguments)
@@ -312,11 +332,8 @@ public struct GitBranch: RunnableCommandFamily {
         git: Git? = nil,
         stdoutDestination: OutputDestination? = nil,
         stderrDestination: OutputDestination? = nil,
-        listsBranches: Bool? = nil,
+        mode: GitBranchMode?? = nil,
         includesAllBranches: Bool? = nil,
-        deletesBranch: Bool? = nil,
-        forceDeletesBranch: Bool? = nil,
-        movesBranch: Bool? = nil,
         branchName: String?? = nil,
         newBranchName: String?? = nil,
         startPoint: String?? = nil
@@ -326,11 +343,8 @@ public struct GitBranch: RunnableCommandFamily {
                 git: git ?? state.git,
                 stdoutDestination: stdoutDestination ?? state.stdoutDestination,
                 stderrDestination: stderrDestination ?? state.stderrDestination,
-                listsBranches: listsBranches ?? state.listsBranches,
+                mode: mode ?? state.mode,
                 includesAllBranches: includesAllBranches ?? state.includesAllBranches,
-                deletesBranch: deletesBranch ?? state.deletesBranch,
-                forceDeletesBranch: forceDeletesBranch ?? state.forceDeletesBranch,
-                movesBranch: movesBranch ?? state.movesBranch,
                 branchName: branchName ?? state.branchName,
                 newBranchName: newBranchName ?? state.newBranchName,
                 startPoint: startPoint ?? state.startPoint
@@ -1673,11 +1687,8 @@ private extension GitBranch {
         let git: Git
         let stdoutDestination: OutputDestination
         let stderrDestination: OutputDestination
-        let listsBranches: Bool
+        let mode: GitBranchMode?
         let includesAllBranches: Bool
-        let deletesBranch: Bool
-        let forceDeletesBranch: Bool
-        let movesBranch: Bool
         let branchName: String?
         let newBranchName: String?
         let startPoint: String?
@@ -1686,11 +1697,8 @@ private extension GitBranch {
             git: Git,
             stdoutDestination: OutputDestination = .capture,
             stderrDestination: OutputDestination = .capture,
-            listsBranches: Bool = false,
+            mode: GitBranchMode? = nil,
             includesAllBranches: Bool = false,
-            deletesBranch: Bool = false,
-            forceDeletesBranch: Bool = false,
-            movesBranch: Bool = false,
             branchName: String? = nil,
             newBranchName: String? = nil,
             startPoint: String? = nil
@@ -1698,11 +1706,8 @@ private extension GitBranch {
             self.git = git
             self.stdoutDestination = stdoutDestination
             self.stderrDestination = stderrDestination
-            self.listsBranches = listsBranches
+            self.mode = mode
             self.includesAllBranches = includesAllBranches
-            self.deletesBranch = deletesBranch
-            self.forceDeletesBranch = forceDeletesBranch
-            self.movesBranch = movesBranch
             self.branchName = branchName
             self.newBranchName = newBranchName
             self.startPoint = startPoint

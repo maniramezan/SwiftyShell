@@ -67,6 +67,34 @@ public struct ToolConfiguration: Sendable {
         self.outputLimitOverride = outputLimitOverride
     }
 
+    /// Creates a tool configuration with a per-command timeout in seconds.
+    ///
+    /// - Parameters:
+    ///   - context: The shell context the command family will use to run built commands.
+    ///   - executableOverride: An optional explicit executable path.
+    ///   - environmentOverrides: Environment variables merged on top of the context's environment.
+    ///   - workingDirectoryOverride: An optional working directory for built commands.
+    ///   - timeoutOverride: The per-command timeout in seconds.
+    ///   - outputLimitOverride: An optional per-command captured-output limit in bytes.
+    @available(*, deprecated, message: "Pass a Duration, for example timeoutOverride: .seconds(30)")
+    public init(
+        context: ShellContext = .init(),
+        executableOverride: String? = nil,
+        environmentOverrides: [String: String] = [:],
+        workingDirectoryOverride: String? = nil,
+        timeoutOverride: TimeInterval,
+        outputLimitOverride: Int? = nil
+    ) {
+        self.init(
+            context: context,
+            executableOverride: executableOverride,
+            environmentOverrides: environmentOverrides,
+            workingDirectoryOverride: workingDirectoryOverride,
+            timeoutOverride: Duration(timeoutSeconds: timeoutOverride),
+            outputLimitOverride: outputLimitOverride
+        )
+    }
+
     /// Returns a copy that uses the given executable path.
     ///
     /// - Parameter path: An absolute or relative path to the executable.

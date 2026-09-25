@@ -286,6 +286,7 @@ struct CommandTests {
         #expect(Command("tool").timeout(1.5).timeoutOverride == .milliseconds(1500))
         #expect(ShellContext(defaultTimeout: 2).defaultTimeout == .seconds(2))
         #expect(ToolConfiguration().timeout(0.25).timeoutOverride == .milliseconds(250))
+        #expect(ToolConfiguration(timeoutOverride: 3).timeoutOverride == .seconds(3))
     }
 
     @available(*, deprecated, message: "Exercises the deprecated TimeInterval timeout shim")

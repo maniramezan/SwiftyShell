@@ -182,6 +182,7 @@ private struct State: Sendable {
 - **Value type, `Sendable`**: every command family is a `struct` that conforms to `Sendable`.
 - **Immutable state**: fluent methods return a new copy — never mutate `self`.
 - **Single build site**: assemble all `argv` arguments in exactly one place: `command()`.
+- **Exclusive options are one enum**: Model mutually exclusive flags (operations, modes, overwrite policies) as one internal enum rather than independent `Bool`s, so invalid argv such as `git branch --list -d -m` cannot be built; enabling one selects it and the last call wins (use the internal `toggledMode` helper), and options that belong to one operation are emitted only in that operation.
 - **Apply tool config last**: call `state.config.apply(to: base)` at the end of `command()`.
 - **Doc comments everywhere**: every `public` declaration requires a `///` doc comment.
 

@@ -4,6 +4,33 @@ import Testing
 @testable import SwiftyShell
 
 struct GitCommandFamilyTests {
+    @Test func branchOperationsAreMutuallyExclusiveLastWins() {
+        let branch = Git().branch()
+
+        #expect(branch.list().delete("old").move(to: "new").command().arguments == ["branch", "-m", "old", "new"])
+        #expect(branch.move(to: "new").forceDelete("old").command().arguments == ["branch", "-D", "old"])
+        #expect(branch.delete("old").list().command().arguments == ["branch", "--list", "old"])
+        #expect(branch.forceDelete("x").delete("x").command().arguments == ["branch", "-d", "x"])
+    }
+
+    @Test func branchOptionsAreEmittedOnlyForTheirOperation() {
+        let branch = Git().branch()
+
+        #expect(branch.named("feature").startPoint("main").command().arguments == ["branch", "feature", "main"])
+        #expect(branch.named("feat*").startPoint("main").list().command().arguments == ["branch", "--list", "feat*"])
+        #expect(branch.all().command().arguments == ["branch", "--all"])
+        #expect(branch.all().named("feature").command().arguments == ["branch", "feature"])
+        #expect(branch.all().delete("old").command().arguments == ["branch", "-d", "old"])
+        #expect(branch.list().all().command().arguments == ["branch", "--list", "--all"])
+    }
+
+    @Test func disablingListOnlyClearsListMode() {
+        let branch = Git().branch()
+
+        #expect(branch.list().list(false).command().arguments == ["branch"])
+        #expect(branch.delete("old").list(false).command().arguments == ["branch", "-d", "old"])
+    }
+
     @Test func buildsBranchListCommand() {
         let command = Git()
             .workingDirectory("/tmp/repo")

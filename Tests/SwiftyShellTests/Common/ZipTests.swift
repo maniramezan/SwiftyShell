@@ -6,6 +6,14 @@ import Testing
 struct ZipCommandTests {
     let subject = Zip()
 
+    @Test func operationsAreMutuallyExclusiveLastWins() {
+        #expect(subject.update().freshen().command().arguments == ["-f"])
+        #expect(subject.freshen().delete().command().arguments == ["-d"])
+        #expect(subject.delete().update().move().command().arguments == ["-u", "-m"])
+        #expect(subject.update().freshen(false).command().arguments == ["-u"])
+        #expect(subject.update().update(false).command().arguments.isEmpty)
+    }
+
     @Test func buildsDefaultZipCommand() {
         let command = subject.command()
 

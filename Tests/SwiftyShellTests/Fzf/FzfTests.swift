@@ -4,6 +4,11 @@ import Testing
 @testable import SwiftyShell
 
 struct FzfTests {
+    @Test func colorAndNoColorUseLastSelection() {
+        #expect(Fzf().color("dark").noColor().command().arguments == ["--no-color"])
+        #expect(Fzf().noColor().color("dark").color("fg:1").command().arguments == ["--color=dark", "--color=fg:1"])
+        #expect(Fzf().color("dark").noColor(false).command().arguments == ["--color=dark"])
+    }
 
     // MARK: - Search options
 

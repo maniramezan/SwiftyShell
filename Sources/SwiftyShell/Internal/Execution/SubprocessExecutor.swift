@@ -8,11 +8,6 @@ import System
 import SystemPackage
 #endif
 
-/// The `Execution` specialization for a command whose stdout and stderr SwiftyShell streams
-/// itself. SwiftyShell never writes to a child's stdin, so it leaves stdin to swift-subprocess
-/// (`.none`, an empty `/dev/null`) instead of opening a writer only to close it. The spawned-process
-/// state stores executions, and `Subprocess.Execution` is generic over its IO methods, so it needs
-/// this concrete type.
 /// The parts of a running swift-subprocess `Execution` a spawned-process handle needs, erased from
 /// the execution's input and output types so any ``InputSource`` can be used.
 private struct SpawnedExecution: Sendable {
@@ -571,8 +566,6 @@ private struct SpawnedCommandRunner: Sendable {
             switch try makeStdinRoute(for: resolved.stdinSource) {
             case .none:
                 terminationStatus = try await runSubprocess(input: NoInput.none, state: state, streams: streams)
-            case let .data(data):
-                terminationStatus = try await runSubprocess(input: DataInput.data(data), state: state, streams: streams)
             case let .descriptor(fileDescriptor):
                 terminationStatus = try await runSubprocess(
                     input: FileDescriptorInput.fileDescriptor(fileDescriptor, closeAfterSpawningProcess: true),
@@ -921,8 +914,6 @@ private func openOutputFile(path: String, append: Bool) throws -> FileDescriptor
 private enum StdinRoute {
     /// An empty stdin.
     case none
-    /// Bytes swift-subprocess writes to the child's stdin, then closes it.
-    case data(Data)
     /// A descriptor the child reads directly; swift-subprocess closes it here once spawned.
     case descriptor(FileDescriptor)
 
@@ -939,13 +930,81 @@ private func makeStdinRoute(for source: InputSource) throws -> StdinRoute {
     case .none:
         return .none
     case let .data(data):
-        return .data(data)
+        return try bytesRoute(data)
     case let .string(text):
-        return .data(Data(text.utf8))
+        return try bytesRoute(Data(text.utf8))
     case let .file(path):
         return .descriptor(try FileDescriptor.open(FilePath(path), .readOnly))
     }
 }
+
+/// Routes fixed stdin bytes to a child as a file descriptor it reads directly.
+///
+/// swift-subprocess's own `DataInput` is not used: when the child exits without reading all of the
+/// bytes, its pipe write fails, and swift-subprocess 1.0 then leaves the write descriptor open and
+/// traps in its `deinit`; on Linux the failing write also raises `SIGPIPE`, terminating the calling
+/// process. Instead:
+/// - On Linux the bytes go into an in-memory `memfd_create` file. Nothing is written through a pipe,
+///   the bytes never touch disk, and no writer is needed.
+/// - On Darwin SwiftyShell feeds its own pipe from a dispatch queue. The write end is marked
+///   `F_SETNOSIGPIPE`, so a child that stops reading makes the write fail with `EPIPE`, and the
+///   blocking writes stay off the Swift concurrency thread pool.
+private func bytesRoute(_ data: Data) throws -> StdinRoute {
+    #if os(Linux)
+    return .descriptor(try inMemoryFile(containing: data))
+    #else
+    return .descriptor(try pipeFed(with: data))
+    #endif
+}
+
+#if os(Linux)
+/// `memfd_create(2)`, looked up at runtime because Swift's Glibc module omits declarations that
+/// require `_GNU_SOURCE`. Present since glibc 2.27.
+private let memfdCreate: (@convention(c) (UnsafePointer<CChar>, UInt32) -> Int32)? = {
+    guard let symbol = dlsym(nil, "memfd_create") else { return nil }
+    return unsafeBitCast(symbol, to: (@convention(c) (UnsafePointer<CChar>, UInt32) -> Int32).self)
+}()
+
+/// Returns a close-on-exec in-memory file holding `data`, positioned at its start.
+private func inMemoryFile(containing data: Data) throws -> FileDescriptor {
+    guard let memfdCreate else {
+        throw ShellError.invalidConfiguration(description: "Feeding stdin bytes requires memfd_create (glibc 2.27+)")
+    }
+    let closeOnExec: UInt32 = 0x0001  // MFD_CLOEXEC
+    let rawValue = memfdCreate("swiftyshell-stdin", closeOnExec)
+    guard rawValue >= 0 else { throw Errno(rawValue: errno) }
+    let descriptor = FileDescriptor(rawValue: rawValue)
+    do {
+        try descriptor.writeAll(data)
+        try descriptor.seek(offset: 0, from: .start)
+        return descriptor
+    } catch {
+        try? descriptor.close()
+        throw error
+    }
+}
+#else
+/// Returns the read end of a pipe that a dispatch queue fills with `data` and then closes.
+private func pipeFed(with data: Data) throws -> FileDescriptor {
+    let (readEnd, writeEnd) = try FileDescriptor.pipe()
+    // The child only inherits the read end; a failed write reports EPIPE instead of raising SIGPIPE.
+    guard fcntl(writeEnd.rawValue, F_SETFD, FD_CLOEXEC) == 0,
+        fcntl(writeEnd.rawValue, F_SETNOSIGPIPE, 1) == 0
+    else {
+        let error = Errno(rawValue: errno)
+        try? readEnd.close()
+        try? writeEnd.close()
+        throw error
+    }
+    DispatchQueue.global(qos: .utility).async {
+        // Stops early with EPIPE once the child closes its stdin, or when the read end is closed
+        // because the spawn failed or never happened.
+        _ = try? writeEnd.writeAll(data)
+        try? writeEnd.close()
+    }
+    return readEnd
+}
+#endif
 
 /// Opens the stdin and output routes for one process, closing anything already opened if a later
 /// route fails.
@@ -976,14 +1035,6 @@ private func runRouted(
     switch stdin {
     case .none:
         return try await runRouted(configuration, input: NoInput.none, stdout: stdout, stderr: stderr, body: body)
-    case let .data(data):
-        return try await runRouted(
-            configuration,
-            input: DataInput.data(data),
-            stdout: stdout,
-            stderr: stderr,
-            body: body
-        )
     case let .descriptor(fileDescriptor):
         return try await runRouted(
             configuration,

@@ -57,7 +57,7 @@ struct CommandTests {
                 Issue.record("Unexpected error: \(error)")
                 return
             }
-            #expect(command == "fake-tool arg")
+            #expect(command.displayString == "fake-tool arg")
             #expect(output.stdout == "out")
             #expect(output.stderr == "err")
             #expect(output.exitCode == 7)
@@ -90,7 +90,7 @@ struct CommandTests {
                 Issue.record("Unexpected error: \(error)")
                 return
             }
-            #expect(command.contains("/bin/sh"))
+            #expect(command.displayString.contains("/bin/sh"))
             #expect(output.stdout == "out")
             #expect(output.stderr == "err")
             #expect(output.exitCode == 7)
@@ -171,7 +171,7 @@ struct CommandTests {
                 Issue.record("Unexpected error: \(error)")
                 return
             }
-            #expect(command.contains("/bin/sh"))
+            #expect(command.displayString.contains("/bin/sh"))
             #expect(limit == 4)
             #expect(partialOutput.stdout == "abcd")
         }

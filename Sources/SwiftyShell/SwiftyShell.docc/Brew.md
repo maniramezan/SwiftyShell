@@ -6,7 +6,7 @@ A fluent wrapper for the Homebrew package manager.
 tool-defined text. Use the typed methods to choose the subcommand and flags, then
 inspect `stdout` or `stderr` when your automation needs the result.
 
-This installs two formulae and throws ``ShellError/exitFailure(command:output:)``
+This installs two formulae and throws ``ShellError/exitFailure(command:output:)-enum.case``
 if Homebrew reports an installation failure:
 
 ```swift

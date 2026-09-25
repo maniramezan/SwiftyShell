@@ -52,7 +52,7 @@ public struct MockExecutor: CommandExecutor {
         ///   - executable: The ``Command/executableName`` to match.
         ///   - arguments: The exact ``Command/arguments`` to match, or `nil` to match any.
         ///   - output: The output to return. A non-zero exit code throws
-        ///     ``ShellError/exitFailure(command:output:)`` as in production.
+        ///     ``ShellError/exitFailure(command:output:)-enum.case`` as in production.
         public init(_ executable: String, arguments: [String]? = nil, returning output: ShellOutput) {
             self.matches = { command in
                 command.executableName == executable && (arguments.map { $0 == command.arguments } ?? true)
@@ -135,7 +135,7 @@ public struct MockExecutor: CommandExecutor {
     /// invoking the handler, so misconfigured tests fail with the same
     /// ``ShellError/invalidConfiguration(description:)`` they would in production. After the
     /// handler returns, a non-zero exit code is translated into
-    /// ``ShellError/exitFailure(command:output:)`` to match real-executor semantics.
+    /// ``ShellError/exitFailure(command:output:)-enum.case`` to match real-executor semantics.
     ///
     /// - Parameters:
     ///   - command: The command being executed.
@@ -143,7 +143,7 @@ public struct MockExecutor: CommandExecutor {
     /// - Returns: The captured ``ShellOutput`` returned by the handler.
     /// - Throws: Whatever the handler throws, plus
     ///   ``ShellError/invalidConfiguration(description:)`` for invalid timeout/output-limit
-    ///   values and ``ShellError/exitFailure(command:output:)`` when the handler returns a
+    ///   values and ``ShellError/exitFailure(command:output:)-enum.case`` when the handler returns a
     ///   non-zero exit code.
     public func execute(_ command: Command, in context: ShellContext) async throws -> ShellOutput {
         try validateConfiguration(for: command, in: context)
@@ -157,7 +157,7 @@ public struct MockExecutor: CommandExecutor {
     /// validated before any stage runs, and every stage is invoked (production starts all stages
     /// concurrently). The result carries the final stage's stdout and the stderr of every stage
     /// concatenated in stage order. When a stage returns a non-zero exit code, the first such
-    /// stage in pipeline order is reported through ``ShellError/exitFailure(command:output:)``
+    /// stage in pipeline order is reported through ``ShellError/exitFailure(command:output:)-enum.case``
     /// with that stage's exit code and the combined output. As in production, a non-final stage
     /// that reports `128 + SIGPIPE` (a downstream stage stopped reading) is not a failure. The
     /// mock does not feed one stage's stdout into the next stage.
@@ -190,7 +190,7 @@ public struct MockExecutor: CommandExecutor {
         }.map(\.element)
         if let failure {
             throw ShellError.exitFailure(
-                command: failure.0.displayString(),
+                command: CommandSnapshot(failure.0),
                 output: ShellOutput(stdout: stdout, stderr: stderr, exitCode: failure.1.exitCode)
             )
         }
@@ -234,7 +234,7 @@ public struct MockExecutor: CommandExecutor {
 
     private func validate(output: ShellOutput, for command: Command) throws -> ShellOutput {
         guard output.exitCode == 0 else {
-            throw ShellError.exitFailure(command: command.displayString(), output: output)
+            throw ShellError.exitFailure(command: CommandSnapshot(command), output: output)
         }
         return output
     }

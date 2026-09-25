@@ -20,7 +20,7 @@ try archive.stdoutData.write(to: URL(fileURLWithPath: "sources.tgz"))
 
 The text views replace invalid UTF-8 with U+FFFD. Use ``validatedText(_:)`` when invalid bytes must be detected instead; it returns `nil` rather than replacing them.
 
-The built-in executors throw ``ShellError/exitFailure(command:output:)`` for a non-zero exit from both raw ``Command`` calls and typed command families. Inspect the output associated with that error for failed-process diagnostics:
+The built-in executors throw ``ShellError/exitFailure(command:output:)-enum.case`` for a non-zero exit from both raw ``Command`` calls and typed command families. Inspect the output associated with that error for failed-process diagnostics:
 
 ```swift
 do {

@@ -255,16 +255,18 @@ public struct ShellOutput: Sendable, Equatable {
 #### ShellError
 
 ```swift
-public enum ShellError: Error, LocalizedError {
+// Errors carry CommandSnapshot (executableName/arguments/resolvedExecutable/displayString; never env or stdin).
+// String-taking static factories (e.g. .exitFailure(command: "tool", output:)) remain for custom executors.
+public enum ShellError: Error, LocalizedError, Equatable {
     case invalidConfiguration(description: String)
     case commandNotFound(String)
-    case exitFailure(command: String, output: ShellOutput)
-    case timeout(command: String, duration: Duration, partialOutput: ShellOutput)
-    case decodingError(command: String, stream: StreamKind)
-    case parsingError(command: String, reason: String)
-    case outputLimitExceeded(command: String, limit: Int, partialOutput: ShellOutput)
-    case canceled(command: String, partialOutput: ShellOutput)
-    case spawnError(command: String, reason: String)
+    case exitFailure(command: CommandSnapshot, output: ShellOutput)
+    case timeout(command: CommandSnapshot, duration: Duration, partialOutput: ShellOutput)
+    case decodingError(command: CommandSnapshot, stream: StreamKind)
+    case parsingError(command: CommandSnapshot, reason: String)
+    case outputLimitExceeded(command: CommandSnapshot, limit: Int, partialOutput: ShellOutput)
+    case canceled(command: CommandSnapshot, partialOutput: ShellOutput)
+    case spawnError(command: CommandSnapshot, reason: String)
     case workflowConditionFailed(description: String)
 }
 

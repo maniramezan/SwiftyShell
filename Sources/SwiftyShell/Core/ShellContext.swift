@@ -113,7 +113,7 @@ public struct ShellContext: Sendable {
     /// The default maximum captured output size in bytes.
     ///
     /// Applies to the combined captured stdout and stderr per command. When exceeded, the
-    /// executor raises ``ShellError/outputLimitExceeded(command:limit:partialOutput:)``.
+    /// executor raises ``ShellError/outputLimitExceeded(command:limit:partialOutput:)-enum.case``.
     /// Defaults to `0` (unlimited — no cap). Set to a positive value to enforce a byte limit.
     /// Per-command overrides via ``Command/outputLimit(_:)`` take precedence.
     public let defaultOutputLimit: Int

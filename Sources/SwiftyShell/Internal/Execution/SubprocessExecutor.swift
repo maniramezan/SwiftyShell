@@ -124,7 +124,8 @@ private struct ResolvedCommand: Sendable {
     let stdinSource: InputSource
     let stdoutDestination: OutputDestination
     let stderrDestination: OutputDestination
-    let displayCommand: String
+    /// The executable and argv reported in errors; never includes environment values or stdin.
+    let snapshot: CommandSnapshot
 
     init(command: Command, context: ShellContext) throws {
         let workingDirectory = command.workingDirectoryOverride ?? context.workingDirectory
@@ -166,7 +167,7 @@ private struct ResolvedCommand: Sendable {
             workingDirectory: resolvedWorkingDirectory
         )
         try Self.validateOutputDestinations(stdout: stdoutDestination, stderr: stderrDestination)
-        self.displayCommand = command.displayString(using: executablePath)
+        self.snapshot = CommandSnapshot(command, resolvedExecutable: executablePath)
     }
 
     /// The configuration for `run()` and pipeline stages, which stop by killing the process group.
@@ -379,7 +380,7 @@ private struct SingleCommandRunner: Sendable {
             return try result.get()
         case .timedOut:
             throw ShellError.timeout(
-                command: resolved.displayCommand,
+                command: resolved.snapshot,
                 duration: resolved.timeout ?? .zero,
                 partialOutput: makeOutput(snapshot: store.snapshot(), exitCode: -1)
             )
@@ -414,30 +415,30 @@ private struct SingleCommandRunner: Sendable {
             let output = makeOutput(snapshot: snapshot, exitCode: terminationStatus.swiftyShellExitCode)
 
             if Task.isCancelled {
-                throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
+                throw ShellError.canceled(command: resolved.snapshot, partialOutput: output)
             }
 
             if !terminationStatus.isSuccess {
-                throw ShellError.exitFailure(command: resolved.displayCommand, output: output)
+                throw ShellError.exitFailure(command: resolved.snapshot, output: output)
             }
 
             return output
         } catch is CaptureLimitExceeded {
             let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.outputLimitExceeded(
-                command: resolved.displayCommand,
+                command: resolved.snapshot,
                 limit: resolved.outputLimit,
                 partialOutput: output
             )
         } catch is CancellationError {
             let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
-            throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
+            throw ShellError.canceled(command: resolved.snapshot, partialOutput: output)
         } catch let error as ShellError {
             throw error
         } catch let error as SubprocessError {
-            throw mapSubprocessError(error, command: resolved.displayCommand, limit: resolved.outputLimit)
+            throw mapSubprocessError(error, command: resolved.snapshot, limit: resolved.outputLimit)
         } catch {
-            throw ShellError.spawnError(command: resolved.displayCommand, reason: String(describing: error))
+            throw ShellError.spawnError(command: resolved.snapshot, reason: String(describing: error))
         }
     }
 }
@@ -1162,7 +1163,7 @@ private struct PipelineRunner: Sendable {
             return try result.get()
         case .timedOut:
             throw ShellError.timeout(
-                command: finalCommand.displayCommand,
+                command: finalCommand.snapshot,
                 duration: timeout ?? .zero,
                 partialOutput: makeOutput(snapshot: pipelineSnapshot(stores: stores), exitCode: -1)
             )
@@ -1214,7 +1215,7 @@ private struct PipelineRunner: Sendable {
                                 index: index,
                                 error: mapSubprocessError(
                                     error,
-                                    command: command.displayCommand,
+                                    command: command.snapshot,
                                     limit: command.outputLimit
                                 )
                             )
@@ -1225,7 +1226,7 @@ private struct PipelineRunner: Sendable {
                             return .failure(
                                 index: index,
                                 error: ShellError.spawnError(
-                                    command: command.displayCommand,
+                                    command: command.snapshot,
                                     reason: String(describing: error)
                                 )
                             )
@@ -1283,7 +1284,7 @@ private struct PipelineRunner: Sendable {
 
                 if Task.isCancelled {
                     throw ShellError.canceled(
-                        command: finalCommand.displayCommand,
+                        command: finalCommand.snapshot,
                         partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
                     )
                 }
@@ -1300,7 +1301,7 @@ private struct PipelineRunner: Sendable {
                 if let firstCaptureLimitIndex {
                     let command = resolved[firstCaptureLimitIndex]
                     throw ShellError.outputLimitExceeded(
-                        command: command.displayCommand,
+                        command: command.snapshot,
                         limit: command.outputLimit,
                         partialOutput: output
                     )
@@ -1308,7 +1309,7 @@ private struct PipelineRunner: Sendable {
 
                 if let firstFailure {
                     throw ShellError.exitFailure(
-                        command: firstFailure.command.displayCommand,
+                        command: firstFailure.command.snapshot,
                         output: ShellOutput(
                             stdoutData: output.stdoutData,
                             stderrData: output.stderrData,
@@ -1322,7 +1323,7 @@ private struct PipelineRunner: Sendable {
         } catch is CancellationError {
             let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.canceled(
-                command: finalCommand.displayCommand,
+                command: finalCommand.snapshot,
                 partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
             )
         }
@@ -1481,10 +1482,10 @@ private func makeOutput(snapshot: CaptureSnapshot, exitCode: Int32) -> ShellOutp
     ShellOutput(stdoutData: snapshot.stdout, stderrData: snapshot.stderr, exitCode: exitCode)
 }
 
-private func mapSubprocessError(_ error: SubprocessError, command: String, limit: Int) -> ShellError {
+private func mapSubprocessError(_ error: SubprocessError, command: CommandSnapshot, limit: Int) -> ShellError {
     switch error.code {
     case .executableNotFound:
-        return .commandNotFound(command)
+        return .commandNotFound(command.resolvedExecutable ?? command.executableName ?? command.displayString)
     case .outputLimitExceeded:
         return .outputLimitExceeded(
             command: command,

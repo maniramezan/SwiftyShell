@@ -1077,7 +1077,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
     /// Returns a copy that selects `git config --get <key>`.
     ///
     /// The value, if any, is written to ``ShellOutput/stdout``. Git exits non-zero (which
-    /// surfaces as ``ShellError/exitFailure(command:output:)``) when the key is unset.
+    /// surfaces as ``ShellError/exitFailure(command:output:)-enum.case``) when the key is unset.
     ///
     /// - Parameter key: The fully-qualified config key (e.g. `"user.name"`).
     /// - Returns: A new ``GitConfigCommand`` configured to read the key.
@@ -1200,7 +1200,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
 ///
 /// Use ``GitMerge`` to merge a branch or commit into the current branch. This example runs
 /// `git merge feature`; if git reports a conflict or another non-zero exit, SwiftyShell throws
-/// ``ShellError/exitFailure(command:output:)`` with git's diagnostics.
+/// ``ShellError/exitFailure(command:output:)-enum.case`` with git's diagnostics.
 ///
 /// ```swift
 /// let output = try await Git(context: context)
@@ -1407,7 +1407,7 @@ public struct GitCommit: RunnableCommandFamily {
 ///
 /// Use ``GitRebase`` to replay the current branch onto another branch or commit. This example
 /// runs `git rebase --onto main`; rebase conflicts surface as
-/// ``ShellError/exitFailure(command:output:)`` with git's stderr attached.
+/// ``ShellError/exitFailure(command:output:)-enum.case`` with git's stderr attached.
 ///
 /// ```swift
 /// let output = try await Git(context: context)

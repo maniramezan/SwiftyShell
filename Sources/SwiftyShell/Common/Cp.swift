@@ -4,7 +4,7 @@ import Foundation
 /// A fluent wrapper for the `cp` command.
 ///
 /// Use ``Cp`` to copy files or directories with a typed builder. Successful copies usually produce
-/// no output, so completion without ``ShellError/exitFailure(command:output:)`` is the important
+/// no output, so completion without ``ShellError/exitFailure(command:output:)-enum.case`` is the important
 /// result.
 ///
 /// ```swift

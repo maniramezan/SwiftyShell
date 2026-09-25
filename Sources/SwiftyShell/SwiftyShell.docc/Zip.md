@@ -4,7 +4,7 @@ A fluent wrapper for creating and modifying `.zip` archives with the Info-ZIP `z
 
 ``Zip`` works identically on macOS (where `zip` ships by default) and on Linux distributions
 that have the `zip` package installed. Successful archive creation usually produces summary
-output on stdout; treat completion without ``ShellError/exitFailure(command:output:)`` as the
+output on stdout; treat completion without ``ShellError/exitFailure(command:output:)-enum.case`` as the
 authoritative result.
 
 Create a recursive archive of a build directory at maximum compression:

@@ -92,6 +92,7 @@ This does **not** validate arbitrary strings accepted by typed wrappers, make in
 - Negative timeout or output-limit values throw `ShellError.invalidConfiguration`.
 - Redirected output (`OutputDestination.file` or `.discard`) is not also captured. For `run()` and pipelines the child writes it directly: `.discard` becomes the null device and `.file` an opened descriptor (like shell `>` / `>>`), so those bytes never pass through the calling process. Spawned processes still read every stream so they can feed the live `standardOutput` / `standardError` streams.
 - Captured output is kept as the chunks the pipe delivers and joined once, at its final size, when the output is built.
+- `spawn()` streams output live (text and raw-byte streams, each bounded to the 1,024 most recent unread chunks) without retaining it; `spawn(captureOutput: true)` also keeps captured streams, up to the output limit, for `waitForExit()` / `teardownAndWait()`.
 
 ### Exit Code Behavior
 

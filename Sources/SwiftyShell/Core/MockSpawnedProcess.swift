@@ -1,3 +1,5 @@
+import Foundation
+
 /// A test double for ``SpawnedProcess`` returned by ``MockExecutor``.
 ///
 /// `MockSpawnedProcess` wraps an actor for thread-safe state tracking while
@@ -17,6 +19,12 @@ public struct MockSpawnedProcess: SpawnedProcess, Sendable {
     public let standardOutput: AsyncStream<String>
     public let standardError: AsyncStream<String>
 
+    /// The preset stdout bytes, yielded once and then finished.
+    public let standardOutputData: AsyncStream<Data>
+
+    /// The preset stderr bytes, yielded once and then finished.
+    public let standardErrorData: AsyncStream<Data>
+
     private let state: MockSpawnedProcessState
 
     /// Creates a mock spawned process with preset output.
@@ -27,10 +35,14 @@ public struct MockSpawnedProcess: SpawnedProcess, Sendable {
     ///     Stored so tests can verify the strategy that was configured.
     ///   - output: The ``ShellOutput`` returned by ``waitForExit()`` and
     ///     ``teardownAndWait()``. Defaults to a zero-exit-code output.
+    ///   - captureOutput: Whether ``waitForExit()`` and ``teardownAndWait()`` return `output`'s
+    ///     streams (`true`, the default) or only its exit code, mirroring
+    ///     ``Command/spawn(captureOutput:in:teardown:)``. The live streams always carry the output.
     public init(
         processIdentifier: Int32 = 1,
         teardown: TeardownStrategy = .graceful,
-        output: ShellOutput = ShellOutput(exitCode: 0)
+        output: ShellOutput = ShellOutput(exitCode: 0),
+        captureOutput: Bool = true
     ) {
         self.processIdentifier = processIdentifier
         self.standardOutput = AsyncStream { continuation in
@@ -41,7 +53,16 @@ public struct MockSpawnedProcess: SpawnedProcess, Sendable {
             if !output.stderr.isEmpty { continuation.yield(output.stderr) }
             continuation.finish()
         }
-        self.state = MockSpawnedProcessState(output: output)
+        self.standardOutputData = AsyncStream { continuation in
+            if !output.stdoutData.isEmpty { continuation.yield(output.stdoutData) }
+            continuation.finish()
+        }
+        self.standardErrorData = AsyncStream { continuation in
+            if !output.stderrData.isEmpty { continuation.yield(output.stderrData) }
+            continuation.finish()
+        }
+        // Like a real spawn without capture, the streams still carry the output.
+        self.state = MockSpawnedProcessState(output: captureOutput ? output : ShellOutput(exitCode: output.exitCode))
         self.configuredTeardown = teardown
     }
 

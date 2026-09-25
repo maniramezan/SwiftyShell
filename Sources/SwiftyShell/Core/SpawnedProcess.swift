@@ -1,3 +1,5 @@
+import Foundation
+
 /// A handle to a process spawned without waiting for completion.
 ///
 /// Use ``Command/spawn(in:teardown:)`` for long-running commands such as
@@ -25,6 +27,17 @@ public protocol SpawnedProcess: Sendable {
     /// Chunking and buffering behave like ``standardOutput``.
     var standardError: AsyncStream<String> { get }
 
+    /// Real-time stdout chunks as raw bytes, for binary output.
+    ///
+    /// Carries the same bytes as ``standardOutput`` without decoding them, with the same bounded
+    /// buffering. Conformers that do not provide bytes inherit an empty stream.
+    var standardOutputData: AsyncStream<Data> { get }
+
+    /// Real-time stderr chunks as raw bytes.
+    ///
+    /// Behaves like ``standardOutputData``.
+    var standardErrorData: AsyncStream<Data> { get }
+
     /// Sends a signal to the running process.
     func send(_ signal: ProcessSignal) async throws
 
@@ -42,6 +55,12 @@ public protocol SpawnedProcess: Sendable {
 }
 
 public extension SpawnedProcess {
+    /// An empty byte stream, for conformers that only provide text streams.
+    var standardOutputData: AsyncStream<Data> { AsyncStream { $0.finish() } }
+
+    /// An empty byte stream, for conformers that only provide text streams.
+    var standardErrorData: AsyncStream<Data> { AsyncStream { $0.finish() } }
+
     /// Sends ``ProcessSignal/interrupt``.
     func interrupt() async throws {
         try await send(.interrupt)

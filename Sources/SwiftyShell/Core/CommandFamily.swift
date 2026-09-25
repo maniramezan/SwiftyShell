@@ -260,6 +260,19 @@ public extension RunnableCommandFamily {
     func spawn(teardown: TeardownStrategy = .graceful) async throws -> any SpawnedProcess {
         try await command().spawn(in: context, teardown: teardown)
     }
+
+    /// Spawns the built command, optionally retaining its output for the final ``ShellOutput``.
+    ///
+    /// See ``Command/spawn(captureOutput:in:teardown:)``.
+    ///
+    /// - Parameters:
+    ///   - captureOutput: Whether to retain captured output for the final ``ShellOutput``.
+    ///   - teardown: The strategy used by ``SpawnedProcess/teardownAndWait()``.
+    /// - Returns: A handle to the running process.
+    /// - Throws: ``ShellError`` describing invalid configuration or spawn failure.
+    func spawn(captureOutput: Bool, teardown: TeardownStrategy = .graceful) async throws -> any SpawnedProcess {
+        try await command().spawn(captureOutput: captureOutput, in: context, teardown: teardown)
+    }
 }
 
 /// Returns a copy of `value` changed by `update`.

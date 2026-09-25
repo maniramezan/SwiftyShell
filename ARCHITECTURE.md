@@ -29,7 +29,7 @@ Build a `Command` or `Pipeline`, override config as needed, then run it in a `Sh
 ```swift
 let output = try await Command("ruby", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
-    .timeout(120)
+    .timeout(.seconds(120))
     .run(in: context)
 ```
 

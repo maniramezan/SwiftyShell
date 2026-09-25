@@ -156,7 +156,7 @@ struct PipelineTests {
             // The timeout clock starts when `run` is called, so it must cover process startup on a
             // slow runner; a 1-second timeout could fire before `start` was written.
             try await Command("/bin/sh", arguments: "-c", "printf 'start'; exec sleep 30")
-                .timeout(3)
+                .timeout(.seconds(3))
                 .pipe(
                     to: Command(
                         "/bin/sh",

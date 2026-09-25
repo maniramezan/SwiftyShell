@@ -30,7 +30,7 @@ directory, and timeout:
 try await Command("ruby", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .workingDirectory("/var/app")
-    .timeout(300)
+    .timeout(.seconds(300))
     .run(in: context)
 ```
 
@@ -66,7 +66,8 @@ print(command)  // git commit -m 'it'\''s $HOME'
 
 ### Creating a Command
 
-- ``init(_:arguments:)``
+- ``init(_:arguments:)-(_,String...)``
+- ``init(_:arguments:)-(_,[String])``
 
 ### Adding Arguments
 
@@ -85,7 +86,7 @@ print(command)  // git commit -m 'it'\''s $HOME'
 ### Constraining Execution
 
 - ``workingDirectory(_:)``
-- ``timeout(_:)``
+- ``timeout(_:)-(Duration)``
 - ``outputLimit(_:)``
 
 ### Redirecting Output

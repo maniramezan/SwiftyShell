@@ -46,21 +46,21 @@ public enum ShellPlatform: Sendable {
 /// setting per-call; context values act as the fallback.
 ///
 /// **Override precedence** — highest to lowest:
-/// 1. A per-command override (e.g. ``Command/timeout(_:)``)
-/// 2. The context default (e.g. `ShellContext(defaultTimeout: 30)`)
+/// 1. A per-command override (e.g. ``Command/timeout(_:)-(Duration)``)
+/// 2. The context default (e.g. `ShellContext(defaultTimeout: .seconds(30))`)
 /// 3. The platform default (search paths) or no constraint (timeout, output limit)
 ///
 /// ```swift
 /// // Shared context for the whole program
 /// let context = ShellContext(
 ///     workingDirectory: "/var/app",
-///     defaultTimeout: 30,
+///     defaultTimeout: .seconds(30),
 ///     defaultOutputLimit: 5_242_880   // 5 MB
 /// )
 ///
 /// // Override per command — does not mutate the context
 /// try await Command("swift", arguments: "build", "--verbose")
-///     .timeout(300)                   // overrides the 30-second default for this call only
+///     .timeout(.seconds(300))                   // overrides the 30-second default for this call only
 ///     .run(in: context)
 /// ```
 ///
@@ -103,12 +103,12 @@ public struct ShellContext: Sendable {
     /// the executor inherits the calling process's current working directory.
     public let workingDirectory: String?
 
-    /// An optional default timeout in seconds applied to every command.
+    /// An optional default timeout applied to every command.
     ///
     /// When `nil`, commands run without a timeout unless one is supplied via
-    /// ``Command/timeout(_:)``. Negative values raise
+    /// ``Command/timeout(_:)-(Duration)``. Negative values raise
     /// ``ShellError/invalidConfiguration(description:)`` at execution time.
-    public let defaultTimeout: TimeInterval?
+    public let defaultTimeout: Duration?
 
     /// The default maximum captured output size in bytes.
     ///
@@ -133,8 +133,8 @@ public struct ShellContext: Sendable {
     ///     `ProcessInfo.processInfo.environment`.
     ///   - workingDirectory: The default working directory for commands that do not override it.
     ///     Pass `nil` (the default) to inherit the calling process's working directory.
-    ///   - defaultTimeout: The default timeout in seconds for commands that do not override it.
-    ///     Must be `>= 0` when provided. Pass `nil` (the default) to leave commands unbounded.
+    ///   - defaultTimeout: The default timeout for commands that do not override it. Must not be
+    ///     negative when provided. Pass `nil` (the default) to leave commands unbounded.
     ///   - defaultOutputLimit: The maximum captured output size in bytes for commands that do
     ///     not override it. `0` means unlimited (default). Must be `>= 0`.
     public init(
@@ -142,7 +142,7 @@ public struct ShellContext: Sendable {
         searchPaths: [String] = ShellContext.defaultSearchPaths,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         workingDirectory: String? = nil,
-        defaultTimeout: TimeInterval? = nil,
+        defaultTimeout: Duration? = nil,
         defaultOutputLimit: Int = 0
     ) {
         self.executor = executor
@@ -151,6 +151,34 @@ public struct ShellContext: Sendable {
         self.workingDirectory = workingDirectory
         self.defaultTimeout = defaultTimeout
         self.defaultOutputLimit = defaultOutputLimit
+    }
+
+    /// Creates a shell context with a default timeout in seconds.
+    ///
+    /// - Parameters:
+    ///   - executor: The executor responsible for running commands and pipelines.
+    ///   - searchPaths: The search paths used to resolve executable names by their bare name.
+    ///   - environment: The base environment variables used for command execution.
+    ///   - workingDirectory: The default working directory for commands that do not override it.
+    ///   - defaultTimeout: The default timeout in seconds for commands that do not override it.
+    ///   - defaultOutputLimit: The maximum captured output size in bytes. `0` means unlimited.
+    @available(*, deprecated, message: "Pass a Duration, for example defaultTimeout: .seconds(30)")
+    public init(
+        executor: any CommandExecutor = SubprocessExecutor(),
+        searchPaths: [String] = ShellContext.defaultSearchPaths,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        workingDirectory: String? = nil,
+        defaultTimeout: TimeInterval,
+        defaultOutputLimit: Int = 0
+    ) {
+        self.init(
+            executor: executor,
+            searchPaths: searchPaths,
+            environment: environment,
+            workingDirectory: workingDirectory,
+            defaultTimeout: Duration(timeoutSeconds: defaultTimeout),
+            defaultOutputLimit: defaultOutputLimit
+        )
     }
 
     /// Resolves executable search paths from an environment dictionary.

@@ -25,7 +25,7 @@ import Foundation
 /// let cli = MyCLI()
 ///     .workingDirectory("/tmp")
 ///     .env("DEBUG", "1")
-///     .timeout(30)
+///     .timeout(.seconds(30))
 /// ```
 public protocol ToolConfigurableCommandFamily: Sendable {
     /// The shell context used when running commands built by this family.
@@ -37,7 +37,7 @@ public protocol ToolConfigurableCommandFamily: Sendable {
     /// Returns a new value with an updated tool configuration.
     ///
     /// The shared fluent helpers (``executable(_:)``, ``env(_:_:)``, ``workingDirectory(_:)``,
-    /// ``timeout(_:)``, ``outputLimit(_:)``) all funnel through this method, so a single
+    /// ``timeout(_:)-(Duration)``, ``outputLimit(_:)``) all funnel through this method, so a single
     /// implementation per family is enough to wire up every override.
     ///
     /// - Parameter update: A pure function that receives the current ``ToolConfiguration`` and
@@ -94,16 +94,29 @@ public extension ToolConfigurableCommandFamily {
         updatingConfiguration { $0.workingDirectory(path) }
     }
 
-    /// Returns a copy of the family with a per-command timeout in seconds.
+    /// Returns a copy of the family with a per-command timeout.
     ///
-    /// Replaces ``ShellContext/defaultTimeout`` for commands built by this family. Must be
-    /// `>= 0`; negative values raise ``ShellError/invalidConfiguration(description:)`` at
-    /// execution time. See ``Command/timeout(_:)`` for the underlying semantics.
+    /// Replaces ``ShellContext/defaultTimeout`` for commands built by this family. Must not be
+    /// negative; negative values raise ``ShellError/invalidConfiguration(description:)`` at
+    /// execution time. See ``Command/timeout(_:)-(Duration)`` for the underlying semantics.
+    ///
+    /// ```swift
+    /// try await Swift().build().timeout(.seconds(300)).run()
+    /// ```
+    ///
+    /// - Parameter duration: The maximum time to wait for built commands.
+    /// - Returns: A new family value with the timeout override applied.
+    func timeout(_ duration: Duration) -> Self {
+        updatingConfiguration { $0.timeout(duration) }
+    }
+
+    /// Returns a copy of the family with a per-command timeout in seconds.
     ///
     /// - Parameter seconds: The maximum duration to wait for built commands, in seconds.
     /// - Returns: A new family value with the timeout override applied.
+    @available(*, deprecated, message: "Pass a Duration, for example timeout(.seconds(120))")
     func timeout(_ seconds: TimeInterval) -> Self {
-        updatingConfiguration { $0.timeout(seconds) }
+        updatingConfiguration { $0.timeout(Duration(timeoutSeconds: seconds)) }
     }
 
     /// Returns a copy of the family with a per-command captured-output limit in bytes.

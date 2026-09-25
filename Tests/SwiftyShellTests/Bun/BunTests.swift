@@ -64,7 +64,7 @@ struct BunCommandTests {
         let output = try await Bun(context: context)
             .executable("/opt/bin/bun")
             .workingDirectory("/app")
-            .timeout(5)
+            .timeout(.seconds(5))
             .outputLimit(1024)
             .run()
 
@@ -72,7 +72,7 @@ struct BunCommandTests {
         #expect(output.stdout == "1.2.0")
         #expect(command?.executableOverride == "/opt/bin/bun")
         #expect(command?.workingDirectoryOverride == "/app")
-        #expect(command?.timeoutOverride == 5)
+        #expect(command?.timeoutOverride == .seconds(5))
         #expect(command?.outputLimitOverride == 1024)
         #expect(command?.arguments == ["--version"])
     }

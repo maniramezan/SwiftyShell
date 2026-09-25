@@ -30,7 +30,7 @@ let context = ShellContext()
 // With defaults customized for a long-running build script
 let buildContext = ShellContext(
     workingDirectory: "/var/app",
-    defaultTimeout: 120,
+    defaultTimeout: .seconds(120),
     defaultOutputLimit: 50_000_000   // 50 MB for verbose build output
 )
 ```
@@ -40,11 +40,11 @@ let buildContext = ShellContext(
 Per-command overrides take priority over context defaults, which take priority over platform defaults:
 
 ```swift
-let context = ShellContext(defaultTimeout: 30)
+let context = ShellContext(defaultTimeout: .seconds(30))
 
 // This call times out after 300 s, not 30 s
 try await Command("swift", arguments: "build")
-    .timeout(300)
+    .timeout(.seconds(300))
     .run(in: context)
 
 // This call still uses the 30-second context default
@@ -94,7 +94,7 @@ Build a command by naming the executable and chaining modifier methods. Each mod
 let cmd = Command("ruby", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .workingDirectory("/var/app")
-    .timeout(300)
+    .timeout(.seconds(300))
     .stdout(.file(path: "/var/log/deploy.log", append: true))
 ```
 

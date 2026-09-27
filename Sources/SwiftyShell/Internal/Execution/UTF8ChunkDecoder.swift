@@ -6,8 +6,20 @@ import Foundation
 /// reads. Decoding each read on its own would turn both halves into U+FFFD. This decoder holds back
 /// an incomplete trailing sequence and prepends it to the next chunk.
 struct UTF8ChunkDecoder {
+    // UTF-8 lead-byte ranges for valid scalars. C0/C1 would encode ASCII using too many
+    // bytes; F5...FF would exceed Unicode's maximum scalar value (U+10FFFF).
+    private static let twoByteScalarLeads: ClosedRange<UInt8> = 0xC2...0xDF
+    private static let threeByteScalarLeads: ClosedRange<UInt8> = 0xE0...0xEF
+    private static let fourByteScalarLeads: ClosedRange<UInt8> = 0xF0...0xF4
     private static let continuationBytes: ClosedRange<UInt8> = 0x80...0xBF
     private static let maximumUTF8ScalarLength = 4
+
+    // Special second-byte limits at the edges of the three- and four-byte encodings.
+    private static let secondBytesAvoidingOverlongThreeByteEncoding: ClosedRange<UInt8> = 0xA0...0xBF
+    private static let secondBytesAvoidingOverlongFourByteEncoding: ClosedRange<UInt8> = 0x90...0xBF
+    private static let secondBytesWithinUnicodeLimit: ClosedRange<UInt8> = 0x80...0x8F
+    private static let surrogateRangeLead: UInt8 = 0xED
+    private static let secondBytesExcludingSurrogates: ClosedRange<UInt8> = 0x80...0x9F
 
     private var pending: [UInt8] = []
 
@@ -53,9 +65,9 @@ struct UTF8ChunkDecoder {
 
             let scalarLength: Int
             switch leadByte {
-            case 0xC2...0xDF: scalarLength = 2
-            case 0xE0...0xEF: scalarLength = 3
-            case 0xF0...0xF4: scalarLength = maximumUTF8ScalarLength
+            case twoByteScalarLeads: scalarLength = 2
+            case threeByteScalarLeads: scalarLength = 3
+            case fourByteScalarLeads: scalarLength = maximumUTF8ScalarLength
             default: return bytes.endIndex
             }
 
@@ -69,10 +81,10 @@ struct UTF8ChunkDecoder {
             let secondByte = bytes[bytes.index(after: index)]
             let validSecondBytes: ClosedRange<UInt8>
             switch leadByte {
-            case 0xE0: validSecondBytes = 0xA0...0xBF
-            case 0xED: validSecondBytes = 0x80...0x9F
-            case 0xF0: validSecondBytes = 0x90...0xBF
-            case 0xF4: validSecondBytes = 0x80...0x8F
+            case threeByteScalarLeads.lowerBound: validSecondBytes = secondBytesAvoidingOverlongThreeByteEncoding
+            case surrogateRangeLead: validSecondBytes = secondBytesExcludingSurrogates
+            case fourByteScalarLeads.lowerBound: validSecondBytes = secondBytesAvoidingOverlongFourByteEncoding
+            case fourByteScalarLeads.upperBound: validSecondBytes = secondBytesWithinUnicodeLimit
             default: validSecondBytes = continuationBytes
             }
             return validSecondBytes.contains(secondByte) ? index : bytes.endIndex

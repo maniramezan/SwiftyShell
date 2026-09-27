@@ -444,9 +444,15 @@ public struct Command: Sendable {
 
     /// Returns a shell-quoted string representation of the command suitable for display or logging.
     ///
-    /// Components containing whitespace are wrapped in double quotes with embedded quotes
-    /// escaped. The result is intended for human-readable diagnostics — not for re-parsing by a
-    /// shell.
+    /// Components that are empty or contain anything other than ASCII letters, digits, and
+    /// `@%+=:,./_-` are wrapped in POSIX single quotes, with embedded single quotes written as
+    /// `'\''`. The result can be pasted into a POSIX shell (`sh`, `bash`, `zsh`) to run the same
+    /// argv: variables, globs, and command separators inside arguments are not expanded.
+    ///
+    /// ```swift
+    /// Command("git", arguments: "commit", "-m", "it's $HOME").displayString()
+    /// // git commit -m 'it'\''s $HOME'
+    /// ```
     ///
     /// - Parameter resolvedExecutable: When supplied, this overrides the executable portion
     ///   of the display string. Pass the resolved absolute path returned by the executor to
@@ -454,15 +460,8 @@ public struct Command: Sendable {
     /// - Returns: A string of the form `executable [arg ...]` with arguments quoted when necessary.
     public func displayString(using resolvedExecutable: String? = nil) -> String {
         ([resolvedExecutable ?? executableOverride ?? executableName] + arguments)
-            .map(Self.quoteIfNeeded)
+            .map { $0.shellQuoted() }
             .joined(separator: " ")
-    }
-
-    internal static func quoteIfNeeded(_ component: String) -> String {
-        if component.contains(where: \.isWhitespace) {
-            return "\"\(component.replacingOccurrences(of: "\"", with: "\\\""))\""
-        }
-        return component
     }
 
     private func copy(

@@ -139,7 +139,7 @@ Timeouts are user-controlled through `ShellContext(defaultTimeout:)` or `Command
 ```swift
 do {
     try await Command("long-running-tool")
-        .timeout(5)
+        .timeout(.seconds(5))
         .run(in: context)
 } catch ShellError.timeout(_, _, let partial) {
     print("Captured before timeout:", partial.stdout)

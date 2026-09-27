@@ -23,7 +23,7 @@ struct ShellErrorTests {
     }
 
     @Test func timeoutDescription() {
-        let error = ShellError.timeout(command: "sleep", duration: 5.0, partialOutput: emptyOutput)
+        let error = ShellError.timeout(command: "sleep", duration: .seconds(5), partialOutput: emptyOutput)
         #expect(error.errorDescription == "'sleep' timed out after 5.0 seconds")
     }
 

@@ -31,8 +31,8 @@ public struct ToolConfiguration: Sendable {
     /// An optional working directory override; `nil` means use ``ShellContext/workingDirectory``.
     public let workingDirectoryOverride: String?
 
-    /// An optional timeout override in seconds; `nil` means use ``ShellContext/defaultTimeout``.
-    public let timeoutOverride: TimeInterval?
+    /// An optional timeout override; `nil` means use ``ShellContext/defaultTimeout``.
+    public let timeoutOverride: Duration?
 
     /// An optional output limit override in bytes; `nil` means use
     /// ``ShellContext/defaultOutputLimit``.
@@ -48,7 +48,7 @@ public struct ToolConfiguration: Sendable {
     ///     environment for built commands.
     ///   - workingDirectoryOverride: An optional working directory for built commands. When
     ///     `nil`, the context's default applies.
-    ///   - timeoutOverride: An optional per-command timeout in seconds. Must be `>= 0`.
+    ///   - timeoutOverride: An optional per-command timeout. Must not be negative.
     ///   - outputLimitOverride: An optional per-command captured-output limit in bytes. Must be
     ///     `>= 0`.
     public init(
@@ -56,7 +56,7 @@ public struct ToolConfiguration: Sendable {
         executableOverride: String? = nil,
         environmentOverrides: [String: String] = [:],
         workingDirectoryOverride: String? = nil,
-        timeoutOverride: TimeInterval? = nil,
+        timeoutOverride: Duration? = nil,
         outputLimitOverride: Int? = nil
     ) {
         self.context = context
@@ -65,6 +65,34 @@ public struct ToolConfiguration: Sendable {
         self.workingDirectoryOverride = workingDirectoryOverride
         self.timeoutOverride = timeoutOverride
         self.outputLimitOverride = outputLimitOverride
+    }
+
+    /// Creates a tool configuration with a per-command timeout in seconds.
+    ///
+    /// - Parameters:
+    ///   - context: The shell context the command family will use to run built commands.
+    ///   - executableOverride: An optional explicit executable path.
+    ///   - environmentOverrides: Environment variables merged on top of the context's environment.
+    ///   - workingDirectoryOverride: An optional working directory for built commands.
+    ///   - timeoutOverride: The per-command timeout in seconds.
+    ///   - outputLimitOverride: An optional per-command captured-output limit in bytes.
+    @available(*, deprecated, message: "Pass a Duration, for example timeoutOverride: .seconds(30)")
+    public init(
+        context: ShellContext = .init(),
+        executableOverride: String? = nil,
+        environmentOverrides: [String: String] = [:],
+        workingDirectoryOverride: String? = nil,
+        timeoutOverride: TimeInterval,
+        outputLimitOverride: Int? = nil
+    ) {
+        self.init(
+            context: context,
+            executableOverride: executableOverride,
+            environmentOverrides: environmentOverrides,
+            workingDirectoryOverride: workingDirectoryOverride,
+            timeoutOverride: Duration(timeoutSeconds: timeoutOverride),
+            outputLimitOverride: outputLimitOverride
+        )
     }
 
     /// Returns a copy that uses the given executable path.
@@ -105,15 +133,24 @@ public struct ToolConfiguration: Sendable {
         copy(workingDirectoryOverride: path)
     }
 
-    /// Returns a copy with a per-command timeout in seconds.
+    /// Returns a copy with a per-command timeout.
     ///
-    /// The value must be `>= 0`; negative values raise
+    /// The value must not be negative; negative values raise
     /// ``ShellError/invalidConfiguration(description:)`` at execution time.
     ///
-    /// - Parameter seconds: The maximum duration to wait for the built command.
+    /// - Parameter duration: The maximum time to wait for the built command.
     /// - Returns: A new configuration with the timeout override applied.
+    public func timeout(_ duration: Duration) -> Self {
+        copy(timeoutOverride: duration)
+    }
+
+    /// Returns a copy with a per-command timeout in seconds.
+    ///
+    /// - Parameter seconds: The maximum duration to wait for the built command, in seconds.
+    /// - Returns: A new configuration with the timeout override applied.
+    @available(*, deprecated, message: "Pass a Duration, for example timeout(.seconds(120))")
     public func timeout(_ seconds: TimeInterval) -> Self {
-        copy(timeoutOverride: seconds)
+        copy(timeoutOverride: Duration(timeoutSeconds: seconds))
     }
 
     /// Returns a copy with a per-command captured-output limit in bytes.
@@ -157,7 +194,7 @@ public struct ToolConfiguration: Sendable {
         executableOverride: String?? = nil,
         environmentOverrides: [String: String]? = nil,
         workingDirectoryOverride: String?? = nil,
-        timeoutOverride: TimeInterval?? = nil,
+        timeoutOverride: Duration?? = nil,
         outputLimitOverride: Int?? = nil
     ) -> Self {
         Self(

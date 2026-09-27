@@ -18,35 +18,6 @@ private func waitForFile(at path: String) async throws {
     Issue.record("Timed out waiting for marker file at \(path)")
 }
 
-private func waitForProcessExit(processIdentifier: Int32) async throws {
-    for _ in 0..<500 {
-        if !processIsRunning(processIdentifier) {
-            return
-        }
-        try await Task.sleep(for: .milliseconds(10))
-    }
-    Issue.record("Timed out waiting for descendant process exit for pid \(processIdentifier)")
-}
-
-private func processIsRunning(_ processIdentifier: Int32) -> Bool {
-    if kill(processIdentifier, 0) == -1, errno == ESRCH {
-        return false
-    }
-
-    #if canImport(Glibc)
-    if let stat = try? String(contentsOfFile: "/proc/\(processIdentifier)/stat", encoding: .utf8),
-        let closeParen = stat.lastIndex(of: ")")
-    {
-        let remainder = stat[stat.index(after: closeParen)...].trimmingCharacters(in: .whitespacesAndNewlines)
-        if remainder.first == "Z" {
-            return false
-        }
-    }
-    #endif
-
-    return true
-}
-
 struct CommandTests {
     @Test func shellPlatformCurrentProvidesDefaultSearchPaths() {
         #expect(ShellPlatform.current.defaultSearchPaths.isEmpty == false)
@@ -94,7 +65,7 @@ struct CommandTests {
     }
 
     @Test func mockExecutorRejectsNegativeContextTimeout() async throws {
-        let context = ShellContext(executor: MockExecutor(), defaultTimeout: -1)
+        let context = ShellContext(executor: MockExecutor(), defaultTimeout: .seconds(-1))
 
         do {
             _ = try await Command("fake-tool").run(in: context)
@@ -127,7 +98,7 @@ struct CommandTests {
     }
 
     @Test func timeoutPreservesPartialOutput() async throws {
-        let context = ShellContext(defaultTimeout: 5)
+        let context = ShellContext(defaultTimeout: .seconds(5))
         let marker = "/tmp/swiftyshell-timeout-\(UUID().uuidString)"
         defer { try? FileManager.default.removeItem(atPath: marker) }
 
@@ -186,7 +157,7 @@ struct CommandTests {
     }
 
     @Test func outputLimitExceededDoesNotHangOnLargeOutput() async throws {
-        let context = ShellContext(defaultTimeout: 1.0, defaultOutputLimit: 4)
+        let context = ShellContext(defaultTimeout: .seconds(1.0), defaultOutputLimit: 4)
 
         do {
             _ = try await Command(
@@ -209,7 +180,7 @@ struct CommandTests {
     @Test func negativeTimeoutIsRejected() async throws {
         do {
             _ = try await Command("echo", arguments: "hello")
-                .timeout(-1)
+                .timeout(.seconds(-1))
                 .run(in: ShellContext())
             Issue.record("Expected invalidConfiguration")
         } catch let error as ShellError {
@@ -223,7 +194,7 @@ struct CommandTests {
 
     @Test func negativeContextTimeoutIsRejected() async throws {
         do {
-            _ = try await Command("echo", arguments: "hello").run(in: ShellContext(defaultTimeout: -1))
+            _ = try await Command("echo", arguments: "hello").run(in: ShellContext(defaultTimeout: .seconds(-1)))
             Issue.record("Expected invalidConfiguration")
         } catch let error as ShellError {
             guard case let .invalidConfiguration(description) = error else {
@@ -234,7 +205,8 @@ struct CommandTests {
         }
     }
 
-    @Test func nonFiniteTimeoutIsRejected() async throws {
+    @available(*, deprecated, message: "Exercises the deprecated TimeInterval timeout shim")
+    @Test func deprecatedTimeIntervalNonFiniteTimeoutIsRejected() async throws {
         do {
             _ = try await Command("echo", arguments: "hello")
                 .timeout(.infinity)
@@ -249,7 +221,8 @@ struct CommandTests {
         }
     }
 
-    @Test func mockExecutorRejectsNonFiniteTimeout() async throws {
+    @available(*, deprecated, message: "Exercises the deprecated TimeInterval timeout shim")
+    @Test func deprecatedTimeIntervalMockExecutorRejectsNonFiniteTimeout() async throws {
         do {
             _ = try await Command("fake-tool")
                 .timeout(.nan)
@@ -264,7 +237,31 @@ struct CommandTests {
         }
     }
 
-    @Test func extremeFiniteTimeoutDoesNotTrap() async throws {
+    @Test func arrayInitializerMatchesVariadicInitializer() {
+        let files = ["Package.swift", "README.md"]
+        let command = Command("wc", arguments: ["-l"] + files)
+
+        #expect(command.arguments == ["-l", "Package.swift", "README.md"])
+        #expect(command.displayString() == Command("wc", arguments: "-l", "Package.swift", "README.md").displayString())
+    }
+
+    @Test func largestDurationTimeoutDoesNotTrap() async throws {
+        let output = try await Command("echo", arguments: "hello")
+            .timeout(.nanoseconds(Int64.max))
+            .run()
+        #expect(output.stdout == "hello\n")
+    }
+
+    @available(*, deprecated, message: "Exercises the deprecated TimeInterval timeout shim")
+    @Test func deprecatedTimeIntervalTimeoutConvertsToDuration() {
+        #expect(Command("tool").timeout(1.5).timeoutOverride == .milliseconds(1500))
+        #expect(ShellContext(defaultTimeout: 2).defaultTimeout == .seconds(2))
+        #expect(ToolConfiguration().timeout(0.25).timeoutOverride == .milliseconds(250))
+        #expect(ToolConfiguration(timeoutOverride: 3).timeoutOverride == .seconds(3))
+    }
+
+    @available(*, deprecated, message: "Exercises the deprecated TimeInterval timeout shim")
+    @Test func deprecatedTimeIntervalExtremeFiniteTimeoutDoesNotTrap() async throws {
         let output = try await Command("echo", arguments: "hello")
             .timeout(.greatestFiniteMagnitude)
             .run()
@@ -281,7 +278,7 @@ struct CommandTests {
                 arguments: "-c",
                 "sleep 30 & child=$!; printf '%s' \"$child\" > '\(childPIDPath)'; wait"
             )
-            .timeout(5)
+            .timeout(.seconds(5))
             .run()
             Issue.record("Expected timeout")
         } catch let error as ShellError {
@@ -300,7 +297,7 @@ struct CommandTests {
         // The background subshell keeps stdout open past the timeout. `run()` must return when
         // `sh` exits instead of waiting for that pipe to close, so the later "late" line is lost.
         let output = try await Command("/bin/sh", arguments: "-c", "echo early; (sleep 5; echo late) &")
-            .timeout(3)
+            .timeout(.seconds(3))
             .run(in: ShellContext())
 
         #expect(output.stdout == "early\n")
@@ -335,18 +332,11 @@ struct CommandTests {
         }
     }
 
-    @Test func decodingErrorIncludesCommandName() async throws {
-        do {
-            _ = try await Command("/bin/sh", arguments: "-c", "printf '\\377'").run(in: ShellContext())
-            Issue.record("Expected decodingError")
-        } catch let error as ShellError {
-            guard case let .decodingError(command, stream) = error else {
-                Issue.record("Unexpected error: \(error)")
-                return
-            }
-            #expect(command.contains("/bin/sh"))
-            #expect(stream == .stdout)
-        }
+    @Test func invalidUTF8OutputIsReturnedAsBytes() async throws {
+        let output = try await Command("/bin/sh", arguments: "-c", "printf '\\377'").run(in: ShellContext())
+
+        #expect(output.stdoutData == Data([0xFF]))
+        #expect(output.stdout == "\u{FFFD}")
     }
 
     @Test func cancellationPreservesPartialOutput() async throws {
@@ -408,8 +398,8 @@ struct CommandTests {
     }
 
     @Test func builderTimeout() {
-        let command = Command("sleep", arguments: "10").timeout(5.0)
-        #expect(command.timeoutOverride == 5.0)
+        let command = Command("sleep", arguments: "10").timeout(.seconds(5.0))
+        #expect(command.timeoutOverride == .seconds(5.0))
     }
 
     @Test func builderOutputLimit() {
@@ -468,7 +458,35 @@ struct CommandTests {
 
     @Test func displayStringQuotesArgumentsWithSpaces() {
         let command = Command("echo", arguments: "hello world", "foo")
-        #expect(command.displayString() == #"echo "hello world" foo"#)
+        #expect(command.displayString() == "echo 'hello world' foo")
+    }
+
+    @Test(
+        arguments: [
+            ("plain", "plain"),
+            ("--flag=a,b:c/d.e_f@g%h+i", "--flag=a,b:c/d.e_f@g%h+i"),
+            ("", "''"),
+            ("two words", "'two words'"),
+            ("$HOME", "'$HOME'"),
+            ("a;rm -rf /", "'a;rm -rf /'"),
+            ("*.swift", "'*.swift'"),
+            ("it's", #"'it'\''s'"#),
+            ("line\nbreak", "'line\nbreak'"),
+            ("héllo", "'héllo'"),
+        ]
+    )
+    func displayStringQuotesUnsafeComponents(argument: String, expected: String) {
+        #expect(Command("tool", arguments: argument).displayString() == "tool \(expected)")
+    }
+
+    @Test func displayStringRoundTripsThroughPOSIXShell() async throws {
+        let arguments = ["", "two words", "$HOME", "it's", "a;b|c&d", "*", "`id`", "tab\there", "é"]
+        let display = Command("printf").args(["%s\\n"] + arguments).displayString()
+
+        // Re-parse the display string with a real shell; it must yield the same argv.
+        let output = try await Command("/bin/sh", arguments: "-c", display).run()
+
+        #expect(output.stdout == arguments.map { $0 + "\n" }.joined())
     }
 
     @Test func displayStringUsesResolvedExecutable() {
@@ -523,7 +541,7 @@ struct CommandTests {
     @Test func runGivesTheCommandAnEmptyStandardInput() async throws {
         // `cat` with no arguments reads stdin until EOF; it would hang if stdin were left open.
         let output = try await Command("cat")
-            .timeout(10)
+            .timeout(.seconds(10))
             .run(in: ShellContext())
 
         #expect(output.stdout.isEmpty)
@@ -546,11 +564,11 @@ struct CommandTests {
     }
 
     @Test func perCommandTimeoutOverridesContext() async throws {
-        let context = ShellContext(defaultTimeout: 10.0)
+        let context = ShellContext(defaultTimeout: .seconds(10.0))
         let started = Date()
         do {
             _ = try await Command("/bin/sh", arguments: "-c", "printf 'hi'; exec sleep 30")
-                .timeout(0.2)
+                .timeout(.seconds(0.2))
                 .run(in: context)
             Issue.record("Expected timeout")
         } catch let error as ShellError {

@@ -36,14 +36,40 @@ Task {
 }
 ```
 
+Chunks have arbitrary sizes and are not split on line boundaries, but a chunk never
+ends in the middle of a multi-byte UTF-8 character. Each stream keeps the 1,024 most
+recent chunks you have not read yet and drops older ones, so an unread stream cannot
+grow without limit.
+
+The decoder holds a valid incomplete UTF-8 scalar until the next read. Invalid byte
+sequences produce replacement characters (U+FFFD) immediately; an incomplete scalar
+remaining when the stream closes also produces a replacement character.
+
 If you do not consume the streams, output is still captured up to the configured
-``Command/outputLimit(_:)`` or ``ShellContext/defaultOutputLimit``.
+``Command/outputLimit(_:)`` or ``ShellContext/defaultOutputLimit``. Exceeding that
+limit tears the process down. For a long-lived process whose output you only watch
+live, route the stream to ``OutputDestination/discard`` so it is streamed but not
+retained; the live chunks are still delivered:
+
+```swift
+let server = try await Command("server")
+    .stdout(.discard)
+    .spawn()
+
+for await chunk in server.standardOutput {
+    print(chunk, terminator: "")
+}
+```
 
 ## Choose a Teardown Strategy
 
 ``TeardownStrategy/graceful`` is the default. It sends `SIGTERM`, waits five
 seconds, then relies on the subprocess backend's final kill step if the process
 does not exit.
+
+Every teardown signal, including the final kill, goes to the spawned process's
+process group, so descendants started by wrappers such as `sh -c` or `npm run`
+are stopped too.
 
 ```swift
 let server = try await Command("server").spawn(teardown: .graceful)

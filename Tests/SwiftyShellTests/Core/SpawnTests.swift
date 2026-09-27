@@ -8,26 +8,6 @@ import Darwin
 import Glibc
 #endif
 
-private struct ProcessExitTimeout: Error {}
-
-private func waitForProcessExit(
-    processIdentifier: Int32,
-    timeoutNanoseconds: UInt64 = 12_000_000_000
-) async throws {
-    let pollInterval: UInt64 = 10_000_000
-    let attempts = Int(timeoutNanoseconds / pollInterval)
-
-    for _ in 0..<attempts {
-        if kill(processIdentifier, 0) == -1, errno == ESRCH {
-            return
-        }
-        try await Task.sleep(nanoseconds: pollInterval)
-    }
-
-    Issue.record("Timed out waiting for process exit for pid \(processIdentifier)")
-    throw ProcessExitTimeout()
-}
-
 struct SpawnTests {
     @Test func mockSpawnReturnsPresetOutputAndStreams() async throws {
         let context = ShellContext(executor: MockExecutor(stdout: "ready\n", stderr: "warn\n"))
@@ -104,6 +84,39 @@ struct SpawnTests {
         #expect(output == ShellOutput(stdout: "spawned", stderr: "err", exitCode: 0))
     }
 
+    @Test func realSpawnStreamDoesNotSplitMultiByteCharacters() async throws {
+        let text = String(repeating: "€", count: 200_000)
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("swiftyshell-utf8-\(UUID().uuidString).txt").path
+        try Data(text.utf8).write(to: URL(fileURLWithPath: path))
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        let process = try await Command("cat", arguments: path).spawn()
+        var streamed = ""
+        for await chunk in process.standardOutput {
+            streamed += chunk
+        }
+        let output = await process.waitForExit()
+
+        #expect(streamed == text)
+        #expect(output.stdout == text)
+    }
+
+    @Test func realSpawnStreamsDiscardedOutputWithoutRetainingIt() async throws {
+        let process = try await Command("/bin/sh", arguments: "-c", "printf live")
+            .stdout(.discard)
+            .spawn()
+
+        var streamed = ""
+        for await chunk in process.standardOutput {
+            streamed += chunk
+        }
+        let output = await process.waitForExit()
+
+        #expect(streamed == "live")
+        #expect(output.stdout.isEmpty)
+    }
+
     @Test func realSpawnCanBeInterrupted() async throws {
         let process = try await Command("/bin/sh", arguments: "-c", "while true; do sleep 1; done")
             .spawn(teardown: .interruptThenTerminate)
@@ -143,6 +156,22 @@ struct SpawnTests {
 
         let output = await process.teardownAndWait()
         #expect(output.exitCode == 143)
+    }
+
+    @Test(arguments: [TeardownStrategy.graceful, .immediate, .interruptThenTerminate])
+    func teardownStopsDescendantProcesses(strategy: TeardownStrategy) async throws {
+        let process = try await Command("/bin/sh", arguments: "-c", "sleep 300 & echo $!; wait")
+            .spawn(teardown: strategy)
+
+        var reported = ""
+        for await chunk in process.standardOutput {
+            reported += chunk
+            if reported.hasSuffix("\n") { break }
+        }
+        let descendant = try #require(Int32(reported.trimmingCharacters(in: .whitespacesAndNewlines)))
+
+        _ = await process.teardownAndWait()
+        try await waitForProcessExit(processIdentifier: descendant, timeout: .seconds(3))
     }
 
     @Test func droppingSpawnedProcessHandleTriggersBestEffortTeardown() async throws {

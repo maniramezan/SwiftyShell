@@ -44,33 +44,23 @@ struct MakeCommandTests {
     }
 
     @Test func preservesToolConfigurationOverrides() async throws {
-        actor Recorder {
-            var command: Command?
-            func record(_ command: Command) { self.command = command }
-        }
-
-        let recorder = Recorder()
-        let context = ShellContext(
-            executor: MockExecutor { command, _ in
-                await recorder.record(command)
-                return ShellOutput(stdout: "ok", stderr: "", exitCode: 0)
-            }
-        )
+        let mock = MockExecutor { _, _ in ShellOutput(stdout: "ok", stderr: "", exitCode: 0) }
+        let context = ShellContext(executor: mock)
 
         let output = try await Make(context: context)
             .executable("/usr/bin/make")
             .workingDirectory("/repo")
-            .timeout(5)
+            .timeout(.seconds(5))
             .outputLimit(1024)
             .target("check")
             .run()
 
-        let command = await recorder.command
+        let command = mock.recordedCommands.last
         #expect(output.stdout == "ok")
         #expect(command?.executableName == "make")
         #expect(command?.executableOverride == "/usr/bin/make")
         #expect(command?.workingDirectoryOverride == "/repo")
-        #expect(command?.timeoutOverride == 5)
+        #expect(command?.timeoutOverride == .seconds(5))
         #expect(command?.outputLimitOverride == 1024)
         #expect(command?.arguments == ["check"])
     }

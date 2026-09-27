@@ -168,6 +168,7 @@ The repository ships a `.swift-format` config at the repo root that encodes the 
 
 - All public types are value types (`struct`) conforming to `Sendable`
 - Fluent builder pattern: every mutating method returns a new `Self` copy
+- Model mutually exclusive flags (operations, modes, overwrite policies) as one internal enum rather than independent `Bool`s, so invalid argv such as `git branch --list -d -m` cannot be built; enabling one selects it and the last call wins (use the internal `toggledMode` helper), and options that belong to one operation are emitted only in that operation.
 - `init(context: ShellContext = .init())` is the standard entry point for typed clients
 - Every typed client exposes `executable(_:)`, `env(_:_:)`, `workingDirectory(_:)`, `timeout(_:)`, `outputLimit(_:)`, `command() -> Command`, and `run() async throws`; clients conforming to `RunnableCommandFamily` also inherit `spawn(teardown:) async throws`
 - `ShellContext` is infrastructure, not a command namespace — `Command("pwd")` not `context.pwd()`
@@ -204,7 +205,7 @@ Built-in execution failures surface as `ShellError`. Workflow closures, transfor
 
 `SubprocessExecutor` (in `Internal/Execution/`) is `public` because `ShellContext.init` defaults to it. The `Internal/` folder label is organizational — it does not imply the type is hidden from callers.
 
-The production executor uses the `swift-subprocess` package for process lifecycle management. Keep SwiftyShell's public error semantics stable when changing it: map built-in execution failures into `ShellError`, preserve captured partial output on timeout/output-limit/cancellation paths, and keep `MockExecutor` behavior aligned with production where practical. `run()` leaves stdin to swift-subprocess (`input: .none`) and gets forced teardown from swift-subprocess itself: each configuration's `teardownSequence` sends `SIGKILL` to the command's process group, and swift-subprocess runs it whenever the awaiting task is cancelled or the body closure throws. Don't reintroduce SwiftyShell-side process bookkeeping for this. `run()` returns once the command's process exits: swift-subprocess then stops waiting for the output pipes to close, so a background descendant's later output is not captured (see ARCHITECTURE.md, Timeout & Cancellation). Spawned processes carry their `TeardownStrategy` as the teardown sequence.
+The production executor uses the `swift-subprocess` package for process lifecycle management. Keep SwiftyShell's public error semantics stable when changing it: map built-in execution failures into `ShellError`, preserve captured partial output on timeout/output-limit/cancellation paths, and keep `MockExecutor` behavior aligned with production where practical. `run()` leaves stdin to swift-subprocess (`input: .none`) and gets forced teardown from swift-subprocess itself: each configuration's `teardownSequence` sends `SIGKILL` to the command's process group, and swift-subprocess runs it whenever the awaiting task is cancelled or the body closure throws. Don't reintroduce SwiftyShell-side process bookkeeping for this. `run()` returns once the command's process exits: swift-subprocess then stops waiting for the output pipes to close, so a background descendant's later output is not captured (see ARCHITECTURE.md, Timeout & Cancellation). Spawned processes carry their `TeardownStrategy` as the teardown sequence, with every step (and the final kill) sent to the process group.
 
 ### Workflows
 
@@ -216,7 +217,7 @@ Separate argv entries avoid implicit shell splitting, but do not validate tool-s
 
 ### Testing
 
-Use `MockExecutor` for unit tests. It implements `CommandExecutor`, mirrors real `run()` failure semantics for non-zero exits, validates timeout/output-limit configuration, and returns caller-supplied responses without spawning processes. Its `spawn` support returns `MockSpawnedProcess`, which records signals, teardown, and the configured `TeardownStrategy` so spawned-process code can be tested without launching a subprocess. Integration tests that require real executables should be clearly annotated.
+Use `MockExecutor` for unit tests. It implements `CommandExecutor`, mirrors real `run()` failure semantics for non-zero exits, validates timeout/output-limit configuration, and returns caller-supplied responses without spawning processes. It records every command it receives in `recordedCommands` (use that instead of hand-rolled recorder actors) and can answer from ordered `Stub`s via `init(stubs:fallback:)`, throwing `commandNotFound` for unmatched commands. Its pipeline handling mirrors production: all stages validated then invoked, final-stage stdout plus every stage's stderr, first failing stage in pipeline order (a non-final `128 + SIGPIPE` is not a failure). Its `spawn` support returns `MockSpawnedProcess`, which records signals, teardown, and the configured `TeardownStrategy` so spawned-process code can be tested without launching a subprocess. Integration tests that require real executables should be clearly annotated.
 
 ### Agent Skill
 

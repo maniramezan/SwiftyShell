@@ -72,7 +72,7 @@ public struct Which: RunnableCommandFamily {
         return Workflow {
             do {
                 let output = try await command.run(in: context)
-                let path = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                let path = try output.validatedStdout(for: command).trimmingCharacters(in: .whitespacesAndNewlines)
                 return path.isEmpty ? .notFound : .found(path: path)
             } catch let ShellError.exitFailure(_, output) where output.exitCode == 1 {
                 return .notFound

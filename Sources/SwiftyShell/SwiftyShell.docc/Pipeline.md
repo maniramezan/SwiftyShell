@@ -17,7 +17,7 @@ On success, ``ShellOutput/stdout`` contains the final stage's captured stdout. C
 
 Each stage resolves its own ``Command/outputLimit(_:)``. A stage's captured stderr and the final stage's captured stdout count against that stage's limit. The shortest resolved non-`nil` stage timeout governs the whole pipeline.
 
-If a stage exits non-zero, the built-in executor reports an observed failing stage through ``ShellError/exitFailure(command:output:)`` and cancels the remaining stage tasks. Because stages are concurrent, simultaneous failures do not have a deterministic pipeline-order winner. Timeout, cancellation, and output-limit failures include captured partial output.
+If a stage exits non-zero, the built-in executor reports an observed failing stage through ``ShellError/exitFailure(command:output:)`` and cancels the remaining stage tasks. Because stages are concurrent, simultaneous failures do not have a deterministic pipeline-order winner. A non-final stage terminated by `SIGPIPE` is not treated as a failure, because it only means a downstream stage stopped reading early — for example `yes | head -n 1` succeeds. Timeout, cancellation, and output-limit failures include captured partial output.
 
 ## Topics
 

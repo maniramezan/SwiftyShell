@@ -6,6 +6,11 @@ import Foundation
 /// reads. Decoding each read on its own would turn both halves into U+FFFD. This decoder holds back
 /// an incomplete trailing sequence and prepends it to the next chunk.
 struct UTF8ChunkDecoder {
+    // UTF-8 continuation bytes have the bit pattern `10xxxxxx`; the mask selects those two prefix bits.
+    private static let continuationByteMask: UInt8 = 0xC0
+    private static let continuationBytePrefix: UInt8 = 0x80
+    private static let maximumIncompleteSequenceLength = 4
+
     private var pending: [UInt8] = []
 
     /// Decodes `data` plus any bytes held back from the previous call.
@@ -39,27 +44,32 @@ struct UTF8ChunkDecoder {
     /// Returns the length of the longest prefix of `bytes` that does not end inside an incomplete
     /// multi-byte sequence.
     ///
-    /// Only the last three bytes are inspected: a UTF-8 sequence is at most four bytes long, so an
-    /// incomplete one can hold back at most three. Invalid bytes are not held back; they decode to
-    /// U+FFFD as usual.
+    /// Only the final three bytes need inspection: a UTF-8 scalar uses at most four bytes, so its
+    /// lead byte can be followed by at most three bytes that have arrived so far. Invalid bytes
+    /// are not held back; they decode to U+FFFD as usual.
     static func completeLength<Bytes: BidirectionalCollection<UInt8>>(of bytes: Bytes) -> Int {
         let count = bytes.count
         var index = bytes.endIndex
-        var inspected = 0
-        while index > bytes.startIndex, inspected < 3 {
+        var trailingByteCount = 0
+        while index > bytes.startIndex, trailingByteCount < maximumIncompleteSequenceLength - 1 {
             index = bytes.index(before: index)
-            inspected += 1
+            trailingByteCount += 1
             let byte = bytes[index]
-            if byte & 0b1100_0000 != 0b1000_0000 {
-                // Found a lead (or ASCII / invalid) byte; check whether its sequence is complete.
-                let expectedLength: Int
+            if byte & continuationByteMask != continuationBytePrefix {
+                // This is a lead byte, ASCII byte, or invalid byte. Only lead bytes need a length check.
+                let sequenceLength: Int
                 switch byte {
-                case 0b1100_0000...0b1101_1111: expectedLength = 2
-                case 0b1110_0000...0b1110_1111: expectedLength = 3
-                case 0b1111_0000...0b1111_0111: expectedLength = 4
+                // `110xxxxx` starts a 2-byte scalar (U+0080...U+07FF).
+                case 0xC0...0xDF: sequenceLength = 2
+                // `1110xxxx` starts a 3-byte scalar (U+0800...U+FFFF).
+                case 0xE0...0xEF: sequenceLength = 3
+                // `11110xxx` starts a 4-byte scalar (U+10000...U+10FFFF).
+                case 0xF0...0xF7: sequenceLength = 4
                 default: return count
                 }
-                return inspected < expectedLength ? count - inspected : count
+                // `trailingByteCount` includes this lead byte, so fewer bytes than the sequence needs
+                // means the sequence is incomplete and must be carried into the next read.
+                return trailingByteCount < sequenceLength ? count - trailingByteCount : count
             }
         }
         return count

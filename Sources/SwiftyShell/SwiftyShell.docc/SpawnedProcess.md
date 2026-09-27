@@ -13,8 +13,8 @@ signaled or torn down later.
 let server = try await Command("python3", arguments: "-m", "http.server", "8080")
     .spawn()
 
-for await line in server.standardOutput {
-    print(line)
+for await chunk in server.standardOutput {
+    print(chunk, terminator: "")
 }
 
 let output = await server.teardownAndWait()

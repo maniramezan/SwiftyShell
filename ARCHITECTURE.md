@@ -102,6 +102,7 @@ This does **not** validate arbitrary strings accepted by typed wrappers, make in
 - Pipelines are explicit value types, not parsed shell strings.
 - `pipe(to:)` connects stdout from one command to stdin of the next.
 - All stages run concurrently. If a stage exits non-zero, the pipeline reports an observed failing stage and cancels the remaining stage tasks; concurrent failures do not provide a deterministic "first by pipeline order" guarantee.
+- A non-final stage terminated by `SIGPIPE` is not a failure: it means a downstream stage stopped reading early (`yes | head -n 1`), which shells also treat as success. A final stage killed by `SIGPIPE` still fails.
 - Successful output contains the final stage's captured stdout and captured stderr concatenated in stage order. An exit failure uses the failing stage's exit code with that aggregate captured output.
 - Each stage has its own captured-output limit. Intermediate stdout is piped rather than captured, while captured stderr and the final stage's captured stdout count against their respective stage limits.
 

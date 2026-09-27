@@ -60,7 +60,7 @@ struct NpmCommandTests {
         let output = try await Npm(context: context)
             .executable("/opt/bin/npm")
             .workingDirectory("/app")
-            .timeout(5)
+            .timeout(.seconds(5))
             .outputLimit(1024)
             .run()
 
@@ -68,7 +68,7 @@ struct NpmCommandTests {
         #expect(output.stdout == "10.0.0")
         #expect(command?.executableOverride == "/opt/bin/npm")
         #expect(command?.workingDirectoryOverride == "/app")
-        #expect(command?.timeoutOverride == 5)
+        #expect(command?.timeoutOverride == .seconds(5))
         #expect(command?.outputLimitOverride == 1024)
         #expect(command?.arguments == ["--version"])
     }

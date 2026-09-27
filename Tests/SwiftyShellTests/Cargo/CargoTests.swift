@@ -107,7 +107,7 @@ struct CargoCommandTests {
         let output = try await Cargo(context: context)
             .executable("/opt/rust/bin/cargo")
             .workingDirectory("/workspace")
-            .timeout(5)
+            .timeout(.seconds(5))
             .outputLimit(1024)
             .version()
             .run()
@@ -117,7 +117,7 @@ struct CargoCommandTests {
         #expect(command?.executableName == "cargo")
         #expect(command?.executableOverride == "/opt/rust/bin/cargo")
         #expect(command?.workingDirectoryOverride == "/workspace")
-        #expect(command?.timeoutOverride == 5)
+        #expect(command?.timeoutOverride == .seconds(5))
         #expect(command?.outputLimitOverride == 1024)
     }
 }

@@ -131,7 +131,7 @@ public struct GitBranch: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// Funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     ///
     /// - Parameter update: A pure function that returns the next ``ToolConfiguration``.
     /// - Returns: A new value with the updated configuration applied.
@@ -372,7 +372,7 @@ public struct GitStash: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// Funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     ///
     /// - Parameter update: A pure function that returns the next ``ToolConfiguration``.
     /// - Returns: A new value with the updated configuration applied.
@@ -617,7 +617,7 @@ public struct GitWorktree: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// Funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     ///
     /// - Parameter update: A pure function that returns the next ``ToolConfiguration``.
     /// - Returns: A new value with the updated configuration applied.
@@ -764,7 +764,7 @@ public struct GitDiff: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// Funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     ///
     /// - Parameter update: A pure function that returns the next ``ToolConfiguration``.
     /// - Returns: A new value with the updated configuration applied.
@@ -959,7 +959,7 @@ public struct GitLog: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// Funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     ///
     /// - Parameter update: A pure function that returns the next ``ToolConfiguration``.
     /// - Returns: A new value with the updated configuration applied.
@@ -1122,7 +1122,7 @@ public struct GitConfigCommand: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// Funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     ///
     /// - Parameter update: A pure function that returns the next ``ToolConfiguration``.
     /// - Returns: A new value with the updated configuration applied.
@@ -1319,7 +1319,7 @@ public struct GitMerge: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// Funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     ///
     /// - Parameter update: A pure function that returns the next ``ToolConfiguration``.
     /// - Returns: A new value with the updated configuration applied.
@@ -1441,7 +1441,7 @@ public struct GitCommit: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// Funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     ///
     /// - Parameter update: A pure function that returns the next ``ToolConfiguration``.
     /// - Returns: A new value with the updated configuration applied.
@@ -1562,7 +1562,7 @@ public struct GitRebase: RunnableCommandFamily {
     /// Returns a copy with updated shared tool configuration.
     ///
     /// Funnel for the protocol-provided helpers (``executable(_:)``, ``env(_:_:)``,
-    /// ``workingDirectory(_:)``, ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``workingDirectory(_:)``, ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     ///
     /// - Parameter update: A pure function that returns the next ``ToolConfiguration``.
     /// - Returns: A new value with the updated configuration applied.

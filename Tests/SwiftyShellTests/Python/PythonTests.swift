@@ -58,7 +58,7 @@ struct PythonCommandTests {
         let output = try await Python(context: context)
             .executable("/opt/bin/python3.13")
             .workingDirectory("/scripts")
-            .timeout(5)
+            .timeout(.seconds(5))
             .outputLimit(1024)
             .version()
             .run()
@@ -68,7 +68,7 @@ struct PythonCommandTests {
         #expect(command?.executableName == "python3")
         #expect(command?.executableOverride == "/opt/bin/python3.13")
         #expect(command?.workingDirectoryOverride == "/scripts")
-        #expect(command?.timeoutOverride == 5)
+        #expect(command?.timeoutOverride == .seconds(5))
         #expect(command?.outputLimitOverride == 1024)
         #expect(command?.arguments == ["--version"])
     }

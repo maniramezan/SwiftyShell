@@ -60,7 +60,7 @@ struct MakeCommandTests {
         let output = try await Make(context: context)
             .executable("/usr/bin/make")
             .workingDirectory("/repo")
-            .timeout(5)
+            .timeout(.seconds(5))
             .outputLimit(1024)
             .target("check")
             .run()
@@ -70,7 +70,7 @@ struct MakeCommandTests {
         #expect(command?.executableName == "make")
         #expect(command?.executableOverride == "/usr/bin/make")
         #expect(command?.workingDirectoryOverride == "/repo")
-        #expect(command?.timeoutOverride == 5)
+        #expect(command?.timeoutOverride == .seconds(5))
         #expect(command?.outputLimitOverride == 1024)
         #expect(command?.arguments == ["check"])
     }

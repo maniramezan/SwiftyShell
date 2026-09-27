@@ -58,7 +58,7 @@ struct YarnCommandTests {
         let output = try await Yarn(context: context)
             .executable("/opt/bin/yarn")
             .workingDirectory("/app")
-            .timeout(5)
+            .timeout(.seconds(5))
             .outputLimit(1024)
             .run()
 
@@ -66,7 +66,7 @@ struct YarnCommandTests {
         #expect(output.stdout == "4.0.0")
         #expect(command?.executableOverride == "/opt/bin/yarn")
         #expect(command?.workingDirectoryOverride == "/app")
-        #expect(command?.timeoutOverride == 5)
+        #expect(command?.timeoutOverride == .seconds(5))
         #expect(command?.outputLimitOverride == 1024)
         #expect(command?.arguments == ["--version"])
     }

@@ -51,7 +51,7 @@ public struct Git: ToolConfigurableCommandFamily {
     /// Holds the executor, environment, working-directory, timeout, and output-limit overrides
     /// that get merged onto every `git` command this client builds. Mutated through the
     /// protocol-provided helpers (``executable(_:)``, ``env(_:_:)``, ``workingDirectory(_:)``,
-    /// ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     public let config: ToolConfiguration
 
     /// The shell context used when running git workflows.

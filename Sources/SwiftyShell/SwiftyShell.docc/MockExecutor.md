@@ -5,7 +5,7 @@ A test-double implementation of ``CommandExecutor`` that returns caller-controll
 ## Overview
 
 `MockExecutor` is the testing seam for SwiftyShell. Inject one through
-``ShellContext/init(executor:searchPaths:environment:workingDirectory:defaultTimeout:defaultOutputLimit:)``
+``ShellContext/init(executor:searchPaths:environment:workingDirectory:defaultTimeout:defaultOutputLimit:)-(_,_,_,_,Duration?,_)``
 and every command — typed or raw — that runs in that context goes through the
 mock instead of spawning a real subprocess. The mock mirrors the real executor's
 failure semantics (non-zero exit codes throw ``ShellError/exitFailure(command:output:)``,

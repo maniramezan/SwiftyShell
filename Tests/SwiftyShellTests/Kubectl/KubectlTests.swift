@@ -71,7 +71,7 @@ struct KubectlCommandTests {
         let output = try await Kubectl(context: context)
             .executable("/opt/bin/kubectl")
             .workingDirectory("/cluster")
-            .timeout(5)
+            .timeout(.seconds(5))
             .outputLimit(1024)
             .run()
 
@@ -79,7 +79,7 @@ struct KubectlCommandTests {
         #expect(output.stdout == "Client Version")
         #expect(command?.executableOverride == "/opt/bin/kubectl")
         #expect(command?.workingDirectoryOverride == "/cluster")
-        #expect(command?.timeoutOverride == 5)
+        #expect(command?.timeoutOverride == .seconds(5))
         #expect(command?.outputLimitOverride == 1024)
         #expect(command?.arguments == ["version"])
     }

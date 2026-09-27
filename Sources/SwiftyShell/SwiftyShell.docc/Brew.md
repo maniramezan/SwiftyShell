@@ -85,7 +85,7 @@ let info = try await Brew(context: context)
 - ``executable(_:)``
 - ``workingDirectory(_:)``
 - ``env(_:_:)``
-- ``timeout(_:)``
+- ``timeout(_:)-(Duration)``
 - ``outputLimit(_:)``
 
 ### Running

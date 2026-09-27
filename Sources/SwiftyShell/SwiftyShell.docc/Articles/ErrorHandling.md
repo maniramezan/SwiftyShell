@@ -35,7 +35,7 @@ Thrown *before* launching a process when a timeout is negative or non-finite, or
 ```swift
 // Throws immediately — negative timeout is invalid
 try await Command("ls")
-    .timeout(-1)
+    .timeout(.seconds(-1))
     .run(in: context)
 
 // Also invalid: .nan and .infinity
@@ -100,7 +100,7 @@ do {
 The command or pipeline ran longer than the configured limit. The ``ShellError/timeout(command:duration:partialOutput:)`` case carries any output captured up to the point the process was terminated.
 
 ```swift
-let context = ShellContext(defaultTimeout: 30)
+let context = ShellContext(defaultTimeout: .seconds(30))
 
 do {
     try await Command("curl", arguments: "https://example.com/large-file").run(in: context)
@@ -118,7 +118,7 @@ try await Command("swift", arguments: "package", "resolve").run(in: context)
 
 // Needs more time — override for this call only
 try await Command("swift", arguments: "test", "--filter", "CommandTests")
-    .timeout(600)
+    .timeout(.seconds(600))
     .run(in: context)
 ```
 

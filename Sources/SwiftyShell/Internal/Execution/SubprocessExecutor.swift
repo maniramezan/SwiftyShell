@@ -16,7 +16,7 @@ private typealias StreamingExecution = Execution<NoInput, SequenceOutput, Sequen
 
 /// The default ``CommandExecutor`` that runs commands using Swift's `Subprocess` package.
 ///
-/// `SubprocessExecutor` is what ``ShellContext/init(executor:searchPaths:environment:workingDirectory:defaultTimeout:defaultOutputLimit:)``
+/// `SubprocessExecutor` is what ``ShellContext/init(executor:searchPaths:environment:workingDirectory:defaultTimeout:defaultOutputLimit:)-(_,_,_,_,Duration?,_)``
 /// installs by default. It spawns a real OS subprocess for each ``Command`` or ``Pipeline``
 /// stage, wires stdin/stdout/stderr per the configured ``OutputDestination``, enforces
 /// per-command timeouts and output limits, and converts non-zero exits into ``ShellError``.
@@ -98,7 +98,7 @@ private struct ResolvedCommand: Sendable {
     let arguments: [String]
     let environment: [String: String]
     let workingDirectory: String?
-    let timeout: TimeInterval?
+    let timeout: Duration?
     let outputLimit: Int
     let stdoutDestination: OutputDestination
     let stderrDestination: OutputDestination
@@ -125,7 +125,7 @@ private struct ResolvedCommand: Sendable {
         }
         // 0 means unlimited; normalize to Int.max so downstream comparisons work unchanged.
         self.outputLimit = rawLimit == 0 ? Int.max : rawLimit
-        if let timeout, timeout < 0 || timeout.isFinite == false {
+        if let timeout, timeout < .zero {
             throw ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")
         }
         self.stdoutDestination = Self.resolveOutputDestination(
@@ -332,7 +332,7 @@ private struct SingleCommandRunner {
         }
         let timeoutTask = resolved.timeout.map { timeout in
             Task {
-                try? await Task.sleep(for: durationFromSeconds(timeout))
+                try? await Task.sleep(for: timeout)
                 await eventNotifier.notify(.timedOut)
             }
         }
@@ -473,7 +473,7 @@ private struct SingleCommandRunner {
             let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.timeout(
                 command: resolved.displayCommand,
-                duration: resolved.timeout ?? 0,
+                duration: resolved.timeout ?? .zero,
                 partialOutput: output
             )
         case let .earlyTerminated(reason):
@@ -882,7 +882,7 @@ private struct PipelineRunner {
         }
         let timeoutTask = resolved.compactMap(\.timeout).min().map { timeout in
             Task {
-                try? await Task.sleep(for: durationFromSeconds(timeout))
+                try? await Task.sleep(for: timeout)
                 await eventNotifier.notify(.timedOut(duration: timeout))
             }
         }
@@ -1127,7 +1127,7 @@ private enum PipelineProcessCompletion: Sendable {
 
 private enum PipelineRunEvent: Sendable {
     case completed(PipelineProcessCompletion)
-    case timedOut(duration: TimeInterval)
+    case timedOut(duration: Duration)
     case earlyTerminated(EarlyTerminationReason)
     case canceled
 }
@@ -1342,19 +1342,10 @@ private func runPipelineStageWithStreamedStdout<Input: InputProtocol>(
 
 /// Converts a `TimeInterval` (seconds, `Double`) to a Swift `Duration`.
 ///
-/// The public API uses `TimeInterval` for timeouts (``Command/timeout(_:)``,
+/// The public API uses `TimeInterval` for timeouts (``Command/timeout(_:)-(Duration)``,
 /// ``ShellContext/defaultTimeout``). Internally we convert to `Duration` at the
 /// boundary so all sleep calls use the modern `Task.sleep(for:)` API instead of
 /// the nanosecond-based overload that requires manual overflow handling.
-private func durationFromSeconds(_ seconds: TimeInterval) -> Duration {
-    if seconds <= 0 { return .zero }
-    let maximumNanosecondDuration = Double(Int64.max) / 1_000_000_000
-    if seconds >= maximumNanosecondDuration { return .nanoseconds(Int64.max) }
-    let wholeSeconds = Int64(seconds)
-    let fractionalNanoseconds = Int64((seconds - Double(wholeSeconds)) * 1_000_000_000)
-    return .seconds(wholeSeconds) + .nanoseconds(fractionalNanoseconds)
-}
-
 /// Stops `run()` and pipeline stages immediately: `SIGKILL` to the whole process group, so any
 /// descendants the command started die with it.
 ///

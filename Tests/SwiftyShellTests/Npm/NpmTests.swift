@@ -48,14 +48,8 @@ struct NpmCommandTests {
     }
 
     @Test func preservesToolConfigurationOverrides() async throws {
-        actor Recorder { var command: Command?; func record(_ command: Command) { self.command = command } }
-        let recorder = Recorder()
-        let context = ShellContext(
-            executor: MockExecutor { command, _ in
-                await recorder.record(command)
-                return ShellOutput(stdout: "10.0.0", stderr: "", exitCode: 0)
-            }
-        )
+        let mock = MockExecutor { _, _ in ShellOutput(stdout: "10.0.0", stderr: "", exitCode: 0) }
+        let context = ShellContext(executor: mock)
 
         let output = try await Npm(context: context)
             .executable("/opt/bin/npm")
@@ -64,7 +58,7 @@ struct NpmCommandTests {
             .outputLimit(1024)
             .run()
 
-        let command = await recorder.command
+        let command = mock.recordedCommands.last
         #expect(output.stdout == "10.0.0")
         #expect(command?.executableOverride == "/opt/bin/npm")
         #expect(command?.workingDirectoryOverride == "/app")

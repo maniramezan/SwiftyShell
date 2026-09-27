@@ -59,14 +59,8 @@ struct KubectlCommandTests {
     }
 
     @Test func preservesToolConfigurationOverrides() async throws {
-        actor Recorder { var command: Command?; func record(_ command: Command) { self.command = command } }
-        let recorder = Recorder()
-        let context = ShellContext(
-            executor: MockExecutor { command, _ in
-                await recorder.record(command)
-                return ShellOutput(stdout: "Client Version", stderr: "", exitCode: 0)
-            }
-        )
+        let mock = MockExecutor { _, _ in ShellOutput(stdout: "Client Version", stderr: "", exitCode: 0) }
+        let context = ShellContext(executor: mock)
 
         let output = try await Kubectl(context: context)
             .executable("/opt/bin/kubectl")
@@ -75,7 +69,7 @@ struct KubectlCommandTests {
             .outputLimit(1024)
             .run()
 
-        let command = await recorder.command
+        let command = mock.recordedCommands.last
         #expect(output.stdout == "Client Version")
         #expect(command?.executableOverride == "/opt/bin/kubectl")
         #expect(command?.workingDirectoryOverride == "/cluster")

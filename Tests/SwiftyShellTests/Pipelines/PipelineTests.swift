@@ -12,18 +12,6 @@ private func waitForFile(at path: String) async throws {
     Issue.record("Timed out waiting for marker file at \(path)")
 }
 
-private actor InvocationRecorder {
-    private var invocations: [String] = []
-
-    func record(_ executable: String) {
-        invocations.append(executable)
-    }
-
-    func snapshot() -> [String] {
-        invocations
-    }
-}
-
 struct PipelineTests {
     @Test func pipelineDescriptionRendersShellStyleStages() {
         let pipeline = Command("printf", arguments: "alpha\nbeta\n")
@@ -46,22 +34,18 @@ struct PipelineTests {
         #expect(pipeline.debugDescription.contains("grep hello"))
     }
 
-    @Test func mockPipelineStopsOnFirstFailure() async throws {
-        let recorder = InvocationRecorder()
-        let context = ShellContext(
-            executor: MockExecutor { command, _ in
-                await recorder.record(command.executableName)
-                if command.executableName == "first" {
-                    return ShellOutput(stdout: "", stderr: "boom", exitCode: 9)
-                }
-                return ShellOutput(stdout: command.executableName, stderr: "", exitCode: 0)
+    @Test func mockPipelineReportsFirstFailingStageAfterRunningEveryStage() async throws {
+        let mock = MockExecutor { command, _ in
+            if command.executableName == "first" {
+                return ShellOutput(stdout: "", stderr: "boom", exitCode: 9)
             }
-        )
+            return ShellOutput(stdout: command.executableName, stderr: "", exitCode: 0)
+        }
 
         do {
             _ = try await Command("first")
                 .pipe(to: Command("second"))
-                .run(in: context)
+                .run(in: ShellContext(executor: mock))
             Issue.record("Expected exitFailure")
         } catch let error as ShellError {
             guard case let .exitFailure(command, output) = error else {
@@ -70,8 +54,9 @@ struct PipelineTests {
             }
             #expect(command == "first")
             #expect(output.exitCode == 9)
+            #expect(output.stdout == "second")
             #expect(output.stderr == "boom")
-            #expect(await recorder.snapshot() == ["first"])
+            #expect(mock.recordedCommands.map(\.executableName) == ["first", "second"])
         }
     }
 

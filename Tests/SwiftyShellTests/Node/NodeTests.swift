@@ -50,14 +50,8 @@ struct NodeCommandTests {
     }
 
     @Test func preservesToolConfigurationOverrides() async throws {
-        actor Recorder { var command: Command?; func record(_ command: Command) { self.command = command } }
-        let recorder = Recorder()
-        let context = ShellContext(
-            executor: MockExecutor { command, _ in
-                await recorder.record(command)
-                return ShellOutput(stdout: "v22.0.0", stderr: "", exitCode: 0)
-            }
-        )
+        let mock = MockExecutor { _, _ in ShellOutput(stdout: "v22.0.0", stderr: "", exitCode: 0) }
+        let context = ShellContext(executor: mock)
 
         let output = try await Node(context: context)
             .executable("/opt/bin/node")
@@ -67,7 +61,7 @@ struct NodeCommandTests {
             .version()
             .run()
 
-        let command = await recorder.command
+        let command = mock.recordedCommands.last
         #expect(output.stdout == "v22.0.0")
         #expect(command?.executableOverride == "/opt/bin/node")
         #expect(command?.workingDirectoryOverride == "/app")

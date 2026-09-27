@@ -375,7 +375,7 @@ public struct Unzip: RunnableCommandFamily {
         ).command()
         return Workflow {
             let output = try await cmd.run(in: context)
-            return UnzipEntryParser.parse(output.stdout)
+            return UnzipEntryParser.parse(try output.validatedStdout(for: cmd))
         }
     }
 

@@ -382,8 +382,9 @@ public struct Command: Sendable {
     /// - Parameter context: The shell context that provides defaults and the executor. Defaults
     ///   to a freshly constructed ``ShellContext``.
     /// - Returns: The captured ``ShellOutput`` from the process.
-    /// - Throws: ``ShellError`` describing the failure mode (timeout, non-zero exit, decoding
-    ///   failure, output-limit overflow, cancellation, spawn error, or invalid configuration).
+    /// - Throws: ``ShellError`` describing the failure mode (timeout, non-zero exit,
+    ///   output-limit overflow, cancellation, spawn error, or invalid configuration). Output that
+    ///   is not valid UTF-8 is not an error; read the raw bytes from ``ShellOutput/stdoutData``.
     public func run(in context: ShellContext = .init()) async throws -> ShellOutput {
         try await context.executor.execute(self, in: context)
     }

@@ -6,10 +6,8 @@ import Foundation
 /// reads. Decoding each read on its own would turn both halves into U+FFFD. This decoder holds back
 /// an incomplete trailing sequence and prepends it to the next chunk.
 struct UTF8ChunkDecoder {
-    // UTF-8 continuation bytes have the bit pattern `10xxxxxx`; the mask selects those two prefix bits.
-    private static let continuationByteMask: UInt8 = 0xC0
-    private static let continuationBytePrefix: UInt8 = 0x80
-    private static let maximumIncompleteSequenceLength = 4
+    private static let continuationBytes: ClosedRange<UInt8> = 0x80...0xBF
+    private static let maximumUTF8ScalarLength = 4
 
     private var pending: [UInt8] = []
 
@@ -19,14 +17,14 @@ struct UTF8ChunkDecoder {
     mutating func decode(_ data: Data) -> String? {
         guard !pending.isEmpty else {
             // Common case: nothing held back, so decode straight from `data` without copying it.
-            let boundary = data.index(data.startIndex, offsetBy: Self.completeLength(of: data))
+            let boundary = Self.completePrefixEnd(in: data)
             pending = Array(data[boundary...])
             guard boundary > data.startIndex else { return nil }
             return String(decoding: data[..<boundary], as: UTF8.self)
         }
         var bytes = pending
         bytes.append(contentsOf: data)
-        let boundary = Self.completeLength(of: bytes)
+        let boundary = Self.completePrefixEnd(in: bytes)
         pending = Array(bytes[boundary...])
         guard boundary > 0 else { return nil }
         return String(decoding: bytes[..<boundary], as: UTF8.self)
@@ -41,37 +39,44 @@ struct UTF8ChunkDecoder {
         return String(decoding: pending, as: UTF8.self)
     }
 
-    /// Returns the length of the longest prefix of `bytes` that does not end inside an incomplete
-    /// multi-byte sequence.
+    /// Returns the end of the prefix that can be decoded without splitting a UTF-8 scalar.
     ///
-    /// Only the final three bytes need inspection: a UTF-8 scalar uses at most four bytes, so its
-    /// lead byte can be followed by at most three bytes that have arrived so far. Invalid bytes
-    /// are not held back; they decode to U+FFFD as usual.
-    static func completeLength<Bytes: BidirectionalCollection<UInt8>>(of bytes: Bytes) -> Int {
-        let count = bytes.count
-        var index = bytes.endIndex
-        var trailingByteCount = 0
-        while index > bytes.startIndex, trailingByteCount < maximumIncompleteSequenceLength - 1 {
-            index = bytes.index(before: index)
-            trailingByteCount += 1
-            let byte = bytes[index]
-            if byte & continuationByteMask != continuationBytePrefix {
-                // This is a lead byte, ASCII byte, or invalid byte. Only lead bytes need a length check.
-                let sequenceLength: Int
-                switch byte {
-                // `110xxxxx` starts a 2-byte scalar (U+0080...U+07FF).
-                case 0xC0...0xDF: sequenceLength = 2
-                // `1110xxxx` starts a 3-byte scalar (U+0800...U+FFFF).
-                case 0xE0...0xEF: sequenceLength = 3
-                // `11110xxx` starts a 4-byte scalar (U+10000...U+10FFFF).
-                case 0xF0...0xF7: sequenceLength = 4
-                default: return count
-                }
-                // `trailingByteCount` includes this lead byte, so fewer bytes than the sequence needs
-                // means the sequence is incomplete and must be carried into the next read.
-                return trailingByteCount < sequenceLength ? count - trailingByteCount : count
+    /// A valid incomplete scalar occupies at most three trailing bytes. Invalid prefixes are
+    /// returned for immediate decoding with replacement characters by `String(decoding:as:)`.
+    private static func completePrefixEnd<Bytes: BidirectionalCollection<UInt8>>(
+        in bytes: Bytes
+    ) -> Bytes.Index {
+        let candidateIndices = bytes.indices.reversed().prefix(maximumUTF8ScalarLength - 1)
+        for (offset, index) in candidateIndices.enumerated() {
+            let leadByte = bytes[index]
+            guard !continuationBytes.contains(leadByte) else { continue }
+
+            let scalarLength: Int
+            switch leadByte {
+            case 0xC2...0xDF: scalarLength = 2
+            case 0xE0...0xEF: scalarLength = 3
+            case 0xF0...0xF4: scalarLength = maximumUTF8ScalarLength
+            default: return bytes.endIndex
             }
+
+            let availableByteCount = offset + 1
+            guard availableByteCount < scalarLength else { return bytes.endIndex }
+            guard availableByteCount > 1 else { return index }
+
+            // These lead bytes restrict the second byte to exclude overlong encodings,
+            // UTF-16 surrogates, and values above U+10FFFF. Later continuation bytes need
+            // no additional checks: the backward scan has already checked their range.
+            let secondByte = bytes[bytes.index(after: index)]
+            let validSecondBytes: ClosedRange<UInt8>
+            switch leadByte {
+            case 0xE0: validSecondBytes = 0xA0...0xBF
+            case 0xED: validSecondBytes = 0x80...0x9F
+            case 0xF0: validSecondBytes = 0x90...0xBF
+            case 0xF4: validSecondBytes = 0x80...0x8F
+            default: validSecondBytes = continuationBytes
+            }
+            return validSecondBytes.contains(secondByte) ? index : bytes.endIndex
         }
-        return count
+        return bytes.endIndex
     }
 }

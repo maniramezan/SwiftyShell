@@ -3,6 +3,43 @@ import Testing
 @testable import SwiftyShell
 
 struct HelmCommandTests {
+    @Test func exclusiveModesPreserveOtherSelections() {
+        let base = Helm().upgrade(release: "api", chart: "chart").reuseValues()
+        #expect(base.resetValues().command().arguments == ["upgrade", "--reset-values", "api", "chart"])
+        #expect(base.resetValues(false).command().arguments == ["upgrade", "--reuse-values", "api", "chart"])
+        #expect(base.reuseValues(false).command().arguments == ["upgrade", "api", "chart"])
+        #expect(base.command().arguments == ["upgrade", "--reuse-values", "api", "chart"])
+    }
+
+    @Test func valueOptionsKeepOrderForEachOperation() {
+        let expected = [
+            "--values", "a", "--values", "b", "--set", "a=1", "--set-string", "b=02",
+            "--set-file", "c=file", "--set-json", "d=[]",
+        ]
+        let commands = [
+            Helm().lint(chart: "chart").valuesFiles(["a", "b"]).set("a", to: "1")
+                .setString("b", to: "02").setFile("c", path: "file").setJSON("d", to: "[]").command(),
+            Helm().install(release: "api", chart: "chart").valuesFiles(["a", "b"]).set("a", to: "1")
+                .setString("b", to: "02").setFile("c", path: "file").setJSON("d", to: "[]").command(),
+            Helm().upgrade(release: "api", chart: "chart").valuesFiles(["a", "b"]).set("a", to: "1")
+                .setString("b", to: "02").setFile("c", path: "file").setJSON("d", to: "[]").command(),
+        ]
+        for command in commands {
+            #expect(Array(command.arguments.dropFirst().prefix(expected.count)) == expected)
+        }
+        #expect(
+            Helm().template(chart: "chart").valuesFile("a").outputDirectory("out").command().arguments
+                == ["template", "--values", "a", "--output-dir", "out", "chart"]
+        )
+        #expect(
+            Helm().upgrade(release: "api", chart: "chart").createNamespace().dryRun(.server).wait()
+                .version("1").output(.yaml).command().arguments == [
+                    "upgrade", "--create-namespace", "--dry-run", "server",
+                    "--wait", "--version", "1", "--output", "yaml", "api", "chart",
+                ]
+        )
+    }
+
     @Test func buildsTemplateWithClusterAndValueOptions() {
         let command = Helm()
             .namespace("production")

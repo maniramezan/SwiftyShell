@@ -479,23 +479,24 @@ public struct Brew: RunnableCommandFamily {
 
     /// Returns a copy that treats the named packages as casks.
     ///
-    /// Maps to the `--cask` flag. Mutually exclusive with ``formulaFlag(_:)`` — supplying both
-    /// is an error from `brew`.
+    /// Maps to the `--cask` flag. Mutually exclusive with ``formulaFlag(_:)``; enabling one clears
+    /// the other, so the last one enabled wins.
     ///
     /// - Parameter enabled: `true` to add `--cask`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Brew`` value with the flag applied.
     public func cask(_ enabled: Bool = true) -> Self {
-        copy(usesCaskFlag: enabled)
+        copy(usesCaskFlag: enabled, usesFormulaFlag: enabled ? false : nil)
     }
 
     /// Returns a copy that treats the named packages as formulae.
     ///
-    /// Maps to the `--formula` flag. Mutually exclusive with ``cask(_:)``.
+    /// Maps to the `--formula` flag. Mutually exclusive with ``cask(_:)``; enabling one clears the
+    /// other, so the last one enabled wins.
     ///
     /// - Parameter enabled: `true` to add `--formula`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Brew`` value with the flag applied.
     public func formulaFlag(_ enabled: Bool = true) -> Self {
-        copy(usesFormulaFlag: enabled)
+        copy(usesCaskFlag: enabled ? false : nil, usesFormulaFlag: enabled)
     }
 
     /// Returns a copy that forces the operation past safety checks.

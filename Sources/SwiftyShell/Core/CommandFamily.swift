@@ -233,6 +233,14 @@ public extension RunnableCommandFamily {
     }
 }
 
+/// Returns the mode that results from toggling `mode` within a set of mutually exclusive modes.
+///
+/// Enabling selects `mode`, replacing any other mode, so the last enabled mode wins. Disabling clears
+/// the selection only when `mode` is the current one.
+func toggledMode<Mode: Equatable>(_ current: Mode?, _ mode: Mode, enabled: Bool) -> Mode? {
+    enabled ? mode : (current == mode ? nil : current)
+}
+
 func appendOption(_ name: String, _ value: String?, to arguments: inout [String]) {
     if let value { arguments += [name, value] }
 }

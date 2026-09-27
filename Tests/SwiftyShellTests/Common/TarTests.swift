@@ -4,6 +4,16 @@ import Testing
 @testable import SwiftyShell
 
 struct TarCommandTests {
+    @Test func exclusiveExtractPoliciesUseLastSelection() {
+        #expect(Tar().extract().sameOwner().noSameOwner().command().arguments == ["-x", "--no-same-owner"])
+        #expect(Tar().extract().noSameOwner().sameOwner().command().arguments == ["-x", "--same-owner"])
+        #expect(Tar().extract().sameOwner().noSameOwner(false).command().arguments == ["-x", "--same-owner"])
+        #expect(Tar().extract().keepOldFiles().skipOldFiles().overwrite().command().arguments == ["-x", "--overwrite"])
+        #expect(Tar().extract().overwrite().keepOldFiles().command().arguments == ["-x", "-k"])
+        #expect(Tar().extract().overwrite().skipOldFiles().command().arguments == ["-x", "--skip-old-files"])
+        #expect(Tar().extract().skipOldFiles().overwrite(false).command().arguments == ["-x", "--skip-old-files"])
+    }
+
     let subject = Tar()
 
     @Test func buildsDefaultTarCommand() {

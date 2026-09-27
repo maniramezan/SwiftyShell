@@ -168,6 +168,7 @@ The repository ships a `.swift-format` config at the repo root that encodes the 
 
 - All public types are value types (`struct`) conforming to `Sendable`
 - Fluent builder pattern: every mutating method returns a new `Self` copy
+- Model mutually exclusive flags (operations, modes, overwrite policies) as one internal enum rather than independent `Bool`s, so invalid argv such as `git branch --list -d -m` cannot be built; enabling one selects it and the last call wins (use the internal `toggledMode` helper), and options that belong to one operation are emitted only in that operation.
 - `init(context: ShellContext = .init())` is the standard entry point for typed clients
 - Every typed client exposes `executable(_:)`, `env(_:_:)`, `workingDirectory(_:)`, `timeout(_:)`, `outputLimit(_:)`, `command() -> Command`, and `run() async throws`; clients conforming to `RunnableCommandFamily` also inherit `spawn(teardown:) async throws`
 - `ShellContext` is infrastructure, not a command namespace — `Command("pwd")` not `context.pwd()`

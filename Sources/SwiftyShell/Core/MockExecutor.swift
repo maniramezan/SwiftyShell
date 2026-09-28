@@ -179,8 +179,8 @@ public struct MockExecutor: CommandExecutor {
             outputs.append(try await handler(stage, context))
         }
 
-        let stdout = outputs.last?.stdout ?? ""
-        let stderr = outputs.map(\.stderr).joined()
+        let stdoutData = outputs.last?.stdoutData ?? Data()
+        let stderrData = outputs.reduce(into: Data()) { $0.append($1.stderrData) }
         let finalIndex = outputs.count - 1
         let failure = zip(pipeline.stages, outputs).enumerated().first { index, stageAndOutput in
             let exitCode = stageAndOutput.1.exitCode
@@ -190,10 +190,10 @@ public struct MockExecutor: CommandExecutor {
         if let failure {
             throw ShellError.exitFailure(
                 command: failure.0.displayString(),
-                output: ShellOutput(stdout: stdout, stderr: stderr, exitCode: failure.1.exitCode)
+                output: ShellOutput(stdoutData: stdoutData, stderrData: stderrData, exitCode: failure.1.exitCode)
             )
         }
-        return ShellOutput(stdout: stdout, stderr: stderr, exitCode: 0)
+        return ShellOutput(stdoutData: stdoutData, stderrData: stderrData, exitCode: 0)
     }
 
     /// Spawns a mock process by invoking the mock handler and returning a ``MockSpawnedProcess``.

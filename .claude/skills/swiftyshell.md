@@ -120,7 +120,8 @@ public struct Command: Sendable {
     public func workingDirectory(_ path: String) -> Self
     public func timeout(_ duration: Duration) -> Self   // TimeInterval overload is deprecated
     public func outputLimit(_ bytes: Int) -> Self
-    public func stdin(_ source: InputSource) -> Self          // default .none (empty stdin)
+    // default .none (empty stdin)
+    public func stdin(_ source: InputSource) -> Self
     public func stdout(_ destination: OutputDestination) -> Self
     public func stderr(_ destination: OutputDestination) -> Self
     public func pipe(to next: Command) -> Pipeline
@@ -218,10 +219,13 @@ public extension RunnableCommandFamily {
 
 ```swift
 public enum InputSource: Sendable, Equatable {
-    case none                  // empty stdin (default)
+    // empty stdin (default)
+    case none
     case data(Data)
-    case string(String)        // UTF-8
-    case file(path: String)    // like shell `<`; relative to the working directory
+    // UTF-8
+    case string(String)
+    // like shell `<`; relative to the working directory
+    case file(path: String)
 }
 // Typed families: `try await Jq(".name").rawOutput().run(stdin: .string(json))`
 // Pipelines: only the first stage may set stdin; a later stage's source throws invalidConfiguration.

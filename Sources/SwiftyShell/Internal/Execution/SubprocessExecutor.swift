@@ -968,7 +968,8 @@ private func inMemoryFile(containing data: Data) throws -> FileDescriptor {
     guard let memfdCreate else {
         throw ShellError.invalidConfiguration(description: "Feeding stdin bytes requires memfd_create (glibc 2.27+)")
     }
-    let closeOnExec: UInt32 = 0x0001  // MFD_CLOEXEC
+    // MFD_CLOEXEC
+    let closeOnExec: UInt32 = 0x0001
     let rawValue = memfdCreate("swiftyshell-stdin", closeOnExec)
     guard rawValue >= 0 else { throw Errno(rawValue: errno) }
     let descriptor = FileDescriptor(rawValue: rawValue)

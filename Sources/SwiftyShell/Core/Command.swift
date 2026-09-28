@@ -213,6 +213,7 @@ public struct Command: Sendable {
 
     /// Returns a copy of the command with one environment variable set or replaced.
     ///
+    /// Setting a single variable updates the override directly without constructing a temporary dictionary.
     /// The override is merged onto ``ShellContext/environment`` at execution time. If the same
     /// `name` is supplied to this method multiple times, the last value wins. To remove a
     /// variable from the inherited environment, use ``unsetEnv(_:)-(String...)``; an empty value is not the
@@ -491,7 +492,8 @@ public struct Command: Sendable {
     /// ```swift
     /// let build = try await Command("swift", arguments: "build").spawn(captureOutput: true)
     /// for await chunk in build.standardOutput { print(chunk, terminator: "") }
-    /// let output = await build.waitForExit()   // output.stdout holds the full log
+    /// // output.stdout holds the full log
+    /// let output = await build.waitForExit()
     /// ```
     ///
     /// - Parameters:
@@ -511,7 +513,7 @@ public struct Command: Sendable {
 
     /// Returns a shell-quoted string representation of the command suitable for display or logging.
     ///
-    /// Components that are empty or contain anything other than letters, digits, and
+    /// Components that are empty or contain anything other than ASCII letters, digits, and
     /// `@%+=:,./_-` are wrapped in POSIX single quotes, with embedded single quotes written as
     /// `'\''`. The result can be pasted into a POSIX shell (`sh`, `bash`, `zsh`) to run the same
     /// argv: variables, globs, and command separators inside arguments are not expanded.
@@ -527,27 +529,10 @@ public struct Command: Sendable {
     /// - Returns: A string of the form `executable [arg ...]` with arguments quoted when necessary.
     public func displayString(using resolvedExecutable: String? = nil) -> String {
         ([resolvedExecutable ?? executableOverride ?? executableName] + arguments)
-            .map(Self.shellQuoted)
+            .map { $0.shellQuoted() }
             .joined(separator: " ")
     }
 
-    /// Returns `component` unchanged when it is safe to paste into a POSIX shell, otherwise wrapped
-    /// in single quotes.
-    internal static func shellQuoted(_ component: String) -> String {
-        if !component.isEmpty, component.unicodeScalars.allSatisfy(isShellSafe) {
-            return component
-        }
-        return "'" + component.replacingOccurrences(of: "'", with: #"'\''"#) + "'"
-    }
-
-    private static func isShellSafe(_ scalar: Unicode.Scalar) -> Bool {
-        switch scalar {
-        case "a"..."z", "A"..."Z", "0"..."9", "@", "%", "+", "=", ":", ",", ".", "/", "_", "-":
-            true
-        default:
-            false
-        }
-    }
 }
 
 extension Command: CustomStringConvertible {

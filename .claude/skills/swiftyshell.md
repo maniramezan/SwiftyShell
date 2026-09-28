@@ -129,17 +129,14 @@ public struct Command: Sendable {
     public func pipe(to next: Command) -> Pipeline
 
     public func run(in context: ShellContext = .init()) async throws -> ShellOutput
+    // streams live; does NOT retain output
     public func spawn(
         in context: ShellContext = .init(),
         teardown: TeardownStrategy = .graceful
     ) async throws -> any SpawnedProcess
-    // Output streams live without retention by default; set true to keep captured output
-    // for waitForExit(), subject to outputLimit.
-    public func spawn(
-        captureOutput: Bool,
-        in context: ShellContext = .init(),
-        teardown: TeardownStrategy = .graceful
-    ) async throws -> any SpawnedProcess
+    public func spawn(captureOutput: Bool, in context: ShellContext = .init(),
+                      teardown: TeardownStrategy = .graceful) async throws -> any SpawnedProcess
+    public var spawnRetainsOutput: Bool { get }
 
     // POSIX single-quoted display (also `description`); pasting it into sh/bash/zsh runs the same argv.
     public func displayString(using resolvedExecutable: String? = nil) -> String
@@ -163,10 +160,11 @@ public struct Pipeline: Sendable {
 public protocol SpawnedProcess: Sendable {
     var processIdentifier: Int32 { get }
     // Arbitrary-size chunks (not lines) that never split a UTF-8 character. The built-in
-    // executor buffers the 1,024 most recent unread chunks; use `.stdout(.discard)` on
-    // long-lived processes to stream without retaining output for the final ShellOutput.
+    // executor buffers the 1,024 most recent unread chunks. Plain spawn() does not retain
+    // output: waitForExit()/teardownAndWait() return empty output unless spawn(captureOutput: true).
     var standardOutput: AsyncStream<String> { get }
     var standardError: AsyncStream<String> { get }
+    // raw bytes (default: empty stream)
     var standardOutputData: AsyncStream<Data> { get }
     var standardErrorData: AsyncStream<Data> { get }
 

@@ -116,6 +116,8 @@ public struct ToolConfiguration: Sendable {
 
     /// Returns a copy with one environment variable set or replaced.
     ///
+    /// Also clears any earlier removal of this variable without creating a temporary dictionary.
+    ///
     /// - Parameters:
     ///   - name: The environment variable name.
     ///   - value: The value to assign.

@@ -9,9 +9,7 @@ yet. It uses the same builder shape as every typed command family — chain
 modifiers to add arguments, environment variables, a working directory, a
 timeout, an output limit, and stdout/stderr destinations, then call
 ``run(in:)`` to execute it inside a ``ShellContext`` or
-``spawn(in:teardown:)`` to start a long-running process that you control later. Spawned
-output streams live by default; use ``spawn(captureOutput:in:teardown:)`` when the final
-captured output is needed.
+``spawn(in:teardown:)`` to start a long-running process that you control later.
 
 Each modifier returns a new copy; ``Command`` itself is an immutable, `Sendable`
 value, so it is safe to store, share across tasks, and pass into structured
@@ -113,6 +111,7 @@ print(command)  // git commit -m 'it'\''s $HOME'
 - ``run(in:)``
 - ``spawn(in:teardown:)``
 - ``spawn(captureOutput:in:teardown:)``
+- ``spawnRetainsOutput``
 
 ### Piping
 

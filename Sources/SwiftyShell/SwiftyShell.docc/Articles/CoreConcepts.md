@@ -186,7 +186,7 @@ let result = try await Command("ls", arguments: "-la")
     .run(in: context)
 ```
 
-The first stage receives closed stdin; each later stage receives the preceding stage's stdout. Successful output contains the final stage's captured stdout and captured stderr concatenated in stage order. All stages run concurrently, and an observed non-zero stage cancels the remaining stage tasks. A non-final stage terminated by `SIGPIPE` is not a failure, since it only means a downstream stage stopped reading early (`yes | head -n 1`). Each stage resolves its own output limit; intermediate stdout is piped rather than captured, while captured stderr and final-stage stdout count against their stage limits. The shortest resolved stage timeout governs the pipeline. Timeout, cancellation, and output-limit errors carry captured partial output.
+The first stage reads its ``Command/stdinSource`` (an empty stdin by default); each later stage receives the preceding stage's stdout. Successful output contains the final stage's captured stdout and captured stderr concatenated in stage order. All stages run concurrently, and an observed non-zero stage cancels the remaining stage tasks. A non-final stage terminated by `SIGPIPE` is not a failure, since it only means a downstream stage stopped reading early (`yes | head -n 1`). Each stage resolves its own output limit; intermediate stdout is piped rather than captured, while captured stderr and final-stage stdout count against their stage limits. The shortest resolved stage timeout governs the pipeline. Timeout, cancellation, and output-limit errors carry captured partial output.
 
 ## Executor Protocol
 
@@ -199,7 +199,7 @@ public protocol CommandExecutor: Sendable {
 }
 ```
 
-``SubprocessExecutor`` is the default production executor and is backed by the `swift-subprocess` package. It resolves executables from ``ShellContext/searchPaths``, runs single commands and pipelines as subprocesses, gives `run()` calls an empty stdin, and preserves captured partial output for timeout, cancellation, and output-limit failures. On Unix platforms each process started for `run()` executes as its own process-group leader; early termination sends `SIGKILL` to the process group, including descendants, and waits for process completion before returning. Explicitly spawned processes instead use their configured ``TeardownStrategy`` when the caller requests teardown; each teardown signal also goes to the spawned process's group, so descendants are stopped too.
+``SubprocessExecutor`` is the default production executor and is backed by the `swift-subprocess` package. It resolves executables from ``ShellContext/searchPaths``, runs single commands and pipelines as subprocesses, gives commands an empty stdin unless ``Command/stdin(_:)`` supplies an ``InputSource``, and preserves captured partial output for timeout, cancellation, and output-limit failures. On Unix platforms each process started for `run()` executes as its own process-group leader; early termination sends `SIGKILL` to the process group, including descendants, and waits for process completion before returning. Explicitly spawned processes instead use their configured ``TeardownStrategy`` when the caller requests teardown; each teardown signal also goes to the spawned process's group, so descendants are stopped too.
 
 ``MockExecutor`` is the test double. You can also implement your own — for example, to add structured logging around every command:
 

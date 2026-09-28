@@ -221,6 +221,21 @@ public extension RunnableCommandFamily {
         try await command().run(in: context)
     }
 
+    /// Runs the built command with its stdin read from `source`.
+    ///
+    /// Use this to feed input to filters such as `jq` without building the ``Command`` yourself:
+    ///
+    /// ```swift
+    /// let name = try await Jq(".name").rawOutput().run(stdin: .string(#"{"name": "SwiftyShell"}"#))
+    /// ```
+    ///
+    /// - Parameter source: Where the command's stdin comes from.
+    /// - Returns: The captured ``ShellOutput``.
+    /// - Throws: The same errors as ``run()``.
+    func run(stdin source: InputSource) async throws -> ShellOutput {
+        try await command().stdin(source).run(in: context)
+    }
+
     /// Spawns the command represented by the current fluent configuration.
     ///
     /// Equivalent to `try await command().spawn(in: context, teardown: teardown)`.

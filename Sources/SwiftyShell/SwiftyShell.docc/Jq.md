@@ -38,6 +38,16 @@ let generated = try await Jq("{ok: true}", context: context)
     .run()
 ```
 
+Pass JSON you already have in memory on stdin with
+``RunnableCommandFamily/run(stdin:)`` instead of writing it to a file first:
+
+```swift
+let response = #"{"name": "SwiftyShell", "stars": 42}"#
+let name = try await Jq(".name", context: context)
+    .rawOutput()
+    .run(stdin: .string(response))
+```
+
 ## Topics
 
 ### Creating a Filter
@@ -62,6 +72,7 @@ let generated = try await Jq("{ok: true}", context: context)
 ### Running
 
 - ``command()``
+- ``RunnableCommandFamily/run(stdin:)``
 
 ### Related Types
 

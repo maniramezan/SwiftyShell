@@ -90,6 +90,10 @@ print(command)  // git commit -m 'it'\''s $HOME'
 - ``timeout(_:)-(Duration)``
 - ``outputLimit(_:)``
 
+### Providing Input
+
+- ``stdin(_:)``
+
 ### Redirecting Output
 
 - ``stdout(_:)``
@@ -113,6 +117,7 @@ print(command)  // git commit -m 'it'\''s $HOME'
 - ``workingDirectoryOverride``
 - ``timeoutOverride``
 - ``outputLimitOverride``
+- ``stdinSource``
 - ``stdoutDestination``
 - ``stderrDestination``
 - ``displayString(using:)``

@@ -109,3 +109,11 @@ await #expect(throws: ShellError.self) {
 
 - ``CommandExecutor``
 - ``ShellOutput``
+
+## Log output
+
+For ``OutputDestination/log(path:append:tailBytes:tee:)``, the mock retains the requested tail from
+the supplied response, including on nonzero exits. Spawned live streams still receive the full
+supplied output. It validates negative tail sizes but never writes files or parent streams, and
+does not simulate byte-limit overflows, timeout timing, or operating-system process cleanup.
+Use integration tests with ``SubprocessExecutor`` for those behaviors.

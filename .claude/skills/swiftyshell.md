@@ -244,6 +244,12 @@ public enum OutputDestination: Sendable, Equatable {
     case discard
     case file(path: String, append: Bool)
     case tee  // streams live to the parent stdout/stderr AND captures into ShellOutput
+    case teeTo(StreamKind)  // explicit parent stream; capture keeps the original child stream
+    case log(path: String, append: Bool, tailBytes: Int, tee: StreamKind? = nil)
+    // log writes all received bytes, retains a bounded tail, and optionally streams live.
+    // Zero tailBytes retains nothing; negative values are invalid. The shared hard output
+    // limit still applies to retained bytes. Spawn requires captureOutput: true to retain tails.
+    // MockExecutor trims tails without file/terminal writes or byte-limit simulation.
 }
 ```
 

@@ -225,16 +225,28 @@ private struct ResolvedCommand: Sendable {
         _ destination: OutputDestination,
         workingDirectory: String?
     ) -> OutputDestination {
-        guard case let .file(path, append) = destination else { return destination }
-        return .file(path: absolutePath(path, relativeTo: workingDirectory), append: append)
+        switch destination {
+        case let .file(path, append):
+            return .file(path: absolutePath(path, relativeTo: workingDirectory), append: append)
+        case let .log(path, append, tailBytes, tee):
+            return .log(
+                path: absolutePath(path, relativeTo: workingDirectory),
+                append: append,
+                tailBytes: tailBytes,
+                tee: tee
+            )
+        default: return destination
+        }
     }
 
     private static func validateOutputDestinations(
         stdout: OutputDestination,
         stderr: OutputDestination
     ) throws {
-        guard case let .file(stdoutPath, stdoutAppend) = stdout,
-            case let .file(stderrPath, stderrAppend) = stderr,
+        try stdout.validate()
+        try stderr.validate()
+        guard let (stdoutPath, stdoutAppend) = stdout.fileDestination,
+            let (stderrPath, stderrAppend) = stderr.fileDestination,
             stdoutPath == stderrPath,
             !stdoutAppend || !stderrAppend
         else { return }
@@ -351,6 +363,38 @@ private final class OutputCaptureStore: Sendable {
         }
     }
 
+    func appendTail(_ data: Data, to stream: StreamKind, capacity: Int) throws {
+        let exceeded = chunks.withLock { chunks in
+            var values = stream == .stdout ? chunks.stdout : chunks.stderr
+            let oldCount = values.reduce(0) { $0 + $1.count }
+            let available = limit - (chunks.capturedByteCount - oldCount)
+            let retainedLimit = min(capacity, available)
+            let exceeded = min(capacity, oldCount + data.count) > available
+            if retainedLimit == 0 {
+                values = []
+            } else if data.count >= retainedLimit {
+                values = [Data(data.suffix(retainedLimit))]
+            } else {
+                var remove = max(0, oldCount + data.count - retainedLimit)
+                while remove > 0, let first = values.first {
+                    if first.count <= remove {
+                        remove -= first.count
+                        values.removeFirst()
+                    } else {
+                        values[0] = Data(first.dropFirst(remove))
+                        remove = 0
+                    }
+                }
+                values.append(data)
+            }
+            let newCount = values.reduce(0) { $0 + $1.count }
+            chunks.capturedByteCount += newCount - oldCount
+            if stream == .stdout { chunks.stdout = values } else { chunks.stderr = values }
+            return exceeded
+        }
+        if exceeded { throw CaptureLimitExceeded() }
+    }
+
     func snapshot() -> CaptureSnapshot {
         chunks.withLock { chunks in
             CaptureSnapshot(stdout: joined(chunks.stdout), stderr: joined(chunks.stderr))
@@ -407,7 +451,7 @@ private struct SingleCommandRunner: Sendable {
                     stderr: errorSequence,
                     of: resolved,
                     into: store,
-                    onLimitExceeded: terminate
+                    onStreamFailure: terminate
                 )
             }
 
@@ -775,6 +819,13 @@ private func routeSpawnStream(
         case .tee:
             try store?.append(data, to: stream)
             try writeTee(data, to: stream)
+        case let .teeTo(target):
+            try store?.append(data, to: stream)
+            try writeTee(data, to: target)
+        case let .log(_, _, tailBytes, tee):
+            try fileHandle?.write(contentsOf: data)
+            if let tee { try writeTee(data, to: tee) }
+            try store?.appendTail(data, to: stream, capacity: tailBytes)
         case .file:
             try fileHandle?.write(contentsOf: data)
         case .discard:
@@ -783,10 +834,10 @@ private func routeSpawnStream(
     }
 }
 
-/// Reads the streams SwiftyShell captures (`.capture` and `.tee`) concurrently into `store`.
+/// Reads captured, tee, and log streams concurrently into `store`.
 ///
-/// Streams the child writes elsewhere arrive as `nil` and are skipped. When a stream exceeds the
-/// output limit, `onLimitExceeded` runs from inside that stream's task, before the error unwinds the
+/// Streams the child writes elsewhere arrive as `nil` and are skipped. When reading, writing, or
+/// capture fails, `onStreamFailure` runs inside that stream's task, before the error unwinds the
 /// group, and must stop the process: the group would otherwise wait for the other stream, which
 /// only ends once the process exits, and the process may be blocked writing to the stream nobody is
 /// reading any more.
@@ -795,7 +846,7 @@ private func captureStreams(
     stderr: SubprocessOutputSequence?,
     of command: ResolvedCommand,
     into store: OutputCaptureStore,
-    onLimitExceeded: @escaping @Sendable () -> Void
+    onStreamFailure: @escaping @Sendable () -> Void
 ) async throws {
     try await withThrowingTaskGroup(of: Void.self) { group in
         for (sequence, stream, destination) in [
@@ -806,9 +857,9 @@ private func captureStreams(
             group.addTask {
                 do {
                     try await captureStream(sequence, stream: stream, destination: destination, into: store)
-                } catch is CaptureLimitExceeded {
-                    onLimitExceeded()
-                    throw CaptureLimitExceeded()
+                } catch {
+                    onStreamFailure()
+                    throw error
                 }
             }
         }
@@ -822,11 +873,24 @@ private func captureStream(
     destination: OutputDestination,
     into store: OutputCaptureStore
 ) async throws {
+    let fileHandle: FileHandle?
+    if case .log = destination {
+        fileHandle = try openFileHandleIfNeeded(for: destination)
+    } else {
+        fileHandle = nil
+    }
+    defer { try? fileHandle?.close() }
     for try await buffer in sequence {
         let data = Data(buffer: buffer)
-        try store.append(data, to: stream)
-        if destination == .tee {
-            try writeTee(data, to: stream)
+        switch destination {
+        case let .log(_, _, tailBytes, tee):
+            try fileHandle?.write(contentsOf: data)
+            if let tee { try writeTee(data, to: tee) }
+            try store.appendTail(data, to: stream, capacity: tailBytes)
+        default:
+            try store.append(data, to: stream)
+            if destination == .tee { try writeTee(data, to: stream) }
+            if case let .teeTo(target) = destination { try writeTee(data, to: target) }
         }
     }
 }
@@ -834,7 +898,7 @@ private func captureStream(
 /// How one output stream of a child process is wired.
 private enum StreamRoute {
     /// SwiftyShell reads the stream through a pipe (``OutputDestination/capture`` and
-    /// ``OutputDestination/tee``).
+    /// ``OutputDestination/tee``, explicit tees, and logs).
     case read
     /// The child writes to the null device; SwiftyShell never sees the bytes.
     case discarded
@@ -854,7 +918,7 @@ private enum StreamRoute {
 /// pass through this process.
 private func makeRoute(for destination: OutputDestination) throws -> StreamRoute {
     switch destination {
-    case .capture, .tee:
+    case .capture, .tee, .teeTo, .log:
         return .read
     case .discard:
         return .discarded
@@ -1137,11 +1201,9 @@ private func writeTee(_ data: Data, to stream: StreamKind) throws {
     }
 }
 
-/// Opens a ``FileHandle`` for writing if the destination is a `.file`, otherwise returns `nil`.
+/// Opens a ``FileHandle`` for `.file` and `.log` destinations, otherwise returns `nil`.
 private func openFileHandleIfNeeded(for destination: OutputDestination) throws -> FileHandle? {
-    guard case let .file(path, append) = destination else {
-        return nil
-    }
+    guard let (path, append) = destination.fileDestination else { return nil }
     return try makeFileHandle(path: path, append: append)
 }
 
@@ -1428,7 +1490,7 @@ private func runPipelineStage(
         stderr: SubprocessOutputSequence?,
         terminate: @escaping @Sendable () -> Void
     ) async throws {
-        try await captureStreams(stdout: stdout, stderr: stderr, of: command, into: store, onLimitExceeded: terminate)
+        try await captureStreams(stdout: stdout, stderr: stderr, of: command, into: store, onStreamFailure: terminate)
     }
 
     let terminationStatus = try await runRouted(
@@ -1513,19 +1575,8 @@ private func mapSubprocessError(_ error: SubprocessError, command: CommandSnapsh
 }
 
 private func makeFileHandle(path: String, append: Bool) throws -> FileHandle {
-    let fileManager = FileManager.default
-    if !fileManager.fileExists(atPath: path) {
-        _ = fileManager.createFile(atPath: path, contents: nil)
-    }
-    let url = URL(fileURLWithPath: path)
-    let handle = try FileHandle(forWritingTo: url)
-    if append {
-        _ = try handle.seekToEnd()
-    } else {
-        try handle.truncate(atOffset: 0)
-        try handle.seek(toOffset: 0)
-    }
-    return handle
+    let descriptor = try openOutputFile(path: path, append: append)
+    return FileHandle(fileDescriptor: descriptor.rawValue, closeOnDealloc: true)
 }
 
 extension TerminationStatus {

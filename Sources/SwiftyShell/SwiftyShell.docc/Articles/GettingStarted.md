@@ -2,6 +2,12 @@
 
 Add SwiftyShell to your package, pick a typed command family, and run your first command.
 
+## Requirements
+
+The upcoming 0.7.0 release requires Swift 6.2 or later, macOS 15 or later (or Linux), and uses
+swift-subprocess 1.0. Select a compatible toolchain before updating the dependency in CI.
+Typed command families remain opt-in; the core execution and wrapper protocols require no traits.
+
 ## Overview
 
 SwiftyShell provides typed wrappers for common shell tools — ``Git``, ``Brew``, ``Grep``,

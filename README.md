@@ -36,3 +36,24 @@ SwiftyShell is not a security boundary. Validate values according to the invoked
 ## License
 
 SwiftyShell is available under the MIT license. See [LICENSE](LICENSE) for details.
+
+## Build output for automation
+
+Use `.stdout(.teeTo(.stderr))` when a CLI writes JSON to stdout. Captured output retains its
+original stdout/stderr identity even when both live streams go to stderr.
+
+For long builds, write complete logs while retaining bounded diagnostic tails:
+
+```swift
+let output = try await Command("./gradlew", arguments: "assembleRelease")
+    .stdout(.log(path: "build.stdout.log", append: false, tailBytes: 65_536, tee: .stderr))
+    .stderr(.log(path: "build.stderr.log", append: false, tailBytes: 65_536, tee: .stderr))
+    .run()
+```
+
+Filling a tail does not terminate the build. The command's shared hard output limit still applies
+to retained bytes. See the `OutputDestination` DocC page for pipeline, spawn, and mock behavior.
+
+The upcoming 0.7.0 release requires Swift 6.2 or later, supports macOS 15 or later and Linux, and
+uses swift-subprocess 1.0. Select a compatible toolchain in local development and CI before updating.
+Typed command families remain opt-in through package traits; core execution requires no traits.

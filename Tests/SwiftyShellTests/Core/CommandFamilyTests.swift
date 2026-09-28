@@ -25,6 +25,25 @@ struct CommandFamilyTests {
         #expect(command.stderrDestination == .file(path: "/tmp/demo.err", append: true))
     }
 
+    @Test func downstreamWrapperKeepsContextAndFailureOutput() async throws {
+        let mock = MockExecutor { command, context in
+            #expect(context.workingDirectory == "/tmp")
+            #expect(command.environmentOverrides["BUILD_MODE"] == "ci")
+            #expect(command.stdoutDestination == .teeTo(.stderr))
+            return ShellOutput(stdout: "build details", stderr: "failure", exitCode: 65)
+        }
+        let context = ShellContext(executor: mock, workingDirectory: "/tmp")
+        do {
+            _ = try await DemoCommand(context: context)
+                .env("BUILD_MODE", "ci").stdout(.teeTo(.stderr)).item("target with spaces").run()
+            Issue.record("Expected exitFailure")
+        } catch let ShellError.exitFailure(snapshot, output) {
+            #expect(snapshot.arguments == ["target with spaces"])
+            #expect(output == ShellOutput(stdout: "build details", stderr: "failure", exitCode: 65))
+        }
+        #expect(mock.recordedCommands.count == 1)
+    }
+
     @Test func runnableCommandFamilyInheritsRunImplementation() async throws {
         let output = try await DemoCommand()
             .item("hello")

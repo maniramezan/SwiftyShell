@@ -58,6 +58,11 @@ public enum OutputDestination: Sendable, Equatable {
     /// Discarded bytes never reach memory and do not contribute to the output limit. Use this
     /// for streams whose content is intentionally unwanted (for example noisy progress
     /// messages).
+    ///
+    /// For ``Command/run(in:)`` and pipelines, the built-in executor points the child's stream at
+    /// the null device, so the bytes never pass through the calling process. A spawned process
+    /// still delivers them to its live ``SpawnedProcess/standardOutput`` stream without retaining
+    /// them.
     case discard
 
     /// Writes the stream to a file at `path`.
@@ -65,6 +70,13 @@ public enum OutputDestination: Sendable, Equatable {
     /// File destinations bypass in-memory capture, making them well-suited to large outputs such
     /// as build logs or generated artifacts. The corresponding field on ``ShellOutput`` is left
     /// empty when this destination is used.
+    ///
+    /// For ``Command/run(in:)`` and pipelines, the built-in executor opens the file the way shell
+    /// redirection does (created with mode `0666` less the umask; truncated, or opened with
+    /// `O_APPEND`) and hands the descriptor to the child, which writes to it directly. Writes from
+    /// both streams in append mode never overwrite each other, and output from background
+    /// descendants that outlive the command still reaches the file. A spawned process writes the
+    /// file from the calling process so the same bytes can feed its live stream.
     ///
     /// - Parameters:
     ///   - path: The absolute or relative file path to write to. Relative paths are resolved

@@ -90,7 +90,8 @@ This does **not** validate arbitrary strings accepted by typed wrappers, make in
 - For one command, the limit is the combined captured stdout and stderr byte count. Exceeding it terminates the command and throws `ShellError.outputLimitExceeded` with at most the configured number of captured bytes.
 - `run()` never fails on non-UTF-8 output, so binary output (archives, images) can be captured. Typed workflows that parse stdout decode it strictly and throw `ShellError.decodingError` on invalid UTF-8 rather than parsing replacement characters.
 - Negative timeout or output-limit values throw `ShellError.invalidConfiguration`.
-- Redirected output (`OutputDestination.file` or `.discard`) is not also captured.
+- Redirected output (`OutputDestination.file` or `.discard`) is not also captured. For `run()` and pipelines the child writes it directly: `.discard` becomes the null device and `.file` an opened descriptor (like shell `>` / `>>`), so those bytes never pass through the calling process. Spawned processes still read every stream so they can feed the live `standardOutput` / `standardError` streams.
+- Captured output is kept as the chunks the pipe delivers and joined once, at its final size, when the output is built.
 
 ### Exit Code Behavior
 

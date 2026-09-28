@@ -1,5 +1,6 @@
 import Foundation
 import Subprocess
+import Synchronization
 
 #if canImport(System)
 import System
@@ -264,54 +265,64 @@ private struct CaptureSnapshot: Sendable {
 
 /// Accumulates captured bytes from stdout and stderr up to a shared byte limit.
 ///
-/// A lock serializes access so concurrent stream tasks can safely append data.
-/// When the total captured byte count exceeds the limit, ``append(_:to:)`` throws
-/// ``CaptureLimitExceeded`` after storing as many bytes as will fit.
-private final class OutputCaptureStore: @unchecked Sendable {
+/// A mutex serializes access so concurrent stream tasks can safely append data. When the total
+/// captured byte count exceeds the limit, ``append(_:to:)`` throws ``CaptureLimitExceeded`` after
+/// storing as many bytes as will fit.
+///
+/// Chunks are kept as they arrive and joined once, at their exact final size, by ``snapshot()``.
+/// Appending to one growing `Data` instead reallocates and copies it repeatedly, and on macOS leaves
+/// a trail of freed-but-resident large blocks behind every large capture.
+private final class OutputCaptureStore: Sendable {
+    private struct Chunks {
+        var capturedByteCount = 0
+        var stdout: [Data] = []
+        var stderr: [Data] = []
+    }
+
     private let limit: Int
-    private let lock = NSLock()
-    private var capturedByteCount = 0
-    private var stdout = Data()
-    private var stderr = Data()
+    private let chunks = Mutex(Chunks())
 
     init(limit: Int) {
         self.limit = limit
     }
 
     func append(_ data: Data, to stream: StreamKind) throws {
-        lock.lock()
-        defer { lock.unlock() }
+        let exceeded = chunks.withLock { chunks in
+            let remaining = limit - chunks.capturedByteCount
+            guard remaining > 0 else { return true }
 
-        let remaining = limit - capturedByteCount
-        guard remaining > 0 else {
+            let accepted = data.count > remaining ? data.prefix(remaining) : data
+            if !accepted.isEmpty {
+                switch stream {
+                case .stdout: chunks.stdout.append(accepted)
+                case .stderr: chunks.stderr.append(accepted)
+                }
+                chunks.capturedByteCount += accepted.count
+            }
+            return data.count > remaining
+        }
+        if exceeded {
             throw CaptureLimitExceeded()
         }
-
-        if data.count > remaining {
-            appendCaptured(data.prefix(remaining), to: stream)
-            capturedByteCount += remaining
-            throw CaptureLimitExceeded()
-        }
-
-        appendCaptured(data[...], to: stream)
-        capturedByteCount += data.count
     }
 
     func snapshot() -> CaptureSnapshot {
-        lock.lock()
-        defer { lock.unlock() }
-
-        return CaptureSnapshot(stdout: stdout, stderr: stderr)
-    }
-
-    private func appendCaptured(_ data: Data.SubSequence, to stream: StreamKind) {
-        switch stream {
-        case .stdout:
-            stdout.append(contentsOf: data)
-        case .stderr:
-            stderr.append(contentsOf: data)
+        chunks.withLock { chunks in
+            CaptureSnapshot(stdout: joined(chunks.stdout), stderr: joined(chunks.stderr))
         }
     }
+}
+
+/// Concatenates captured chunks into one `Data` with a single allocation of the final size.
+private func joined(_ chunks: [Data]) -> Data {
+    if chunks.count == 1 {
+        return chunks[0]
+    }
+    var data = Data(capacity: chunks.reduce(0) { $0 + $1.count })
+    for chunk in chunks {
+        data.append(chunk)
+    }
+    return data
 }
 
 private struct SingleCommandRunner {
@@ -363,77 +374,36 @@ private struct SingleCommandRunner {
         store: OutputCaptureStore,
         eventNotifier: RunEventNotifier<SingleCommandRunEvent>
     ) async throws -> ShellOutput {
-        let stdoutHandle = try openFileHandleIfNeeded(for: resolved.stdoutDestination)
-        let stderrHandle = try openFileHandleIfNeeded(for: resolved.stderrDestination)
-        defer {
-            try? stdoutHandle?.close()
-            try? stderrHandle?.close()
-        }
-
         do {
+            let (stdoutRoute, stderrRoute) = try makeRoutes(
+                stdout: resolved.stdoutDestination,
+                stderr: resolved.stderrDestination
+            )
             // Throwing out of the body (or cancelling this task) makes swift-subprocess run the
             // configuration's teardown sequence, killing the process group.
-            let outcome = try await Subprocess.run(
+            let terminationStatus = try await runRouted(
                 resolved.configuration,
-                input: .none,
-                output: .sequence,
-                error: .sequence
-            ) { execution in
-                let outputSequence = execution.standardOutput
-                let errorSequence = execution.standardError
-                try await withThrowingTaskGroup(of: SingleCommandTaskResult.self) { group in
-                    group.addTask {
-                        try await routeStream(
-                            outputSequence,
-                            stream: .stdout,
-                            destination: resolved.stdoutDestination,
-                            fileHandle: stdoutHandle,
-                            store: store
+                input: NoInput.none,
+                stdout: stdoutRoute,
+                stderr: stderrRoute
+            ) { outputSequence, errorSequence in
+                try await captureStreams(stdout: outputSequence, stderr: errorSequence, of: resolved, into: store) {
+                    await eventNotifier.notify(
+                        .earlyTerminated(
+                            .outputLimitExceeded(command: resolved.displayCommand, limit: resolved.outputLimit)
                         )
-                        return .streamComplete
-                    }
-                    group.addTask {
-                        try await routeStream(
-                            errorSequence,
-                            stream: .stderr,
-                            destination: resolved.stderrDestination,
-                            fileHandle: stderrHandle,
-                            store: store
-                        )
-                        return .streamComplete
-                    }
-                    var completedStreams = 0
-                    do {
-                        while let result = try await group.next() {
-                            switch result {
-                            case .streamComplete:
-                                completedStreams += 1
-                                if completedStreams == 2 {
-                                    group.cancelAll()
-                                    return
-                                }
-                            }
-                        }
-                    } catch is CaptureLimitExceeded {
-                        await eventNotifier.notify(
-                            .earlyTerminated(
-                                .outputLimitExceeded(command: resolved.displayCommand, limit: resolved.outputLimit)
-                            )
-                        )
-                        group.cancelAll()
-                        throw CaptureLimitExceeded()
-                    }
+                    )
                 }
             }
 
             let snapshot = store.snapshot()
-            let output = makeOutput(snapshot: snapshot, exitCode: outcome.terminationStatus.swiftyShellExitCode)
+            let output = makeOutput(snapshot: snapshot, exitCode: terminationStatus.swiftyShellExitCode)
 
             if Task.isCancelled {
                 throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
             }
 
-            if !outcome.terminationStatus.isSuccess {
+            if !terminationStatus.isSuccess {
                 throw ShellError.exitFailure(command: resolved.displayCommand, output: output)
             }
 
@@ -503,10 +473,6 @@ private enum SingleCommandRunEvent: Sendable {
     case timedOut
     case earlyTerminated(EarlyTerminationReason)
     case canceled
-}
-
-private enum SingleCommandTaskResult: Sendable {
-    case streamComplete
 }
 
 private enum SpawnedCommandTaskResult: Sendable {
@@ -776,19 +742,198 @@ private func routeSpawnStream(
     }
 }
 
-/// Routes each buffer from a `SubprocessOutputSequence` to the appropriate destination:
-/// captured in memory, written to a file handle, or discarded.
-private func routeStream(
+/// Reads the streams SwiftyShell captures (`.capture` and `.tee`) concurrently into `store`.
+///
+/// Streams the child writes elsewhere arrive as `nil` and are skipped. When a stream exceeds the
+/// output limit, `onLimitExceeded` runs from inside that stream's task, before the error unwinds the
+/// group: the group would otherwise wait for the other stream, which only ends once the process
+/// exits, and the process may be blocked writing to the stream nobody is reading any more.
+private func captureStreams(
+    stdout: SubprocessOutputSequence?,
+    stderr: SubprocessOutputSequence?,
+    of command: ResolvedCommand,
+    into store: OutputCaptureStore,
+    onLimitExceeded: @escaping @Sendable () async -> Void
+) async throws {
+    try await withThrowingTaskGroup(of: Void.self) { group in
+        for (sequence, stream, destination) in [
+            (stdout, StreamKind.stdout, command.stdoutDestination),
+            (stderr, StreamKind.stderr, command.stderrDestination),
+        ] {
+            guard let sequence else { continue }
+            group.addTask {
+                do {
+                    try await captureStream(sequence, stream: stream, destination: destination, into: store)
+                } catch is CaptureLimitExceeded {
+                    await onLimitExceeded()
+                    throw CaptureLimitExceeded()
+                }
+            }
+        }
+        try await group.waitForAll()
+    }
+}
+
+private func captureStream(
     _ sequence: SubprocessOutputSequence,
     stream: StreamKind,
     destination: OutputDestination,
-    fileHandle: FileHandle?,
-    store: OutputCaptureStore
+    into store: OutputCaptureStore
 ) async throws {
     for try await buffer in sequence {
         let data = Data(buffer: buffer)
-        try routeData(data, stream: stream, destination: destination, fileHandle: fileHandle, store: store)
+        try store.append(data, to: stream)
+        if destination == .tee {
+            try writeTee(data, to: stream)
+        }
     }
+}
+
+/// How one output stream of a child process is wired.
+private enum StreamRoute {
+    /// SwiftyShell reads the stream through a pipe (``OutputDestination/capture`` and
+    /// ``OutputDestination/tee``).
+    case read
+    /// The child writes to the null device; SwiftyShell never sees the bytes.
+    case discarded
+    /// The child writes straight to this descriptor, which swift-subprocess closes in this process
+    /// once the child is spawned (or the spawn fails).
+    case descriptor(FileDescriptor)
+
+    /// Closes a descriptor that was opened but never handed to swift-subprocess.
+    func closeUnused() {
+        if case let .descriptor(fileDescriptor) = self {
+            try? fileDescriptor.close()
+        }
+    }
+}
+
+/// Wires a stream for `run()`: `.discard` and `.file` are handed to the child, so their bytes never
+/// pass through this process.
+private func makeRoute(for destination: OutputDestination) throws -> StreamRoute {
+    switch destination {
+    case .capture, .tee:
+        return .read
+    case .discard:
+        return .discarded
+    case let .file(path, append):
+        return .descriptor(try openOutputFile(path: path, append: append))
+    }
+}
+
+private func makeRoutes(
+    stdout: OutputDestination,
+    stderr: OutputDestination
+) throws -> (stdout: StreamRoute, stderr: StreamRoute) {
+    let stdoutRoute = try makeRoute(for: stdout)
+    do {
+        return (stdoutRoute, try makeRoute(for: stderr))
+    } catch {
+        stdoutRoute.closeUnused()
+        throw error
+    }
+}
+
+/// Opens `path` for a child's output the way shell redirection does: created with `0666` (less the
+/// umask) if missing, then truncated or opened for appending.
+private func openOutputFile(path: String, append: Bool) throws -> FileDescriptor {
+    try FileDescriptor.open(
+        FilePath(path),
+        .writeOnly,
+        options: append ? [.create, .append] : [.create, .truncate],
+        permissions: [.ownerReadWrite, .groupReadWrite, .otherReadWrite]
+    )
+}
+
+/// Runs `configuration` with each output stream wired per its route and calls `body` with the
+/// sequences of the routes SwiftyShell reads (`nil` for streams the child writes elsewhere).
+///
+/// swift-subprocess exposes `standardOutput` / `standardError` only when that stream's output type
+/// is `SequenceOutput`, so each route is turned into a concrete output type one stream at a time and
+/// the sequences are recovered with a runtime cast inside the body.
+private func runRouted<Input: InputProtocol>(
+    _ configuration: Configuration,
+    input: Input,
+    stdout: StreamRoute,
+    stderr: StreamRoute,
+    body: (SubprocessOutputSequence?, SubprocessOutputSequence?) async throws -> Void
+) async throws -> TerminationStatus {
+    switch stdout {
+    case .read:
+        return try await runRouted(
+            configuration,
+            input: input,
+            output: SequenceOutput.sequence,
+            stderr: stderr,
+            body: body
+        )
+    case .discarded:
+        return try await runRouted(
+            configuration,
+            input: input,
+            output: DiscardedOutput.discarded,
+            stderr: stderr,
+            body: body
+        )
+    case let .descriptor(fileDescriptor):
+        return try await runRouted(
+            configuration,
+            input: input,
+            output: FileDescriptorOutput.fileDescriptor(fileDescriptor, closeAfterSpawningProcess: true),
+            stderr: stderr,
+            body: body
+        )
+    }
+}
+
+private func runRouted<Input: InputProtocol, Output: OutputProtocol>(
+    _ configuration: Configuration,
+    input: Input,
+    output: Output,
+    stderr: StreamRoute,
+    body: (SubprocessOutputSequence?, SubprocessOutputSequence?) async throws -> Void
+) async throws -> TerminationStatus {
+    switch stderr {
+    case .read:
+        return try await runRouted(
+            configuration,
+            input: input,
+            output: output,
+            error: SequenceOutput.sequence,
+            body: body
+        )
+    case .discarded:
+        return try await runRouted(
+            configuration,
+            input: input,
+            output: output,
+            error: DiscardedOutput.discarded,
+            body: body
+        )
+    case let .descriptor(fileDescriptor):
+        return try await runRouted(
+            configuration,
+            input: input,
+            output: output,
+            error: FileDescriptorOutput.fileDescriptor(fileDescriptor, closeAfterSpawningProcess: true),
+            body: body
+        )
+    }
+}
+
+private func runRouted<Input: InputProtocol, Output: OutputProtocol, Error: ErrorOutputProtocol>(
+    _ configuration: Configuration,
+    input: Input,
+    output: Output,
+    error: Error,
+    body: (SubprocessOutputSequence?, SubprocessOutputSequence?) async throws -> Void
+) async throws -> TerminationStatus {
+    let result = try await Subprocess.run(configuration, input: input, output: output, error: error) { execution in
+        let outputSequence = (execution as Any as? Execution<Input, SequenceOutput, Error>)?.standardOutput
+        let errorSequence = (execution as Any as? Execution<Input, Output, SequenceOutput>)?.standardError
+        try await body(outputSequence, errorSequence)
+    }
+    return result.terminationStatus
 }
 
 private func routeData(
@@ -809,26 +954,20 @@ private func routeData(
         // Capture for ShellOutput…
         try store.append(data, to: stream)
         // …and echo live to the parent process stream.
-        try TeeSink.shared.write(data, to: stream)
+        try writeTee(data, to: stream)
     }
 }
 
 /// Serializes live `.tee` writes to the parent process's standard output and standard error.
 ///
 /// Routing tasks for stdout and stderr run concurrently, so without coordination their writes to
-/// ``FileHandle/standardOutput``/``FileHandle/standardError`` could interleave mid-buffer and
-/// corrupt each other. A single shared lock guards every live write.
-private final class TeeSink: @unchecked Sendable {
-    static let shared = TeeSink()
+/// `FileHandle.standardOutput` / `FileHandle.standardError` could interleave mid-buffer and corrupt
+/// each other. A single shared mutex guards every live write.
+private let teeLock = Mutex(())
 
-    private let lock = NSLock()
-
-    private init() {}
-
-    func write(_ data: Data, to stream: StreamKind) throws {
-        let handle: FileHandle = (stream == .stdout) ? .standardOutput : .standardError
-        lock.lock()
-        defer { lock.unlock() }
+private func writeTee(_ data: Data, to stream: StreamKind) throws {
+    let handle: FileHandle = (stream == .stdout) ? .standardOutput : .standardError
+    try teeLock.withLock { _ in
         try handle.write(contentsOf: data)
     }
 }
@@ -1192,167 +1331,58 @@ private func runPipelineStage(
     store: OutputCaptureStore,
     eventNotifier: RunEventNotifier<PipelineRunEvent>
 ) async throws -> PipelineStageResult {
-    if let input {
-        return try await runPipelineStageWithInput(
-            index: index,
-            command: command,
-            input: FileDescriptorInput.fileDescriptor(input, closeAfterSpawningProcess: true),
-            pipedOutput: pipedOutput,
-            store: store,
-            eventNotifier: eventNotifier
-        )
-    } else {
-        return try await runPipelineStageWithInput(
-            index: index,
-            command: command,
-            input: NoInput.none,
-            pipedOutput: pipedOutput,
-            store: store,
-            eventNotifier: eventNotifier
-        )
-    }
-}
-
-private func runPipelineStageWithInput<Input: InputProtocol>(
-    index: Int,
-    command: ResolvedCommand,
-    input: Input,
-    pipedOutput: FileDescriptor?,
-    store: OutputCaptureStore,
-    eventNotifier: RunEventNotifier<PipelineRunEvent>
-) async throws -> PipelineStageResult {
-    if let pipedOutput {
-        return try await runPipelineStageWithPipedStdout(
-            index: index,
-            command: command,
-            input: input,
-            output: FileDescriptorOutput.fileDescriptor(pipedOutput, closeAfterSpawningProcess: true),
-            store: store,
-            eventNotifier: eventNotifier
-        )
-    }
-
-    let stdoutHandle = try openFileHandleIfNeeded(for: command.stdoutDestination)
-    defer { try? stdoutHandle?.close() }
-    return try await runPipelineStageWithStreamedStdout(
-        index: index,
-        command: command,
-        input: input,
-        stdoutHandle: stdoutHandle,
-        store: store,
-        eventNotifier: eventNotifier
-    )
-}
-
-private func runPipelineStageWithPipedStdout<Input: InputProtocol, Output: OutputProtocol>(
-    index: Int,
-    command: ResolvedCommand,
-    input: Input,
-    output: Output,
-    store: OutputCaptureStore,
-    eventNotifier: RunEventNotifier<PipelineRunEvent>
-) async throws -> PipelineStageResult where Output.OutputType == Void {
-    let stderrHandle = try openFileHandleIfNeeded(for: command.stderrDestination)
-    defer {
-        try? stderrHandle?.close()
-    }
-
-    let outcome = try await Subprocess.run(
-        command.configuration,
-        input: input,
-        output: output,
-        error: .sequence
-    ) { execution in
-        do {
-            try await routeStream(
-                execution.standardError,
-                stream: .stderr,
-                destination: command.stderrDestination,
-                fileHandle: stderrHandle,
-                store: store
+    // An intermediate stage's stdout is the pipe to the next stage; its own destination is ignored.
+    let stdoutRoute: StreamRoute
+    let stderrRoute: StreamRoute
+    do {
+        if let pipedOutput {
+            stdoutRoute = .descriptor(pipedOutput)
+            do {
+                stderrRoute = try makeRoute(for: command.stderrDestination)
+            } catch {
+                stdoutRoute.closeUnused()
+                throw error
+            }
+        } else {
+            (stdoutRoute, stderrRoute) = try makeRoutes(
+                stdout: command.stdoutDestination,
+                stderr: command.stderrDestination
             )
-        } catch is CaptureLimitExceeded {
+        }
+    } catch {
+        try? input?.close()
+        throw error
+    }
+
+    func capture(stdout: SubprocessOutputSequence?, stderr: SubprocessOutputSequence?) async throws {
+        try await captureStreams(stdout: stdout, stderr: stderr, of: command, into: store) {
             await eventNotifier.notify(
                 .earlyTerminated(.outputLimitExceeded(command: command.displayCommand, limit: command.outputLimit))
             )
-            throw CaptureLimitExceeded()
         }
     }
 
-    return PipelineStageResult(index: index, command: command, terminationStatus: outcome.terminationStatus)
+    let terminationStatus: TerminationStatus
+    if let input {
+        terminationStatus = try await runRouted(
+            command.configuration,
+            input: FileDescriptorInput.fileDescriptor(input, closeAfterSpawningProcess: true),
+            stdout: stdoutRoute,
+            stderr: stderrRoute,
+            body: capture
+        )
+    } else {
+        terminationStatus = try await runRouted(
+            command.configuration,
+            input: NoInput.none,
+            stdout: stdoutRoute,
+            stderr: stderrRoute,
+            body: capture
+        )
+    }
+    return PipelineStageResult(index: index, command: command, terminationStatus: terminationStatus)
 }
 
-private func runPipelineStageWithStreamedStdout<Input: InputProtocol>(
-    index: Int,
-    command: ResolvedCommand,
-    input: Input,
-    stdoutHandle: FileHandle?,
-    store: OutputCaptureStore,
-    eventNotifier: RunEventNotifier<PipelineRunEvent>
-) async throws -> PipelineStageResult {
-    let stderrHandle = try openFileHandleIfNeeded(for: command.stderrDestination)
-    defer {
-        try? stderrHandle?.close()
-    }
-
-    let outcome = try await Subprocess.run(
-        command.configuration,
-        input: input,
-        output: .sequence,
-        error: .sequence
-    ) { execution in
-        let outputSequence = execution.standardOutput
-        let errorSequence = execution.standardError
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            group.addTask {
-                try await routeStream(
-                    outputSequence,
-                    stream: .stdout,
-                    destination: command.stdoutDestination,
-                    fileHandle: stdoutHandle,
-                    store: store
-                )
-            }
-            group.addTask {
-                try await routeStream(
-                    errorSequence,
-                    stream: .stderr,
-                    destination: command.stderrDestination,
-                    fileHandle: stderrHandle,
-                    store: store
-                )
-            }
-
-            do {
-                try await group.waitForAll()
-            } catch is CaptureLimitExceeded {
-                await eventNotifier.notify(
-                    .earlyTerminated(
-                        .outputLimitExceeded(command: command.displayCommand, limit: command.outputLimit)
-                    )
-                )
-                group.cancelAll()
-                throw CaptureLimitExceeded()
-            }
-        }
-    }
-
-    return PipelineStageResult(index: index, command: command, terminationStatus: outcome.terminationStatus)
-}
-
-/// Converts a `TimeInterval` (seconds, `Double`) to a Swift `Duration`.
-///
-/// The public API uses `TimeInterval` for timeouts (``Command/timeout(_:)-(Duration)``,
-/// ``ShellContext/defaultTimeout``). Internally we convert to `Duration` at the
-/// boundary so all sleep calls use the modern `Task.sleep(for:)` API instead of
-/// the nanosecond-based overload that requires manual overflow handling.
-/// Stops `run()` and pipeline stages immediately: `SIGKILL` to the whole process group, so any
-/// descendants the command started die with it.
-///
-/// swift-subprocess appends a final `.kill` (inheriting `toProcessGroup`) that runs only if this
-/// step's wait elapses with the leader still alive. The wait is non-zero so that final kill does
-/// not fire as a matter of course: teardown ends the wait as soon as the leader exits, so the
-/// non-zero value adds no latency, and it avoids a second group signal racing the leader's reap.
 private let forcedTeardownSequence: [TeardownStep] = [
     .send(signal: .kill, toProcessGroup: true, allowedDurationToNextStep: .seconds(1))
 ]

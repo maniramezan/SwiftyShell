@@ -112,4 +112,22 @@ struct CargoCommandTests {
         #expect(command?.outputLimitOverride == 1024)
     }
 }
+
+/// Every Boolean flag setter adds exactly its flag when enabled and removes it when disabled.
+struct CargoFlagSetterTests {
+    @Test func eachFlagSetterTogglesItsFlag() {
+        let base = Cargo()
+        let setters: [(flag: String, set: (Cargo, Bool) -> Cargo)] = [
+            ("--all-features", { $0.allFeatures($1) }),
+            ("--no-default-features", { $0.noDefaultFeatures($1) }),
+            ("--release", { $0.release($1) }),
+        ]
+        for (flag, set) in setters {
+            #expect(!base.command().arguments.contains(flag), "\(flag) present before enabling")
+            let enabled = set(base, true)
+            #expect(enabled.command().arguments.contains(flag), "\(flag) missing after enabling")
+            #expect(!set(enabled, false).command().arguments.contains(flag), "\(flag) kept after disabling")
+        }
+    }
+}
 #endif

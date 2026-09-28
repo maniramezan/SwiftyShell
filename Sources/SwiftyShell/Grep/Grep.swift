@@ -71,37 +71,37 @@ public struct Grep: RunnableCommandFamily {
     ///
     /// Holds the executor, environment, working-directory, timeout, and output-limit overrides
     /// that get merged onto the built command.
-    public let config: ToolConfiguration
+    public private(set) var config: ToolConfiguration
 
     /// The stdout handling strategy for built commands. Defaults to ``OutputDestination/capture``.
-    public let stdoutDestination: OutputDestination
+    public private(set) var stdoutDestination: OutputDestination = .capture
 
     /// The stderr handling strategy for built commands. Defaults to ``OutputDestination/capture``.
-    public let stderrDestination: OutputDestination
+    public private(set) var stderrDestination: OutputDestination = .capture
 
     /// The grep pattern mode and value.
     ///
     /// Determined by the constructor used: ``init(_:context:)`` produces ``GrepPattern/literal(_:)``;
     /// ``regex(_:context:)`` produces ``GrepPattern/regularExpression(_:)``.
-    public let pattern: GrepPattern
+    public private(set) var pattern: GrepPattern
 
     /// Whether matches ignore case (`grep -i`).
-    public let isCaseInsensitive: Bool
+    public private(set) var isCaseInsensitive: Bool = false
 
     /// Whether the match is inverted to return non-matching lines (`grep -v`).
-    public let isInverted: Bool
+    public private(set) var isInverted: Bool = false
 
     /// Whether grep recurses into directories (`grep -r`).
-    public let isRecursive: Bool
+    public private(set) var isRecursive: Bool = false
 
     /// Whether matching line numbers are prefixed to each output line (`grep -n`).
-    public let includesLineNumbers: Bool
+    public private(set) var includesLineNumbers: Bool = false
 
     /// Whether grep returns only the count of matching lines per file (`grep -c`).
-    public let countsOnly: Bool
+    public private(set) var countsOnly: Bool = false
 
     /// File paths searched by grep. Empty means read from stdin (typical for pipeline use).
-    public let filePaths: [String]
+    public private(set) var filePaths: [String] = []
 
     /// The shell context used when running this command family.
     ///
@@ -127,39 +127,7 @@ public struct Grep: RunnableCommandFamily {
     ///     will be used. Defaults to a freshly constructed ``ShellContext``.
     public init(_ pattern: String, context: ShellContext = .init()) {
         self.config = ToolConfiguration(context: context)
-        self.stdoutDestination = .capture
-        self.stderrDestination = .capture
         self.pattern = .literal(pattern)
-        self.isCaseInsensitive = false
-        self.isInverted = false
-        self.isRecursive = false
-        self.includesLineNumbers = false
-        self.countsOnly = false
-        self.filePaths = []
-    }
-
-    private init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination,
-        stderrDestination: OutputDestination,
-        pattern: GrepPattern,
-        isCaseInsensitive: Bool,
-        isInverted: Bool,
-        isRecursive: Bool,
-        includesLineNumbers: Bool,
-        countsOnly: Bool,
-        filePaths: [String]
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.pattern = pattern
-        self.isCaseInsensitive = isCaseInsensitive
-        self.isInverted = isInverted
-        self.isRecursive = isRecursive
-        self.includesLineNumbers = includesLineNumbers
-        self.countsOnly = countsOnly
-        self.filePaths = filePaths
     }
 
     /// Creates a regular-expression grep command family.
@@ -180,18 +148,7 @@ public struct Grep: RunnableCommandFamily {
     ///     will be used. Defaults to a freshly constructed ``ShellContext``.
     /// - Returns: A new ``Grep`` value configured for regex matching.
     public static func regex(_ pattern: String, context: ShellContext = .init()) -> Self {
-        Self(
-            config: ToolConfiguration(context: context),
-            stdoutDestination: .capture,
-            stderrDestination: .capture,
-            pattern: .regularExpression(pattern),
-            isCaseInsensitive: false,
-            isInverted: false,
-            isRecursive: false,
-            includesLineNumbers: false,
-            countsOnly: false,
-            filePaths: []
-        )
+        modified(Self(pattern, context: context)) { $0.pattern = .regularExpression(pattern) }
     }
 
     /// Returns a copy with updated shared tool configuration.
@@ -204,7 +161,7 @@ public struct Grep: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(config))
+        modified(self) { $0.config = update(config) }
     }
 
     /// Returns a copy that routes the built `grep` command's stdout to the given destination.
@@ -215,7 +172,7 @@ public struct Grep: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Grep`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `grep` command's stderr to the given destination.
@@ -226,7 +183,7 @@ public struct Grep: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Grep`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.stderrDestination = destination }
     }
 
     /// Returns a copy that performs case-insensitive matching.
@@ -236,7 +193,7 @@ public struct Grep: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-i`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Grep`` value with the flag applied.
     public func ignoreCase(_ enabled: Bool = true) -> Self {
-        copy(isCaseInsensitive: enabled)
+        modified(self) { $0.isCaseInsensitive = enabled }
     }
 
     /// Returns a copy that inverts the match — emits lines that do **not** match the pattern.
@@ -246,7 +203,7 @@ public struct Grep: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-v`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Grep`` value with the flag applied.
     public func invertMatch(_ enabled: Bool = true) -> Self {
-        copy(isInverted: enabled)
+        modified(self) { $0.isInverted = enabled }
     }
 
     /// Returns a copy that searches directories recursively.
@@ -257,7 +214,7 @@ public struct Grep: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-r`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Grep`` value with the flag applied.
     public func recursive(_ enabled: Bool = true) -> Self {
-        copy(isRecursive: enabled)
+        modified(self) { $0.isRecursive = enabled }
     }
 
     /// Returns a copy that prefixes each output line with its 1-based line number.
@@ -267,7 +224,7 @@ public struct Grep: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-n`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Grep`` value with the flag applied.
     public func lineNumbers(_ enabled: Bool = true) -> Self {
-        copy(includesLineNumbers: enabled)
+        modified(self) { $0.includesLineNumbers = enabled }
     }
 
     /// Returns a copy that emits only the count of matching lines per file.
@@ -277,7 +234,7 @@ public struct Grep: RunnableCommandFamily {
     /// - Parameter enabled: `true` to add `-c`; `false` to omit it. Defaults to `true`.
     /// - Returns: A new ``Grep`` value with the flag applied.
     public func count(_ enabled: Bool = true) -> Self {
-        copy(countsOnly: enabled)
+        modified(self) { $0.countsOnly = enabled }
     }
 
     /// Returns a copy with one additional file path appended to search.
@@ -289,7 +246,7 @@ public struct Grep: RunnableCommandFamily {
     /// - Parameter path: A file or directory path to search.
     /// - Returns: A new ``Grep`` value with the path appended.
     public func file(_ path: String) -> Self {
-        copy(filePaths: filePaths + [path])
+        modified(self) { $0.filePaths.append(path) }
     }
 
     /// Returns a copy with multiple file paths appended to search.
@@ -297,7 +254,7 @@ public struct Grep: RunnableCommandFamily {
     /// - Parameter paths: The file or directory paths to append, in order.
     /// - Returns: A new ``Grep`` value with the paths appended.
     public func files(_ paths: [String]) -> Self {
-        copy(filePaths: filePaths + paths)
+        modified(self) { $0.filePaths += paths }
     }
 
     /// Builds the raw `grep` command represented by the current builder state.
@@ -338,32 +295,6 @@ public struct Grep: RunnableCommandFamily {
             .stderr(stderrDestination)
 
         return config.apply(to: base)
-    }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        pattern: GrepPattern? = nil,
-        isCaseInsensitive: Bool? = nil,
-        isInverted: Bool? = nil,
-        isRecursive: Bool? = nil,
-        includesLineNumbers: Bool? = nil,
-        countsOnly: Bool? = nil,
-        filePaths: [String]? = nil
-    ) -> Self {
-        Self(
-            config: config ?? self.config,
-            stdoutDestination: stdoutDestination ?? self.stdoutDestination,
-            stderrDestination: stderrDestination ?? self.stderrDestination,
-            pattern: pattern ?? self.pattern,
-            isCaseInsensitive: isCaseInsensitive ?? self.isCaseInsensitive,
-            isInverted: isInverted ?? self.isInverted,
-            isRecursive: isRecursive ?? self.isRecursive,
-            includesLineNumbers: includesLineNumbers ?? self.includesLineNumbers,
-            countsOnly: countsOnly ?? self.countsOnly,
-            filePaths: filePaths ?? self.filePaths
-        )
     }
 }
 #endif

@@ -102,7 +102,7 @@ public enum DockerBuildProgress: String, Sendable, Equatable, Hashable {
 ///     .run()
 /// ```
 public struct Docker: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -126,37 +126,49 @@ public struct Docker: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `docker` command's stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `docker` command's stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that selects a top-level Docker command or command group.
     public func subcommand(_ value: DockerSubcommand) -> Self {
-        copy(subcommand: .some(value.rawValue), nestedSubcommand: .some(nil))
+        modified(self) {
+            $0.state.subcommand = value.rawValue
+            $0.state.nestedSubcommand = nil
+        }
     }
 
     /// Returns a copy that selects a raw top-level Docker command or command group.
     public func subcommand(_ value: String) -> Self {
-        copy(subcommand: .some(value), nestedSubcommand: .some(nil))
+        modified(self) {
+            $0.state.subcommand = value
+            $0.state.nestedSubcommand = nil
+        }
     }
 
     /// Returns a copy that selects a top-level Docker command group and nested command.
     public func subcommand(_ value: DockerSubcommand, _ nested: String) -> Self {
-        copy(subcommand: .some(value.rawValue), nestedSubcommand: .some(nested))
+        modified(self) {
+            $0.state.subcommand = value.rawValue
+            $0.state.nestedSubcommand = nested
+        }
     }
 
     /// Returns a copy that selects a raw top-level Docker command group and nested command.
     public func subcommand(_ value: String, _ nested: String) -> Self {
-        copy(subcommand: .some(value), nestedSubcommand: .some(nested))
+        modified(self) {
+            $0.state.subcommand = value
+            $0.state.nestedSubcommand = nested
+        }
     }
 
     /// Returns a copy that configures a `docker buildx` command.
@@ -194,102 +206,102 @@ public struct Docker: RunnableCommandFamily {
     public func version() -> Self { commandGroup(.version, nil) }
 
     /// Returns a copy that passes `--config <path>` before the Docker subcommand.
-    public func configPath(_ path: String) -> Self { copy(configPath: path) }
+    public func configPath(_ path: String) -> Self { modified(self) { $0.state.configPath = path } }
 
     /// Returns a copy that passes `--context <name>` before the Docker subcommand.
-    public func context(_ name: String) -> Self { copy(contextName: name) }
+    public func context(_ name: String) -> Self { modified(self) { $0.state.contextName = name } }
 
     /// Returns a copy that passes `--host <socket>` before the Docker subcommand.
-    public func host(_ value: String) -> Self { copy(hostValue: value) }
+    public func host(_ value: String) -> Self { modified(self) { $0.state.hostValue = value } }
 
     /// Returns a copy that passes `--log-level <level>` before the Docker subcommand.
-    public func logLevel(_ value: String) -> Self { copy(logLevel: value) }
+    public func logLevel(_ value: String) -> Self { modified(self) { $0.state.logLevel = value } }
 
     /// Returns a copy that passes `--debug` before the Docker subcommand.
-    public func debugMode(_ enabled: Bool = true) -> Self { copy(debugEnabled: enabled) }
+    public func debugMode(_ enabled: Bool = true) -> Self { modified(self) { $0.state.debugEnabled = enabled } }
 
     /// Returns a copy that passes `--tls` before the Docker subcommand.
-    public func tls(_ enabled: Bool = true) -> Self { copy(tlsEnabled: enabled) }
+    public func tls(_ enabled: Bool = true) -> Self { modified(self) { $0.state.tlsEnabled = enabled } }
 
     /// Returns a copy that passes `--tlsverify` before the Docker subcommand.
-    public func tlsVerify(_ enabled: Bool = true) -> Self { copy(tlsVerifyEnabled: enabled) }
+    public func tlsVerify(_ enabled: Bool = true) -> Self { modified(self) { $0.state.tlsVerifyEnabled = enabled } }
 
     /// Returns a copy that passes `--platform <platform>`.
-    public func platform(_ value: String) -> Self { copy(platformValue: value) }
+    public func platform(_ value: String) -> Self { modified(self) { $0.state.platformValue = value } }
 
     /// Returns a copy that passes `--file <path>`.
-    public func file(_ path: String) -> Self { copy(filePath: path) }
+    public func file(_ path: String) -> Self { modified(self) { $0.state.filePath = path } }
 
     /// Returns a copy that passes `--tag <name>`.
-    public func tag(_ name: String) -> Self { copy(tags: state.tags + [name]) }
+    public func tag(_ name: String) -> Self { modified(self) { $0.state.tags += [name] } }
 
     /// Returns a copy that passes multiple `--tag` values.
-    public func tags(_ names: [String]) -> Self { copy(tags: state.tags + names) }
+    public func tags(_ names: [String]) -> Self { modified(self) { $0.state.tags += names } }
 
     /// Returns a copy that passes `--build-arg <name=value>`.
-    public func buildArg(_ value: String) -> Self { copy(buildArgs: state.buildArgs + [value]) }
+    public func buildArg(_ value: String) -> Self { modified(self) { $0.state.buildArgs += [value] } }
 
     /// Returns a copy that passes multiple `--build-arg` values.
-    public func buildArgs(_ values: [String]) -> Self { copy(buildArgs: state.buildArgs + values) }
+    public func buildArgs(_ values: [String]) -> Self { modified(self) { $0.state.buildArgs += values } }
 
     /// Returns a copy that passes `--progress <mode>`.
-    public func progress(_ value: DockerBuildProgress) -> Self { copy(progressMode: value) }
+    public func progress(_ value: DockerBuildProgress) -> Self { modified(self) { $0.state.progressMode = value } }
 
     /// Returns a copy that passes `--push`.
-    public func push(_ enabled: Bool = true) -> Self { copy(pushes: enabled) }
+    public func push(_ enabled: Bool = true) -> Self { modified(self) { $0.state.pushes = enabled } }
 
     /// Returns a copy that passes `--load`.
-    public func load(_ enabled: Bool = true) -> Self { copy(loads: enabled) }
+    public func load(_ enabled: Bool = true) -> Self { modified(self) { $0.state.loads = enabled } }
 
     /// Returns a copy that passes `--pull`.
-    public func pull(_ enabled: Bool = true) -> Self { copy(pulls: enabled) }
+    public func pull(_ enabled: Bool = true) -> Self { modified(self) { $0.state.pulls = enabled } }
 
     /// Returns a copy that passes `--name <name>`.
-    public func name(_ value: String) -> Self { copy(nameValue: value) }
+    public func name(_ value: String) -> Self { modified(self) { $0.state.nameValue = value } }
 
     /// Returns a copy that passes `--rm`.
-    public func removeWhenDone(_ enabled: Bool = true) -> Self { copy(removesWhenDone: enabled) }
+    public func removeWhenDone(_ enabled: Bool = true) -> Self { modified(self) { $0.state.removesWhenDone = enabled } }
 
     /// Returns a copy that passes `--detach`.
-    public func detach(_ enabled: Bool = true) -> Self { copy(detaches: enabled) }
+    public func detach(_ enabled: Bool = true) -> Self { modified(self) { $0.state.detaches = enabled } }
 
     /// Returns a copy that passes `--interactive`.
-    public func interactive(_ enabled: Bool = true) -> Self { copy(isInteractive: enabled) }
+    public func interactive(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isInteractive = enabled } }
 
     /// Returns a copy that passes `--tty`.
-    public func tty(_ enabled: Bool = true) -> Self { copy(allocatesTTY: enabled) }
+    public func tty(_ enabled: Bool = true) -> Self { modified(self) { $0.state.allocatesTTY = enabled } }
 
     /// Returns a copy that passes `--command <command>` for commands like `docker debug`.
-    public func commandString(_ value: String) -> Self { copy(commandValue: value) }
+    public func commandString(_ value: String) -> Self { modified(self) { $0.state.commandValue = value } }
 
     /// Returns a copy that passes `--shell <shell>` for `docker debug`.
-    public func shell(_ value: String) -> Self { copy(shellValue: value) }
+    public func shell(_ value: String) -> Self { modified(self) { $0.state.shellValue = value } }
 
     /// Returns a copy that passes `--format <template>`.
-    public func format(_ value: String) -> Self { copy(formatValue: value) }
+    public func format(_ value: String) -> Self { modified(self) { $0.state.formatValue = value } }
 
     /// Returns a copy that appends a raw option before positional arguments.
-    public func option(_ name: String) -> Self { copy(extraArguments: state.extraArguments + [name]) }
+    public func option(_ name: String) -> Self { modified(self) { $0.state.extraArguments += [name] } }
 
     /// Returns a copy that appends a raw option and value before positional arguments.
     public func option(_ name: String, _ value: String) -> Self {
-        copy(extraArguments: state.extraArguments + [name, value])
+        modified(self) { $0.state.extraArguments += [name, value] }
     }
 
     /// Returns a copy that appends a raw argument before positional arguments.
-    public func argument(_ value: String) -> Self { copy(extraArguments: state.extraArguments + [value]) }
+    public func argument(_ value: String) -> Self { modified(self) { $0.state.extraArguments += [value] } }
 
     /// Returns a copy that appends raw arguments before positional arguments.
-    public func arguments(_ values: [String]) -> Self { copy(extraArguments: state.extraArguments + values) }
+    public func arguments(_ values: [String]) -> Self { modified(self) { $0.state.extraArguments += values } }
 
     /// Returns a copy that appends a positional argument after modeled and raw options.
     public func positionalArgument(_ value: String) -> Self {
-        copy(positionalArguments: state.positionalArguments + [value])
+        modified(self) { $0.state.positionalArguments += [value] }
     }
 
     /// Returns a copy that appends positional arguments after modeled and raw options.
     public func positionalArguments(_ values: [String]) -> Self {
-        copy(positionalArguments: state.positionalArguments + values)
+        modified(self) { $0.state.positionalArguments += values }
     }
 
     /// Builds the raw `docker` command represented by the current builder state.
@@ -394,172 +406,43 @@ public struct Docker: RunnableCommandFamily {
     }
 
     private func commandGroup(_ value: DockerSubcommand, _ nested: String?) -> Self {
-        copy(subcommand: .some(value.rawValue), nestedSubcommand: .some(nested))
-    }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        subcommand: String?? = nil,
-        nestedSubcommand: String?? = nil,
-        configPath: String?? = nil,
-        contextName: String?? = nil,
-        hostValue: String?? = nil,
-        logLevel: String?? = nil,
-        debugEnabled: Bool? = nil,
-        tlsEnabled: Bool? = nil,
-        tlsVerifyEnabled: Bool? = nil,
-        platformValue: String?? = nil,
-        filePath: String?? = nil,
-        tags: [String]? = nil,
-        buildArgs: [String]? = nil,
-        progressMode: DockerBuildProgress?? = nil,
-        pushes: Bool? = nil,
-        loads: Bool? = nil,
-        pulls: Bool? = nil,
-        nameValue: String?? = nil,
-        removesWhenDone: Bool? = nil,
-        detaches: Bool? = nil,
-        isInteractive: Bool? = nil,
-        allocatesTTY: Bool? = nil,
-        commandValue: String?? = nil,
-        shellValue: String?? = nil,
-        formatValue: String?? = nil,
-        extraArguments: [String]? = nil,
-        positionalArguments: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                subcommand: subcommand ?? state.subcommand,
-                nestedSubcommand: nestedSubcommand ?? state.nestedSubcommand,
-                configPath: configPath ?? state.configPath,
-                contextName: contextName ?? state.contextName,
-                hostValue: hostValue ?? state.hostValue,
-                logLevel: logLevel ?? state.logLevel,
-                debugEnabled: debugEnabled ?? state.debugEnabled,
-                tlsEnabled: tlsEnabled ?? state.tlsEnabled,
-                tlsVerifyEnabled: tlsVerifyEnabled ?? state.tlsVerifyEnabled,
-                platformValue: platformValue ?? state.platformValue,
-                filePath: filePath ?? state.filePath,
-                tags: tags ?? state.tags,
-                buildArgs: buildArgs ?? state.buildArgs,
-                progressMode: progressMode ?? state.progressMode,
-                pushes: pushes ?? state.pushes,
-                loads: loads ?? state.loads,
-                pulls: pulls ?? state.pulls,
-                nameValue: nameValue ?? state.nameValue,
-                removesWhenDone: removesWhenDone ?? state.removesWhenDone,
-                detaches: detaches ?? state.detaches,
-                isInteractive: isInteractive ?? state.isInteractive,
-                allocatesTTY: allocatesTTY ?? state.allocatesTTY,
-                commandValue: commandValue ?? state.commandValue,
-                shellValue: shellValue ?? state.shellValue,
-                formatValue: formatValue ?? state.formatValue,
-                extraArguments: extraArguments ?? state.extraArguments,
-                positionalArguments: positionalArguments ?? state.positionalArguments
-            )
-        )
+        modified(self) {
+            $0.state.subcommand = value.rawValue
+            $0.state.nestedSubcommand = nested
+        }
     }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let subcommand: String?
-    let nestedSubcommand: String?
-    let configPath: String?
-    let contextName: String?
-    let hostValue: String?
-    let logLevel: String?
-    let debugEnabled: Bool
-    let tlsEnabled: Bool
-    let tlsVerifyEnabled: Bool
-    let platformValue: String?
-    let filePath: String?
-    let tags: [String]
-    let buildArgs: [String]
-    let progressMode: DockerBuildProgress?
-    let pushes: Bool
-    let loads: Bool
-    let pulls: Bool
-    let nameValue: String?
-    let removesWhenDone: Bool
-    let detaches: Bool
-    let isInteractive: Bool
-    let allocatesTTY: Bool
-    let commandValue: String?
-    let shellValue: String?
-    let formatValue: String?
-    let extraArguments: [String]
-    let positionalArguments: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        subcommand: String? = DockerSubcommand.version.rawValue,
-        nestedSubcommand: String? = nil,
-        configPath: String? = nil,
-        contextName: String? = nil,
-        hostValue: String? = nil,
-        logLevel: String? = nil,
-        debugEnabled: Bool = false,
-        tlsEnabled: Bool = false,
-        tlsVerifyEnabled: Bool = false,
-        platformValue: String? = nil,
-        filePath: String? = nil,
-        tags: [String] = [],
-        buildArgs: [String] = [],
-        progressMode: DockerBuildProgress? = nil,
-        pushes: Bool = false,
-        loads: Bool = false,
-        pulls: Bool = false,
-        nameValue: String? = nil,
-        removesWhenDone: Bool = false,
-        detaches: Bool = false,
-        isInteractive: Bool = false,
-        allocatesTTY: Bool = false,
-        commandValue: String? = nil,
-        shellValue: String? = nil,
-        formatValue: String? = nil,
-        extraArguments: [String] = [],
-        positionalArguments: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.subcommand = subcommand
-        self.nestedSubcommand = nestedSubcommand
-        self.configPath = configPath
-        self.contextName = contextName
-        self.hostValue = hostValue
-        self.logLevel = logLevel
-        self.debugEnabled = debugEnabled
-        self.tlsEnabled = tlsEnabled
-        self.tlsVerifyEnabled = tlsVerifyEnabled
-        self.platformValue = platformValue
-        self.filePath = filePath
-        self.tags = tags
-        self.buildArgs = buildArgs
-        self.progressMode = progressMode
-        self.pushes = pushes
-        self.loads = loads
-        self.pulls = pulls
-        self.nameValue = nameValue
-        self.removesWhenDone = removesWhenDone
-        self.detaches = detaches
-        self.isInteractive = isInteractive
-        self.allocatesTTY = allocatesTTY
-        self.commandValue = commandValue
-        self.shellValue = shellValue
-        self.formatValue = formatValue
-        self.extraArguments = extraArguments
-        self.positionalArguments = positionalArguments
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var subcommand: String? = DockerSubcommand.version.rawValue
+    var nestedSubcommand: String? = nil
+    var configPath: String? = nil
+    var contextName: String? = nil
+    var hostValue: String? = nil
+    var logLevel: String? = nil
+    var debugEnabled: Bool = false
+    var tlsEnabled: Bool = false
+    var tlsVerifyEnabled: Bool = false
+    var platformValue: String? = nil
+    var filePath: String? = nil
+    var tags: [String] = []
+    var buildArgs: [String] = []
+    var progressMode: DockerBuildProgress? = nil
+    var pushes: Bool = false
+    var loads: Bool = false
+    var pulls: Bool = false
+    var nameValue: String? = nil
+    var removesWhenDone: Bool = false
+    var detaches: Bool = false
+    var isInteractive: Bool = false
+    var allocatesTTY: Bool = false
+    var commandValue: String? = nil
+    var shellValue: String? = nil
+    var formatValue: String? = nil
+    var extraArguments: [String] = []
+    var positionalArguments: [String] = []
 }
 #endif

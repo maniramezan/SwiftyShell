@@ -7,7 +7,7 @@ import Foundation
 /// try await Touch("build.stamp").run()
 /// ```
 public struct Touch: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used to execute the command.
     public var context: ShellContext { state.config.context }
@@ -27,62 +27,68 @@ public struct Touch: RunnableCommandFamily {
 
     /// Returns a copy with updated shared tool configuration.
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy with the command's stdout destination changed.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy with the command's stderr destination changed.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that changes only access times.
     ///
     /// - Parameter enabled: Whether to pass the portable `-a` option.
     public func accessTimeOnly(_ enabled: Bool = true) -> Self {
-        copy(accessTimeOnly: enabled)
+        modified(self) { $0.state.accessTimeOnly = enabled }
     }
 
     /// Returns a copy that changes only modification times.
     ///
     /// - Parameter enabled: Whether to pass the portable `-m` option.
     public func modificationTimeOnly(_ enabled: Bool = true) -> Self {
-        copy(modificationTimeOnly: enabled)
+        modified(self) { $0.state.modificationTimeOnly = enabled }
     }
 
     /// Returns a copy that does not create paths that are absent.
     ///
     /// - Parameter enabled: Whether to pass the portable `-c` option.
     public func noCreate(_ enabled: Bool = true) -> Self {
-        copy(doesNotCreate: enabled)
+        modified(self) { $0.state.doesNotCreate = enabled }
     }
 
     /// Returns a copy that copies timestamps from a reference file.
     ///
     /// - Parameter path: The file whose access and modification times should be used.
     public func reference(_ path: String) -> Self {
-        copy(referencePath: path, timestamp: .some(nil))
+        modified(self) {
+            $0.state.referencePath = path
+            $0.state.timestamp = nil
+        }
     }
 
     /// Returns a copy with a portable `[[CC]YY]MMDDhhmm[.SS]` timestamp.
     ///
     /// - Parameter value: The timestamp text passed unchanged to `touch -t`.
     public func timestamp(_ value: String) -> Self {
-        copy(referencePath: .some(nil), timestamp: value)
+        modified(self) {
+            $0.state.referencePath = nil
+            $0.state.timestamp = value
+        }
     }
 
     /// Returns a copy with another file path appended.
     public func path(_ value: String) -> Self {
-        copy(paths: state.paths + [value])
+        modified(self) { $0.state.paths += [value] }
     }
 
     /// Returns a copy with multiple file paths appended.
     public func paths(_ values: [String]) -> Self {
-        copy(paths: state.paths + values)
+        modified(self) { $0.state.paths += values }
     }
 
     /// Builds the configured `touch` command.
@@ -102,65 +108,17 @@ public struct Touch: RunnableCommandFamily {
                 .stderr(state.stderrDestination)
         )
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        accessTimeOnly: Bool? = nil,
-        modificationTimeOnly: Bool? = nil,
-        doesNotCreate: Bool? = nil,
-        referencePath: String?? = nil,
-        timestamp: String?? = nil,
-        paths: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                paths: paths ?? state.paths,
-                accessTimeOnly: accessTimeOnly ?? state.accessTimeOnly,
-                modificationTimeOnly: modificationTimeOnly ?? state.modificationTimeOnly,
-                doesNotCreate: doesNotCreate ?? state.doesNotCreate,
-                referencePath: referencePath ?? state.referencePath,
-                timestamp: timestamp ?? state.timestamp
-            )
-        )
-    }
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let paths: [String]
-    let accessTimeOnly: Bool
-    let modificationTimeOnly: Bool
-    let doesNotCreate: Bool
-    let referencePath: String?
-    let timestamp: String?
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        paths: [String],
-        accessTimeOnly: Bool = false,
-        modificationTimeOnly: Bool = false,
-        doesNotCreate: Bool = false,
-        referencePath: String? = nil,
-        timestamp: String? = nil
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.paths = paths
-        self.accessTimeOnly = accessTimeOnly
-        self.modificationTimeOnly = modificationTimeOnly
-        self.doesNotCreate = doesNotCreate
-        self.referencePath = referencePath
-        self.timestamp = timestamp
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var paths: [String]
+    var accessTimeOnly: Bool = false
+    var modificationTimeOnly: Bool = false
+    var doesNotCreate: Bool = false
+    var referencePath: String? = nil
+    var timestamp: String? = nil
 }
 #endif

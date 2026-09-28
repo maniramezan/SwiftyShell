@@ -19,7 +19,7 @@ import Foundation
 ///     .run()
 /// ```
 public struct Rsync: RunnableCommandFamily {
-    private let state: RsyncState
+    private var state: RsyncState
 
     /// The shell context used when running this command family.
     ///
@@ -52,7 +52,7 @@ public struct Rsync: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes the built `rsync` command's stdout to the given destination.
@@ -63,7 +63,7 @@ public struct Rsync: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``Rsync`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `rsync` command's stderr to the given destination.
@@ -73,86 +73,100 @@ public struct Rsync: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``Rsync`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that enables archive mode (`-a`).
-    public func archive(_ enabled: Bool = true) -> Self { copy(isArchive: enabled) }
+    public func archive(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isArchive = enabled } }
 
     /// Returns a copy that enables recursive directory traversal (`-r`).
-    public func recursive(_ enabled: Bool = true) -> Self { copy(isRecursive: enabled) }
+    public func recursive(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isRecursive = enabled } }
 
     /// Returns a copy that enables compression during transfer (`-z`).
-    public func compress(_ enabled: Bool = true) -> Self { copy(usesCompression: enabled) }
+    public func compress(_ enabled: Bool = true) -> Self { modified(self) { $0.state.usesCompression = enabled } }
 
     /// Returns a copy that increases verbosity (`-v`).
-    public func verbose(_ enabled: Bool = true) -> Self { copy(isVerbose: enabled) }
+    public func verbose(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isVerbose = enabled } }
 
     /// Returns a copy that suppresses non-error messages (`-q`).
-    public func quiet(_ enabled: Bool = true) -> Self { copy(isQuiet: enabled) }
+    public func quiet(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isQuiet = enabled } }
 
     /// Returns a copy that performs a trial run without changing files (`-n`).
-    public func dryRun(_ enabled: Bool = true) -> Self { copy(isDryRun: enabled) }
+    public func dryRun(_ enabled: Bool = true) -> Self { modified(self) { $0.state.isDryRun = enabled } }
 
     /// Returns a copy that skips based on checksum instead of size and modification time (`-c`).
-    public func checksum(_ enabled: Bool = true) -> Self { copy(usesChecksum: enabled) }
+    public func checksum(_ enabled: Bool = true) -> Self { modified(self) { $0.state.usesChecksum = enabled } }
 
     /// Returns a copy that skips files newer on the receiver (`-u`).
-    public func update(_ enabled: Bool = true) -> Self { copy(updatesOnlyOlderFiles: enabled) }
+    public func update(_ enabled: Bool = true) -> Self { modified(self) { $0.state.updatesOnlyOlderFiles = enabled } }
 
     /// Returns a copy that deletes extraneous destination files (`--delete`).
-    public func delete(_ enabled: Bool = true) -> Self { copy(deletesExtraneousFiles: enabled) }
+    public func delete(_ enabled: Bool = true) -> Self { modified(self) { $0.state.deletesExtraneousFiles = enabled } }
 
     /// Returns a copy that also deletes excluded files from destination directories.
-    public func deleteExcluded(_ enabled: Bool = true) -> Self { copy(deletesExcludedFiles: enabled) }
+    public func deleteExcluded(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.deletesExcludedFiles = enabled }
+    }
 
     /// Returns a copy that preserves symbolic links as symbolic links (`-l`).
-    public func links(_ enabled: Bool = true) -> Self { copy(preservesLinks: enabled) }
+    public func links(_ enabled: Bool = true) -> Self { modified(self) { $0.state.preservesLinks = enabled } }
 
     /// Returns a copy that follows symlinks and copies referent files (`-L`).
-    public func copyLinks(_ enabled: Bool = true) -> Self { copy(copiesLinkedFiles: enabled) }
+    public func copyLinks(_ enabled: Bool = true) -> Self { modified(self) { $0.state.copiesLinkedFiles = enabled } }
 
     /// Returns a copy that preserves permissions (`-p`).
-    public func permissions(_ enabled: Bool = true) -> Self { copy(preservesPermissions: enabled) }
+    public func permissions(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.preservesPermissions = enabled }
+    }
 
     /// Returns a copy that preserves modification times (`-t`).
-    public func times(_ enabled: Bool = true) -> Self { copy(preservesTimes: enabled) }
+    public func times(_ enabled: Bool = true) -> Self { modified(self) { $0.state.preservesTimes = enabled } }
 
     /// Returns a copy that preserves owner information (`-o`).
-    public func owner(_ enabled: Bool = true) -> Self { copy(preservesOwner: enabled) }
+    public func owner(_ enabled: Bool = true) -> Self { modified(self) { $0.state.preservesOwner = enabled } }
 
     /// Returns a copy that preserves group information (`-g`).
-    public func group(_ enabled: Bool = true) -> Self { copy(preservesGroup: enabled) }
+    public func group(_ enabled: Bool = true) -> Self { modified(self) { $0.state.preservesGroup = enabled } }
 
     /// Returns a copy that preserves hard links (`-H`).
-    public func hardLinks(_ enabled: Bool = true) -> Self { copy(preservesHardLinks: enabled) }
+    public func hardLinks(_ enabled: Bool = true) -> Self { modified(self) { $0.state.preservesHardLinks = enabled } }
 
     /// Returns a copy that handles sparse files efficiently (`-S`).
-    public func sparse(_ enabled: Bool = true) -> Self { copy(handlesSparseFiles: enabled) }
+    public func sparse(_ enabled: Bool = true) -> Self { modified(self) { $0.state.handlesSparseFiles = enabled } }
 
     /// Returns a copy that avoids crossing filesystem boundaries (`-x`).
-    public func oneFileSystem(_ enabled: Bool = true) -> Self { copy(staysOnOneFileSystem: enabled) }
+    public func oneFileSystem(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.staysOnOneFileSystem = enabled }
+    }
 
     /// Returns a copy that prints an itemized change summary (`-i`).
-    public func itemizeChanges(_ enabled: Bool = true) -> Self { copy(itemizesChanges: enabled) }
+    public func itemizeChanges(_ enabled: Bool = true) -> Self { modified(self) { $0.state.itemizesChanges = enabled } }
 
     /// Returns a copy that formats numbers in human-readable units (`-h`).
-    public func humanReadable(_ enabled: Bool = true) -> Self { copy(usesHumanReadableOutput: enabled) }
+    public func humanReadable(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.usesHumanReadableOutput = enabled }
+    }
 
     /// Returns a copy that shows transfer progress (`--progress`).
-    public func progress(_ enabled: Bool = true) -> Self { copy(showsProgress: enabled) }
+    public func progress(_ enabled: Bool = true) -> Self { modified(self) { $0.state.showsProgress = enabled } }
 
     /// Returns a copy that keeps partially transferred files (`--partial`).
-    public func partial(_ enabled: Bool = true) -> Self { copy(keepsPartialFiles: enabled) }
+    public func partial(_ enabled: Bool = true) -> Self { modified(self) { $0.state.keepsPartialFiles = enabled } }
 
     /// Returns a copy that skips creating files that do not already exist on the receiver.
-    public func existing(_ enabled: Bool = true) -> Self { copy(requiresExistingDestinationFiles: enabled) }
+    public func existing(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.requiresExistingDestinationFiles = enabled }
+    }
 
     /// Returns a copy that skips updating files that already exist on the receiver.
-    public func ignoreExisting(_ enabled: Bool = true) -> Self { copy(ignoresExistingDestinationFiles: enabled) }
+    public func ignoreExisting(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.ignoresExistingDestinationFiles = enabled }
+    }
 
     /// Returns a copy that removes source files after successful transfer.
-    public func removeSourceFiles(_ enabled: Bool = true) -> Self { copy(removesSourceFiles: enabled) }
+    public func removeSourceFiles(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.removesSourceFiles = enabled }
+    }
 
     /// Returns a copy that appends a source operand.
     ///
@@ -162,13 +176,13 @@ public struct Rsync: RunnableCommandFamily {
     ///
     /// - Parameter value: Source operand to append.
     /// - Returns: A new ``Rsync`` value with the source appended.
-    public func source(_ value: String) -> Self { copy(sources: state.sources + [value]) }
+    public func source(_ value: String) -> Self { modified(self) { $0.state.sources += [value] } }
 
     /// Returns a copy that appends multiple source operands.
     ///
     /// - Parameter values: Source operands to append in order.
     /// - Returns: A new ``Rsync`` value with the sources appended.
-    public func sources(_ values: [String]) -> Self { copy(sources: state.sources + values) }
+    public func sources(_ values: [String]) -> Self { modified(self) { $0.state.sources += values } }
 
     /// Returns a copy that sets the destination operand.
     ///
@@ -176,87 +190,89 @@ public struct Rsync: RunnableCommandFamily {
     ///
     /// - Parameter value: Destination path, remote-shell spec, daemon spec, or `rsync://` URL.
     /// - Returns: A new ``Rsync`` value with the destination set.
-    public func destination(_ value: String) -> Self { copy(destination: value) }
+    public func destination(_ value: String) -> Self { modified(self) { $0.state.destination = value } }
 
     /// Returns a copy that appends an exclude pattern (`--exclude <pattern>`).
     ///
     /// - Parameter pattern: Rsync filter pattern to exclude.
     /// - Returns: A new ``Rsync`` value with the exclude appended.
-    public func exclude(_ pattern: String) -> Self { copy(excludes: state.excludes + [pattern]) }
+    public func exclude(_ pattern: String) -> Self { modified(self) { $0.state.excludes += [pattern] } }
 
     /// Returns a copy that appends multiple exclude patterns.
     ///
     /// - Parameter patterns: Rsync filter patterns to exclude.
     /// - Returns: A new ``Rsync`` value with the excludes appended.
-    public func excludes(_ patterns: [String]) -> Self { copy(excludes: state.excludes + patterns) }
+    public func excludes(_ patterns: [String]) -> Self { modified(self) { $0.state.excludes += patterns } }
 
     /// Returns a copy that appends an include pattern (`--include <pattern>`).
     ///
     /// - Parameter pattern: Rsync filter pattern to include.
     /// - Returns: A new ``Rsync`` value with the include appended.
-    public func include(_ pattern: String) -> Self { copy(includes: state.includes + [pattern]) }
+    public func include(_ pattern: String) -> Self { modified(self) { $0.state.includes += [pattern] } }
 
     /// Returns a copy that appends multiple include patterns.
     ///
     /// - Parameter patterns: Rsync filter patterns to include.
     /// - Returns: A new ``Rsync`` value with the includes appended.
-    public func includes(_ patterns: [String]) -> Self { copy(includes: state.includes + patterns) }
+    public func includes(_ patterns: [String]) -> Self { modified(self) { $0.state.includes += patterns } }
 
     /// Returns a copy that appends a raw filter rule (`--filter <rule>`).
     ///
     /// - Parameter rule: Rsync filter rule, such as `+ *.swift` or `- .build/`.
     /// - Returns: A new ``Rsync`` value with the filter appended.
-    public func filter(_ rule: String) -> Self { copy(filters: state.filters + [rule]) }
+    public func filter(_ rule: String) -> Self { modified(self) { $0.state.filters += [rule] } }
 
     /// Returns a copy that appends multiple raw filter rules.
     ///
     /// - Parameter rules: Filter rules to append in order.
     /// - Returns: A new ``Rsync`` value with the filters appended.
-    public func filters(_ rules: [String]) -> Self { copy(filters: state.filters + rules) }
+    public func filters(_ rules: [String]) -> Self { modified(self) { $0.state.filters += rules } }
 
     /// Returns a copy that reads exclude patterns from a file (`--exclude-from <file>`).
-    public func excludeFrom(_ path: String) -> Self { copy(excludeFiles: state.excludeFiles + [path]) }
+    public func excludeFrom(_ path: String) -> Self { modified(self) { $0.state.excludeFiles += [path] } }
 
     /// Returns a copy that reads include patterns from a file (`--include-from <file>`).
-    public func includeFrom(_ path: String) -> Self { copy(includeFiles: state.includeFiles + [path]) }
+    public func includeFrom(_ path: String) -> Self { modified(self) { $0.state.includeFiles += [path] } }
 
     /// Returns a copy that reads source filenames from a file (`--files-from <file>`).
-    public func filesFrom(_ path: String) -> Self { copy(filesFrom: state.filesFrom + [path]) }
+    public func filesFrom(_ path: String) -> Self { modified(self) { $0.state.filesFrom += [path] } }
 
     /// Returns a copy that treats `*-from` files as NUL-delimited (`--from0`).
-    public func from0(_ enabled: Bool = true) -> Self { copy(usesNullDelimitedFromFiles: enabled) }
+    public func from0(_ enabled: Bool = true) -> Self {
+        modified(self) { $0.state.usesNullDelimitedFromFiles = enabled }
+    }
 
     /// Returns a copy that selects the remote shell command (`-e <command>`).
     ///
     /// - Parameter command: Remote shell command, such as `ssh -i /path/key`.
     /// - Returns: A new ``Rsync`` value with the remote shell set.
-    public func remoteShell(_ command: String) -> Self { copy(remoteShell: command) }
+    public func remoteShell(_ command: String) -> Self { modified(self) { $0.state.remoteShell = command } }
 
     /// Returns a copy that selects the rsync executable path on the remote host.
     ///
     /// - Parameter path: Program path or command to pass via `--rsync-path`.
     /// - Returns: A new ``Rsync`` value with the remote rsync path set.
-    public func remoteRsyncPath(_ path: String) -> Self { copy(remoteRsyncPath: path) }
+    public func remoteRsyncPath(_ path: String) -> Self { modified(self) { $0.state.remoteRsyncPath = path } }
 
     /// Returns a copy that selects an alternate rsync daemon port (`--port <port>`).
-    public func port(_ value: Int) -> Self { copy(port: value) }
+    public func port(_ value: Int) -> Self { modified(self) { $0.state.port = value } }
 
     /// Returns a copy that limits socket I/O bandwidth (`--bwlimit <rate>`).
     ///
     /// - Parameter rate: Rsync rate string, such as `500K` or `2M`.
     /// - Returns: A new ``Rsync`` value with the bandwidth limit set.
-    public func bandwidthLimit(_ rate: String) -> Self { copy(bandwidthLimit: rate) }
+    public func bandwidthLimit(_ rate: String) -> Self { modified(self) { $0.state.bandwidthLimit = rate } }
 
     /// Returns a copy that skips files larger than the given size (`--max-size <size>`).
-    public func maxSize(_ value: String) -> Self { copy(maxSize: value) }
+    public func maxSize(_ value: String) -> Self { modified(self) { $0.state.maxSize = value } }
 
     /// Returns a copy that skips files smaller than the given size (`--min-size <size>`).
-    public func minSize(_ value: String) -> Self { copy(minSize: value) }
+    public func minSize(_ value: String) -> Self { modified(self) { $0.state.minSize = value } }
 
     /// Returns a copy that sets rsync's I/O timeout (`--timeout <seconds>`).
     ///
     /// This is separate from ``timeout(_:)-(Duration)``, which sets SwiftyShell's process-level timeout.
-    public func ioTimeout(_ seconds: Int) -> Self { copy(ioTimeout: seconds) }
+    public func ioTimeout(_ seconds: Int) -> Self { modified(self) { $0.state.ioTimeout = seconds } }
 
     /// Returns a copy that appends a raw rsync option before operands.
     ///
@@ -265,13 +281,13 @@ public struct Rsync: RunnableCommandFamily {
     ///
     /// - Parameter value: A single option or argument to append.
     /// - Returns: A new ``Rsync`` value with the raw option appended.
-    public func option(_ value: String) -> Self { copy(extraOptions: state.extraOptions + [value]) }
+    public func option(_ value: String) -> Self { modified(self) { $0.state.extraOptions += [value] } }
 
     /// Returns a copy that appends raw rsync options before operands.
     ///
     /// - Parameter values: Options or arguments to append in order.
     /// - Returns: A new ``Rsync`` value with the raw options appended.
-    public func options(_ values: [String]) -> Self { copy(extraOptions: state.extraOptions + values) }
+    public func options(_ values: [String]) -> Self { modified(self) { $0.state.extraOptions += values } }
 
     /// Builds the raw `rsync` command represented by the current builder state.
     ///
@@ -389,252 +405,54 @@ public struct Rsync: RunnableCommandFamily {
 
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        isArchive: Bool? = nil,
-        isRecursive: Bool? = nil,
-        usesCompression: Bool? = nil,
-        isVerbose: Bool? = nil,
-        isQuiet: Bool? = nil,
-        isDryRun: Bool? = nil,
-        usesChecksum: Bool? = nil,
-        updatesOnlyOlderFiles: Bool? = nil,
-        deletesExtraneousFiles: Bool? = nil,
-        deletesExcludedFiles: Bool? = nil,
-        preservesLinks: Bool? = nil,
-        copiesLinkedFiles: Bool? = nil,
-        preservesPermissions: Bool? = nil,
-        preservesTimes: Bool? = nil,
-        preservesOwner: Bool? = nil,
-        preservesGroup: Bool? = nil,
-        preservesHardLinks: Bool? = nil,
-        handlesSparseFiles: Bool? = nil,
-        staysOnOneFileSystem: Bool? = nil,
-        itemizesChanges: Bool? = nil,
-        usesHumanReadableOutput: Bool? = nil,
-        showsProgress: Bool? = nil,
-        keepsPartialFiles: Bool? = nil,
-        requiresExistingDestinationFiles: Bool? = nil,
-        ignoresExistingDestinationFiles: Bool? = nil,
-        removesSourceFiles: Bool? = nil,
-        sources: [String]? = nil,
-        destination: String?? = nil,
-        excludes: [String]? = nil,
-        includes: [String]? = nil,
-        filters: [String]? = nil,
-        excludeFiles: [String]? = nil,
-        includeFiles: [String]? = nil,
-        filesFrom: [String]? = nil,
-        usesNullDelimitedFromFiles: Bool? = nil,
-        remoteShell: String?? = nil,
-        remoteRsyncPath: String?? = nil,
-        port: Int?? = nil,
-        bandwidthLimit: String?? = nil,
-        maxSize: String?? = nil,
-        minSize: String?? = nil,
-        ioTimeout: Int?? = nil,
-        extraOptions: [String]? = nil
-    ) -> Self {
-        Self(
-            state: RsyncState(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                isArchive: isArchive ?? state.isArchive,
-                isRecursive: isRecursive ?? state.isRecursive,
-                usesCompression: usesCompression ?? state.usesCompression,
-                isVerbose: isVerbose ?? state.isVerbose,
-                isQuiet: isQuiet ?? state.isQuiet,
-                isDryRun: isDryRun ?? state.isDryRun,
-                usesChecksum: usesChecksum ?? state.usesChecksum,
-                updatesOnlyOlderFiles: updatesOnlyOlderFiles ?? state.updatesOnlyOlderFiles,
-                deletesExtraneousFiles: deletesExtraneousFiles ?? state.deletesExtraneousFiles,
-                deletesExcludedFiles: deletesExcludedFiles ?? state.deletesExcludedFiles,
-                preservesLinks: preservesLinks ?? state.preservesLinks,
-                copiesLinkedFiles: copiesLinkedFiles ?? state.copiesLinkedFiles,
-                preservesPermissions: preservesPermissions ?? state.preservesPermissions,
-                preservesTimes: preservesTimes ?? state.preservesTimes,
-                preservesOwner: preservesOwner ?? state.preservesOwner,
-                preservesGroup: preservesGroup ?? state.preservesGroup,
-                preservesHardLinks: preservesHardLinks ?? state.preservesHardLinks,
-                handlesSparseFiles: handlesSparseFiles ?? state.handlesSparseFiles,
-                staysOnOneFileSystem: staysOnOneFileSystem ?? state.staysOnOneFileSystem,
-                itemizesChanges: itemizesChanges ?? state.itemizesChanges,
-                usesHumanReadableOutput: usesHumanReadableOutput ?? state.usesHumanReadableOutput,
-                showsProgress: showsProgress ?? state.showsProgress,
-                keepsPartialFiles: keepsPartialFiles ?? state.keepsPartialFiles,
-                requiresExistingDestinationFiles: requiresExistingDestinationFiles
-                    ?? state.requiresExistingDestinationFiles,
-                ignoresExistingDestinationFiles: ignoresExistingDestinationFiles
-                    ?? state.ignoresExistingDestinationFiles,
-                removesSourceFiles: removesSourceFiles ?? state.removesSourceFiles,
-                sources: sources ?? state.sources,
-                destination: destination ?? state.destination,
-                excludes: excludes ?? state.excludes,
-                includes: includes ?? state.includes,
-                filters: filters ?? state.filters,
-                excludeFiles: excludeFiles ?? state.excludeFiles,
-                includeFiles: includeFiles ?? state.includeFiles,
-                filesFrom: filesFrom ?? state.filesFrom,
-                usesNullDelimitedFromFiles: usesNullDelimitedFromFiles ?? state.usesNullDelimitedFromFiles,
-                remoteShell: remoteShell ?? state.remoteShell,
-                remoteRsyncPath: remoteRsyncPath ?? state.remoteRsyncPath,
-                port: port ?? state.port,
-                bandwidthLimit: bandwidthLimit ?? state.bandwidthLimit,
-                maxSize: maxSize ?? state.maxSize,
-                minSize: minSize ?? state.minSize,
-                ioTimeout: ioTimeout ?? state.ioTimeout,
-                extraOptions: extraOptions ?? state.extraOptions
-            )
-        )
-    }
 }
 
 private struct RsyncState: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let isArchive: Bool
-    let isRecursive: Bool
-    let usesCompression: Bool
-    let isVerbose: Bool
-    let isQuiet: Bool
-    let isDryRun: Bool
-    let usesChecksum: Bool
-    let updatesOnlyOlderFiles: Bool
-    let deletesExtraneousFiles: Bool
-    let deletesExcludedFiles: Bool
-    let preservesLinks: Bool
-    let copiesLinkedFiles: Bool
-    let preservesPermissions: Bool
-    let preservesTimes: Bool
-    let preservesOwner: Bool
-    let preservesGroup: Bool
-    let preservesHardLinks: Bool
-    let handlesSparseFiles: Bool
-    let staysOnOneFileSystem: Bool
-    let itemizesChanges: Bool
-    let usesHumanReadableOutput: Bool
-    let showsProgress: Bool
-    let keepsPartialFiles: Bool
-    let requiresExistingDestinationFiles: Bool
-    let ignoresExistingDestinationFiles: Bool
-    let removesSourceFiles: Bool
-    let sources: [String]
-    let destination: String?
-    let excludes: [String]
-    let includes: [String]
-    let filters: [String]
-    let excludeFiles: [String]
-    let includeFiles: [String]
-    let filesFrom: [String]
-    let usesNullDelimitedFromFiles: Bool
-    let remoteShell: String?
-    let remoteRsyncPath: String?
-    let port: Int?
-    let bandwidthLimit: String?
-    let maxSize: String?
-    let minSize: String?
-    let ioTimeout: Int?
-    let extraOptions: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        isArchive: Bool = false,
-        isRecursive: Bool = false,
-        usesCompression: Bool = false,
-        isVerbose: Bool = false,
-        isQuiet: Bool = false,
-        isDryRun: Bool = false,
-        usesChecksum: Bool = false,
-        updatesOnlyOlderFiles: Bool = false,
-        deletesExtraneousFiles: Bool = false,
-        deletesExcludedFiles: Bool = false,
-        preservesLinks: Bool = false,
-        copiesLinkedFiles: Bool = false,
-        preservesPermissions: Bool = false,
-        preservesTimes: Bool = false,
-        preservesOwner: Bool = false,
-        preservesGroup: Bool = false,
-        preservesHardLinks: Bool = false,
-        handlesSparseFiles: Bool = false,
-        staysOnOneFileSystem: Bool = false,
-        itemizesChanges: Bool = false,
-        usesHumanReadableOutput: Bool = false,
-        showsProgress: Bool = false,
-        keepsPartialFiles: Bool = false,
-        requiresExistingDestinationFiles: Bool = false,
-        ignoresExistingDestinationFiles: Bool = false,
-        removesSourceFiles: Bool = false,
-        sources: [String] = [],
-        destination: String? = nil,
-        excludes: [String] = [],
-        includes: [String] = [],
-        filters: [String] = [],
-        excludeFiles: [String] = [],
-        includeFiles: [String] = [],
-        filesFrom: [String] = [],
-        usesNullDelimitedFromFiles: Bool = false,
-        remoteShell: String? = nil,
-        remoteRsyncPath: String? = nil,
-        port: Int? = nil,
-        bandwidthLimit: String? = nil,
-        maxSize: String? = nil,
-        minSize: String? = nil,
-        ioTimeout: Int? = nil,
-        extraOptions: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.isArchive = isArchive
-        self.isRecursive = isRecursive
-        self.usesCompression = usesCompression
-        self.isVerbose = isVerbose
-        self.isQuiet = isQuiet
-        self.isDryRun = isDryRun
-        self.usesChecksum = usesChecksum
-        self.updatesOnlyOlderFiles = updatesOnlyOlderFiles
-        self.deletesExtraneousFiles = deletesExtraneousFiles
-        self.deletesExcludedFiles = deletesExcludedFiles
-        self.preservesLinks = preservesLinks
-        self.copiesLinkedFiles = copiesLinkedFiles
-        self.preservesPermissions = preservesPermissions
-        self.preservesTimes = preservesTimes
-        self.preservesOwner = preservesOwner
-        self.preservesGroup = preservesGroup
-        self.preservesHardLinks = preservesHardLinks
-        self.handlesSparseFiles = handlesSparseFiles
-        self.staysOnOneFileSystem = staysOnOneFileSystem
-        self.itemizesChanges = itemizesChanges
-        self.usesHumanReadableOutput = usesHumanReadableOutput
-        self.showsProgress = showsProgress
-        self.keepsPartialFiles = keepsPartialFiles
-        self.requiresExistingDestinationFiles = requiresExistingDestinationFiles
-        self.ignoresExistingDestinationFiles = ignoresExistingDestinationFiles
-        self.removesSourceFiles = removesSourceFiles
-        self.sources = sources
-        self.destination = destination
-        self.excludes = excludes
-        self.includes = includes
-        self.filters = filters
-        self.excludeFiles = excludeFiles
-        self.includeFiles = includeFiles
-        self.filesFrom = filesFrom
-        self.usesNullDelimitedFromFiles = usesNullDelimitedFromFiles
-        self.remoteShell = remoteShell
-        self.remoteRsyncPath = remoteRsyncPath
-        self.port = port
-        self.bandwidthLimit = bandwidthLimit
-        self.maxSize = maxSize
-        self.minSize = minSize
-        self.ioTimeout = ioTimeout
-        self.extraOptions = extraOptions
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var isArchive: Bool = false
+    var isRecursive: Bool = false
+    var usesCompression: Bool = false
+    var isVerbose: Bool = false
+    var isQuiet: Bool = false
+    var isDryRun: Bool = false
+    var usesChecksum: Bool = false
+    var updatesOnlyOlderFiles: Bool = false
+    var deletesExtraneousFiles: Bool = false
+    var deletesExcludedFiles: Bool = false
+    var preservesLinks: Bool = false
+    var copiesLinkedFiles: Bool = false
+    var preservesPermissions: Bool = false
+    var preservesTimes: Bool = false
+    var preservesOwner: Bool = false
+    var preservesGroup: Bool = false
+    var preservesHardLinks: Bool = false
+    var handlesSparseFiles: Bool = false
+    var staysOnOneFileSystem: Bool = false
+    var itemizesChanges: Bool = false
+    var usesHumanReadableOutput: Bool = false
+    var showsProgress: Bool = false
+    var keepsPartialFiles: Bool = false
+    var requiresExistingDestinationFiles: Bool = false
+    var ignoresExistingDestinationFiles: Bool = false
+    var removesSourceFiles: Bool = false
+    var sources: [String] = []
+    var destination: String? = nil
+    var excludes: [String] = []
+    var includes: [String] = []
+    var filters: [String] = []
+    var excludeFiles: [String] = []
+    var includeFiles: [String] = []
+    var filesFrom: [String] = []
+    var usesNullDelimitedFromFiles: Bool = false
+    var remoteShell: String? = nil
+    var remoteRsyncPath: String? = nil
+    var port: Int? = nil
+    var bandwidthLimit: String? = nil
+    var maxSize: String? = nil
+    var minSize: String? = nil
+    var ioTimeout: Int? = nil
+    var extraOptions: [String] = []
 }
 #endif

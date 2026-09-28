@@ -13,7 +13,7 @@ import Foundation
 ///     .run()
 /// ```
 public struct Env: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used to execute the command.
     public var context: ShellContext { state.config.context }
@@ -29,24 +29,24 @@ public struct Env: RunnableCommandFamily {
 
     /// Returns a copy with updated shared tool configuration.
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy with the command's stdout destination changed.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy with the command's stderr destination changed.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that starts with an empty environment.
     ///
     /// - Parameter enabled: Whether to pass the portable `-i` option.
     public func clean(_ enabled: Bool = true) -> Self {
-        copy(ignoresInheritedEnvironment: enabled)
+        modified(self) { $0.state.ignoresInheritedEnvironment = enabled }
     }
 
     /// Returns a copy that sets or replaces a variable in the resulting environment.
@@ -57,19 +57,19 @@ public struct Env: RunnableCommandFamily {
     public func set(_ name: String, _ value: String) -> Self {
         var assignments = state.assignments
         assignments[name] = value
-        return copy(assignments: assignments)
+        return modified(self) { $0.state.assignments = assignments }
     }
 
     /// Returns a copy that sets or replaces multiple variables.
     public func set(_ values: [String: String]) -> Self {
-        copy(assignments: state.assignments.merging(values) { _, new in new })
+        modified(self) { $0.state.assignments = state.assignments.merging(values) { _, new in new } }
     }
 
     /// Returns a copy that removes a variable from the resulting environment.
     ///
     /// `-u` is supported by the macOS/BSD and GNU implementations of `env`.
     public func unset(_ name: String) -> Self {
-        copy(unsetNames: state.unsetNames + [name])
+        modified(self) { $0.state.unsetNames += [name] }
     }
 
     /// Returns a copy that invokes a utility with separate, shell-safe argv values.
@@ -78,7 +78,7 @@ public struct Env: RunnableCommandFamily {
     ///   - executable: The utility name or path passed to `env`.
     ///   - arguments: Arguments passed directly to that utility without shell parsing.
     public func command(_ executable: String, arguments: [String] = []) -> Self {
-        copy(invocation: Invocation(executable: executable, arguments: arguments))
+        modified(self) { $0.state.invocation = Invocation(executable: executable, arguments: arguments) }
     }
 
     /// Builds the configured `env` command.
@@ -101,28 +101,6 @@ public struct Env: RunnableCommandFamily {
                 .stderr(state.stderrDestination)
         )
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        ignoresInheritedEnvironment: Bool? = nil,
-        assignments: [String: String]? = nil,
-        unsetNames: [String]? = nil,
-        invocation: Invocation?? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                ignoresInheritedEnvironment: ignoresInheritedEnvironment ?? state.ignoresInheritedEnvironment,
-                assignments: assignments ?? state.assignments,
-                unsetNames: unsetNames ?? state.unsetNames,
-                invocation: invocation ?? state.invocation
-            )
-        )
-    }
 }
 
 private struct Invocation: Sendable {
@@ -131,30 +109,12 @@ private struct Invocation: Sendable {
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let ignoresInheritedEnvironment: Bool
-    let assignments: [String: String]
-    let unsetNames: [String]
-    let invocation: Invocation?
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        ignoresInheritedEnvironment: Bool = false,
-        assignments: [String: String] = [:],
-        unsetNames: [String] = [],
-        invocation: Invocation? = nil
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.ignoresInheritedEnvironment = ignoresInheritedEnvironment
-        self.assignments = assignments
-        self.unsetNames = unsetNames
-        self.invocation = invocation
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var ignoresInheritedEnvironment: Bool = false
+    var assignments: [String: String] = [:]
+    var unsetNames: [String] = []
+    var invocation: Invocation? = nil
 }
 #endif

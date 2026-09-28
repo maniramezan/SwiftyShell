@@ -12,7 +12,7 @@ import Foundation
 ///     .run()
 /// ```
 public struct Node: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     public var context: ShellContext { state.config.context }
@@ -26,56 +26,81 @@ public struct Node: RunnableCommandFamily {
 
     /// Returns a copy with updated shared tool configuration.
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self {
-        copy(config: update(state.config))
+        modified(self) { $0.state.config = update(state.config) }
     }
 
     /// Returns a copy that routes stdout to the given destination.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes stderr to the given destination.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Returns a copy that prints Node.js version information with `--version`.
     ///
     /// Selecting version mode clears any script arguments from a previously selected entry point.
-    public func version() -> Self { copy(mode: .version, scriptArguments: []) }
+    public func version() -> Self {
+        modified(self) {
+            $0.state.mode = .version
+            $0.state.scriptArguments = []
+        }
+    }
 
     /// Returns a copy that evaluates JavaScript with `--eval <code>`.
-    public func eval(_ code: String) -> Self { copy(mode: .eval(code), scriptArguments: []) }
+    public func eval(_ code: String) -> Self {
+        modified(self) {
+            $0.state.mode = .eval(code)
+            $0.state.scriptArguments = []
+        }
+    }
 
     /// Returns a copy that prints JavaScript expression output with `--print <code>`.
-    public func printExpression(_ code: String) -> Self { copy(mode: .print(code), scriptArguments: []) }
+    public func printExpression(_ code: String) -> Self {
+        modified(self) {
+            $0.state.mode = .print(code)
+            $0.state.scriptArguments = []
+        }
+    }
 
     /// Returns a copy that checks a script's syntax with `--check <path>`.
-    public func check(_ path: String) -> Self { copy(mode: .check(path), scriptArguments: []) }
+    public func check(_ path: String) -> Self {
+        modified(self) {
+            $0.state.mode = .check(path)
+            $0.state.scriptArguments = []
+        }
+    }
 
     /// Returns a copy that runs a JavaScript file.
-    public func script(_ path: String) -> Self { copy(mode: .script(path), scriptArguments: []) }
+    public func script(_ path: String) -> Self {
+        modified(self) {
+            $0.state.mode = .script(path)
+            $0.state.scriptArguments = []
+        }
+    }
 
     /// Returns a copy that preloads a module with `--require <module>`.
-    public func require(_ module: String) -> Self { copy(requires: state.requires + [module]) }
+    public func require(_ module: String) -> Self { modified(self) { $0.state.requires += [module] } }
 
     /// Returns a copy that enables inspector support with `--inspect`.
-    public func inspect(_ enabled: Bool = true) -> Self { copy(inspects: enabled) }
+    public func inspect(_ enabled: Bool = true) -> Self { modified(self) { $0.state.inspects = enabled } }
 
     /// Returns a copy that enables watch mode with `--watch`.
-    public func watch(_ enabled: Bool = true) -> Self { copy(watches: enabled) }
+    public func watch(_ enabled: Bool = true) -> Self { modified(self) { $0.state.watches = enabled } }
 
     /// Returns a copy that appends a raw Node option before the selected entry point.
-    public func argument(_ value: String) -> Self { copy(extraArguments: state.extraArguments + [value]) }
+    public func argument(_ value: String) -> Self { modified(self) { $0.state.extraArguments += [value] } }
 
     /// Returns a copy that appends raw Node options before the selected entry point.
-    public func arguments(_ values: [String]) -> Self { copy(extraArguments: state.extraArguments + values) }
+    public func arguments(_ values: [String]) -> Self { modified(self) { $0.state.extraArguments += values } }
 
     /// Returns a copy that appends an argument passed to the selected script or inline program.
-    public func scriptArgument(_ value: String) -> Self { copy(scriptArguments: state.scriptArguments + [value]) }
+    public func scriptArgument(_ value: String) -> Self { modified(self) { $0.state.scriptArguments += [value] } }
 
     /// Returns a copy that appends arguments passed to the selected script or inline program.
-    public func scriptArguments(_ values: [String]) -> Self { copy(scriptArguments: state.scriptArguments + values) }
+    public func scriptArguments(_ values: [String]) -> Self { modified(self) { $0.state.scriptArguments += values } }
 
     /// Builds the raw `node` command represented by the current builder state.
     public func command() -> Command {
@@ -96,32 +121,6 @@ public struct Node: RunnableCommandFamily {
         let base = Command("node").args(arguments).stdout(state.stdoutDestination).stderr(state.stderrDestination)
         return state.config.apply(to: base)
     }
-
-    private func copy(
-        config: ToolConfiguration? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        mode: Mode? = nil,
-        requires: [String]? = nil,
-        inspects: Bool? = nil,
-        watches: Bool? = nil,
-        extraArguments: [String]? = nil,
-        scriptArguments: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                config: config ?? state.config,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                mode: mode ?? state.mode,
-                requires: requires ?? state.requires,
-                inspects: inspects ?? state.inspects,
-                watches: watches ?? state.watches,
-                extraArguments: extraArguments ?? state.extraArguments,
-                scriptArguments: scriptArguments ?? state.scriptArguments
-            )
-        )
-    }
 }
 
 private enum Mode: Sendable {
@@ -133,36 +132,14 @@ private enum Mode: Sendable {
 }
 
 private struct State: Sendable {
-    let config: ToolConfiguration
-    let stdoutDestination: OutputDestination
-    let stderrDestination: OutputDestination
-    let mode: Mode
-    let requires: [String]
-    let inspects: Bool
-    let watches: Bool
-    let extraArguments: [String]
-    let scriptArguments: [String]
-
-    init(
-        config: ToolConfiguration,
-        stdoutDestination: OutputDestination = .capture,
-        stderrDestination: OutputDestination = .capture,
-        mode: Mode = .version,
-        requires: [String] = [],
-        inspects: Bool = false,
-        watches: Bool = false,
-        extraArguments: [String] = [],
-        scriptArguments: [String] = []
-    ) {
-        self.config = config
-        self.stdoutDestination = stdoutDestination
-        self.stderrDestination = stderrDestination
-        self.mode = mode
-        self.requires = requires
-        self.inspects = inspects
-        self.watches = watches
-        self.extraArguments = extraArguments
-        self.scriptArguments = scriptArguments
-    }
+    var config: ToolConfiguration
+    var stdoutDestination: OutputDestination = .capture
+    var stderrDestination: OutputDestination = .capture
+    var mode: Mode = .version
+    var requires: [String] = []
+    var inspects: Bool = false
+    var watches: Bool = false
+    var extraArguments: [String] = []
+    var scriptArguments: [String] = []
 }
 #endif

@@ -70,7 +70,7 @@ public enum GitSubmoduleUpdateStrategy: Sendable, Equatable, Hashable {
 /// On success, the submodule directories exist and are checked out to the revisions referenced by
 /// the current superproject commit.
 public struct GitSubmodule: RunnableCommandFamily {
-    private let state: State
+    private var state: State
 
     /// The shell context used when running this command family.
     ///
@@ -92,7 +92,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     public func updatingConfiguration(
         _ update: (ToolConfiguration) -> ToolConfiguration
     ) -> Self {
-        copy(git: state.git.updatingConfiguration(update))
+        modified(self) { $0.state.git = state.git.updatingConfiguration(update) }
     }
 
     /// Returns a copy that routes the built `git submodule` command's stdout to the given destination.
@@ -102,7 +102,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stdout stream.
     /// - Returns: A new ``GitSubmodule`` value with the stdout destination applied.
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self {
-        copy(stdoutDestination: destination)
+        modified(self) { $0.state.stdoutDestination = destination }
     }
 
     /// Returns a copy that routes the built `git submodule` command's stderr to the given destination.
@@ -112,7 +112,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter destination: Where the executor should send the stderr stream.
     /// - Returns: A new ``GitSubmodule`` value with the stderr destination applied.
     public func settingStderrDestination(_ destination: OutputDestination) -> Self {
-        copy(stderrDestination: destination)
+        modified(self) { $0.state.stderrDestination = destination }
     }
 
     /// Selects `git submodule add <repository> [path]` to register a new submodule.
@@ -126,7 +126,11 @@ public struct GitSubmodule: RunnableCommandFamily {
     ///     git derives the path from the repository name.
     /// - Returns: A new ``GitSubmodule`` value targeting the `add` subcommand.
     public func add(_ repository: String, path: String? = nil) -> Self {
-        copy(subcommand: .add, repository: repository, paths: path.map { [$0] } ?? [])
+        modified(self) {
+            $0.state.subcommand = .add
+            $0.state.repository = repository
+            $0.state.paths = path.map { [$0] } ?? []
+        }
     }
 
     /// Selects `git submodule status` to report the current state of each submodule.
@@ -136,7 +140,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitSubmodule`` value targeting the `status` subcommand.
     public func status() -> Self {
-        copy(subcommand: .status)
+        modified(self) { $0.state.subcommand = .status }
     }
 
     /// Selects `git submodule init` to register submodules in `.git/config` without cloning them.
@@ -146,7 +150,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitSubmodule`` value targeting the `init` subcommand.
     public func initialize() -> Self {
-        copy(subcommand: .initialize)
+        modified(self) { $0.state.subcommand = .initialize }
     }
 
     /// Selects `git submodule deinit` to unregister submodules and remove their working trees.
@@ -157,7 +161,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitSubmodule`` value targeting the `deinit` subcommand.
     public func deinitialize() -> Self {
-        copy(subcommand: .deinitialize)
+        modified(self) { $0.state.subcommand = .deinitialize }
     }
 
     /// Selects `git submodule update` to check out the commit recorded by the superproject.
@@ -168,7 +172,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitSubmodule`` value targeting the `update` subcommand.
     public func update() -> Self {
-        copy(subcommand: .update)
+        modified(self) { $0.state.subcommand = .update }
     }
 
     /// Selects `git submodule set-branch --branch <branch> -- <path>` to record a tracking branch.
@@ -181,7 +185,12 @@ public struct GitSubmodule: RunnableCommandFamily {
     ///   - path: Path of the submodule whose tracking branch should be updated.
     /// - Returns: A new ``GitSubmodule`` value targeting `set-branch` with `--branch`.
     public func setBranch(_ branch: String, path: String) -> Self {
-        copy(subcommand: .setBranch, branch: branch, usesDefaultBranch: false, paths: [path])
+        modified(self) {
+            $0.state.subcommand = .setBranch
+            $0.state.branch = branch
+            $0.state.usesDefaultBranch = false
+            $0.state.paths = [path]
+        }
     }
 
     /// Selects `git submodule set-branch --default -- <path>` to clear a recorded tracking branch.
@@ -191,7 +200,12 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter path: Path of the submodule whose tracking branch should be reset.
     /// - Returns: A new ``GitSubmodule`` value targeting `set-branch` with `--default`.
     public func resetBranch(path: String) -> Self {
-        copy(subcommand: .setBranch, branch: .some(nil), usesDefaultBranch: true, paths: [path])
+        modified(self) {
+            $0.state.subcommand = .setBranch
+            $0.state.branch = nil
+            $0.state.usesDefaultBranch = true
+            $0.state.paths = [path]
+        }
     }
 
     /// Selects `git submodule set-url -- <path> <newurl>` to update the remote URL of a submodule.
@@ -203,7 +217,11 @@ public struct GitSubmodule: RunnableCommandFamily {
     ///   - newURL: The replacement URL for the submodule's remote.
     /// - Returns: A new ``GitSubmodule`` value targeting the `set-url` subcommand.
     public func setUrl(path: String, to newURL: String) -> Self {
-        copy(subcommand: .setURL, newURL: newURL, paths: [path])
+        modified(self) {
+            $0.state.subcommand = .setURL
+            $0.state.newURL = newURL
+            $0.state.paths = [path]
+        }
     }
 
     /// Selects `git submodule summary` to show a diff between superproject and submodule commits.
@@ -213,7 +231,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitSubmodule`` value targeting the `summary` subcommand.
     public func summary() -> Self {
-        copy(subcommand: .summary)
+        modified(self) { $0.state.subcommand = .summary }
     }
 
     /// Selects `git submodule foreach <command>` to run a shell command in each submodule.
@@ -224,7 +242,10 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter command: The shell command to execute inside every submodule.
     /// - Returns: A new ``GitSubmodule`` value targeting the `foreach` subcommand.
     public func foreach(_ command: String) -> Self {
-        copy(subcommand: .foreach, foreachCommand: command)
+        modified(self) {
+            $0.state.subcommand = .foreach
+            $0.state.foreachCommand = command
+        }
     }
 
     /// Selects `git submodule sync` to align recorded URLs with `.gitmodules`.
@@ -234,7 +255,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitSubmodule`` value targeting the `sync` subcommand.
     public func sync() -> Self {
-        copy(subcommand: .sync)
+        modified(self) { $0.state.subcommand = .sync }
     }
 
     /// Selects `git submodule absorbgitdirs` to move embedded `.git` directories into the superproject.
@@ -244,7 +265,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     ///
     /// - Returns: A new ``GitSubmodule`` value targeting the `absorbgitdirs` subcommand.
     public func absorbGitDirectories() -> Self {
-        copy(subcommand: .absorbGitDirectories)
+        modified(self) { $0.state.subcommand = .absorbGitDirectories }
     }
 
     /// Suppresses non-error output where supported by `git submodule`.
@@ -254,7 +275,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--quiet`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the quiet flag toggled.
     public func quiet(_ enabled: Bool = true) -> Self {
-        copy(quiet: enabled)
+        modified(self) { $0.state.quiet = enabled }
     }
 
     /// Compares against the index instead of `HEAD` for `status` or `summary`.
@@ -264,7 +285,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--cached`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the cached flag toggled.
     public func cached(_ enabled: Bool = true) -> Self {
-        copy(cached: enabled)
+        modified(self) { $0.state.cached = enabled }
     }
 
     /// Traverses nested submodules for commands that support recursive operation.
@@ -274,7 +295,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--recursive`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the recursive flag toggled.
     public func recursive(_ enabled: Bool = true) -> Self {
-        copy(recursive: enabled)
+        modified(self) { $0.state.recursive = enabled }
     }
 
     /// Forces `add`, `deinit`, or `update` to proceed where git would otherwise stop.
@@ -285,7 +306,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--force`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the force flag toggled.
     public func force(_ enabled: Bool = true) -> Self {
-        copy(force: enabled)
+        modified(self) { $0.state.force = enabled }
     }
 
     /// Reports progress from `add` or `update` even when stderr is not attached to a terminal.
@@ -296,7 +317,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--progress`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the progress flag toggled.
     public func progress(_ enabled: Bool = true) -> Self {
-        copy(progress: enabled)
+        modified(self) { $0.state.progress = enabled }
     }
 
     /// Applies `deinit` to every registered submodule.
@@ -307,7 +328,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--all`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the all flag toggled.
     public func all(_ enabled: Bool = true) -> Self {
-        copy(all: enabled)
+        modified(self) { $0.state.all = enabled }
     }
 
     /// Sets the branch used by `add` or `set-branch`.
@@ -318,7 +339,10 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter value: The branch name to record or check out.
     /// - Returns: A new ``GitSubmodule`` value with the branch option applied.
     public func branch(_ value: String) -> Self {
-        copy(branch: value, usesDefaultBranch: false)
+        modified(self) {
+            $0.state.branch = value
+            $0.state.usesDefaultBranch = false
+        }
     }
 
     /// Sets the logical name used by `add`.
@@ -329,7 +353,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter value: The submodule name to record.
     /// - Returns: A new ``GitSubmodule`` value with the name option applied.
     public func name(_ value: String) -> Self {
-        copy(name: value)
+        modified(self) { $0.state.name = value }
     }
 
     /// Sets the reference repository used by `add` or `update`.
@@ -340,7 +364,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter repository: Path or URL of the reference repository to borrow from.
     /// - Returns: A new ``GitSubmodule`` value with the reference option applied.
     public func reference(_ repository: String) -> Self {
-        copy(reference: repository)
+        modified(self) { $0.state.reference = repository }
     }
 
     /// Stops borrowing objects from a reference repository after cloning.
@@ -351,7 +375,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--dissociate`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the dissociate flag toggled.
     public func dissociate(_ enabled: Bool = true) -> Self {
-        copy(dissociate: enabled)
+        modified(self) { $0.state.dissociate = enabled }
     }
 
     /// Sets the ref storage format used when cloning submodules.
@@ -361,7 +385,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter value: The ref storage format to request from `git clone`.
     /// - Returns: A new ``GitSubmodule`` value with the ref format option applied.
     public func refFormat(_ value: String) -> Self {
-        copy(refFormat: value)
+        modified(self) { $0.state.refFormat = value }
     }
 
     /// Sets the shallow clone depth used by `add` or `update`.
@@ -372,7 +396,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter value: Number of commits of history to fetch.
     /// - Returns: A new ``GitSubmodule`` value with the depth option applied.
     public func depth(_ value: Int) -> Self {
-        copy(depth: value)
+        modified(self) { $0.state.depth = value }
     }
 
     /// Initializes missing submodules before running `git submodule update`.
@@ -383,7 +407,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--init`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the init-on-update flag toggled.
     public func initializeOnUpdate(_ enabled: Bool = true) -> Self {
-        copy(initializesOnUpdate: enabled)
+        modified(self) { $0.state.initializesOnUpdate = enabled }
     }
 
     /// Uses the submodule's remote-tracking branch when running `git submodule update`.
@@ -394,7 +418,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--remote`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the remote flag toggled.
     public func remote(_ enabled: Bool = true) -> Self {
-        copy(remote: enabled)
+        modified(self) { $0.state.remote = enabled }
     }
 
     /// Skips fetching from submodule remotes when running `git submodule update --remote`.
@@ -405,7 +429,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--no-fetch`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the no-fetch flag toggled.
     public func noFetch(_ enabled: Bool = true) -> Self {
-        copy(noFetch: enabled)
+        modified(self) { $0.state.noFetch = enabled }
     }
 
     /// Sets the checkout strategy used by `git submodule update`.
@@ -416,7 +440,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter value: The strategy git should apply when updating each submodule.
     /// - Returns: A new ``GitSubmodule`` value with the update strategy applied.
     public func updateStrategy(_ value: GitSubmoduleUpdateStrategy) -> Self {
-        copy(updateStrategy: value)
+        modified(self) { $0.state.updateStrategy = value }
     }
 
     /// Limits parallel submodule clone jobs when running `git submodule update`.
@@ -426,7 +450,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter value: Maximum number of concurrent clone or fetch jobs.
     /// - Returns: A new ``GitSubmodule`` value with the jobs option applied.
     public func jobs(_ value: Int) -> Self {
-        copy(jobs: value)
+        modified(self) { $0.state.jobs = value }
     }
 
     /// Clones only one branch when running `git submodule update`.
@@ -437,7 +461,10 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--single-branch`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the single-branch flag toggled.
     public func singleBranch(_ enabled: Bool = true) -> Self {
-        copy(singleBranch: enabled, noSingleBranch: enabled ? false : state.noSingleBranch)
+        modified(self) {
+            $0.state.singleBranch = enabled
+            $0.state.noSingleBranch = enabled ? false : state.noSingleBranch
+        }
     }
 
     /// Allows cloning more than one branch when running `git submodule update`.
@@ -448,7 +475,10 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--no-single-branch`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the no-single-branch flag toggled.
     public func noSingleBranch(_ enabled: Bool = true) -> Self {
-        copy(singleBranch: enabled ? false : state.singleBranch, noSingleBranch: enabled)
+        modified(self) {
+            $0.state.singleBranch = enabled ? false : state.singleBranch
+            $0.state.noSingleBranch = enabled
+        }
     }
 
     /// Honors `.gitmodules` shallow-clone recommendations when updating submodules.
@@ -459,7 +489,10 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--recommend-shallow`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the recommend-shallow flag toggled.
     public func recommendShallow(_ enabled: Bool = true) -> Self {
-        copy(recommendShallow: enabled, noRecommendShallow: enabled ? false : state.noRecommendShallow)
+        modified(self) {
+            $0.state.recommendShallow = enabled
+            $0.state.noRecommendShallow = enabled ? false : state.noRecommendShallow
+        }
     }
 
     /// Ignores `.gitmodules` shallow-clone recommendations when updating submodules.
@@ -470,7 +503,10 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--no-recommend-shallow`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the no-recommend-shallow flag toggled.
     public func noRecommendShallow(_ enabled: Bool = true) -> Self {
-        copy(recommendShallow: enabled ? false : state.recommendShallow, noRecommendShallow: enabled)
+        modified(self) {
+            $0.state.recommendShallow = enabled ? false : state.recommendShallow
+            $0.state.noRecommendShallow = enabled
+        }
     }
 
     /// Applies a partial clone filter when running `git submodule update`.
@@ -480,7 +516,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter value: The partial-clone filter spec to forward to git.
     /// - Returns: A new ``GitSubmodule`` value with the filter option applied.
     public func filter(_ value: String) -> Self {
-        copy(filter: value)
+        modified(self) { $0.state.filter = value }
     }
 
     /// Compares the superproject index to the submodule working tree when running `summary`.
@@ -491,7 +527,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter enabled: When `true`, adds `--files`. Defaults to `true`.
     /// - Returns: A new ``GitSubmodule`` value with the files flag toggled.
     public func files(_ enabled: Bool = true) -> Self {
-        copy(files: enabled)
+        modified(self) { $0.state.files = enabled }
     }
 
     /// Sets the total commit limit shown by `git submodule summary`.
@@ -502,7 +538,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter value: Maximum number of commits to display per submodule.
     /// - Returns: A new ``GitSubmodule`` value with the summary-limit option applied.
     public func summaryLimit(_ value: Int) -> Self {
-        copy(summaryLimit: value)
+        modified(self) { $0.state.summaryLimit = value }
     }
 
     /// Sets the commit compared by `git submodule summary`.
@@ -512,7 +548,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter value: The commit reference to compare against.
     /// - Returns: A new ``GitSubmodule`` value with the summary commit applied.
     public func summaryCommit(_ value: String) -> Self {
-        copy(summaryCommit: value)
+        modified(self) { $0.state.summaryCommit = value }
     }
 
     /// Restricts the command to one submodule path.
@@ -522,7 +558,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter value: A single submodule path to include.
     /// - Returns: A new ``GitSubmodule`` value with the path appended.
     public func path(_ value: String) -> Self {
-        copy(paths: state.paths + [value])
+        modified(self) { $0.state.paths += [value] }
     }
 
     /// Restricts the command to multiple submodule paths.
@@ -532,7 +568,7 @@ public struct GitSubmodule: RunnableCommandFamily {
     /// - Parameter values: The submodule paths to include.
     /// - Returns: A new ``GitSubmodule`` value with the paths appended.
     public func paths(_ values: [String]) -> Self {
-        copy(paths: state.paths + values)
+        modified(self) { $0.state.paths += values }
     }
 
     /// Builds the raw `git submodule` command represented by the current builder state.
@@ -755,82 +791,6 @@ public struct GitSubmodule: RunnableCommandFamily {
             .stdout(state.stdoutDestination)
             .stderr(state.stderrDestination)
     }
-
-    private func copy(
-        git: Git? = nil,
-        stdoutDestination: OutputDestination? = nil,
-        stderrDestination: OutputDestination? = nil,
-        subcommand: Subcommand?? = nil,
-        quiet: Bool? = nil,
-        cached: Bool? = nil,
-        recursive: Bool? = nil,
-        force: Bool? = nil,
-        progress: Bool? = nil,
-        all: Bool? = nil,
-        branch: String?? = nil,
-        usesDefaultBranch: Bool? = nil,
-        name: String?? = nil,
-        reference: String?? = nil,
-        dissociate: Bool? = nil,
-        refFormat: String?? = nil,
-        depth: Int?? = nil,
-        initializesOnUpdate: Bool? = nil,
-        remote: Bool? = nil,
-        noFetch: Bool? = nil,
-        updateStrategy: GitSubmoduleUpdateStrategy?? = nil,
-        jobs: Int?? = nil,
-        singleBranch: Bool? = nil,
-        noSingleBranch: Bool? = nil,
-        recommendShallow: Bool? = nil,
-        noRecommendShallow: Bool? = nil,
-        filter: String?? = nil,
-        files: Bool? = nil,
-        summaryLimit: Int?? = nil,
-        summaryCommit: String?? = nil,
-        repository: String?? = nil,
-        newURL: String?? = nil,
-        foreachCommand: String?? = nil,
-        paths: [String]? = nil
-    ) -> Self {
-        Self(
-            state: State(
-                git: git ?? state.git,
-                stdoutDestination: stdoutDestination ?? state.stdoutDestination,
-                stderrDestination: stderrDestination ?? state.stderrDestination,
-                subcommand: subcommand ?? state.subcommand,
-                quiet: quiet ?? state.quiet,
-                cached: cached ?? state.cached,
-                recursive: recursive ?? state.recursive,
-                force: force ?? state.force,
-                progress: progress ?? state.progress,
-                all: all ?? state.all,
-                branch: branch ?? state.branch,
-                usesDefaultBranch: usesDefaultBranch ?? state.usesDefaultBranch,
-                name: name ?? state.name,
-                reference: reference ?? state.reference,
-                dissociate: dissociate ?? state.dissociate,
-                refFormat: refFormat ?? state.refFormat,
-                depth: depth ?? state.depth,
-                initializesOnUpdate: initializesOnUpdate ?? state.initializesOnUpdate,
-                remote: remote ?? state.remote,
-                noFetch: noFetch ?? state.noFetch,
-                updateStrategy: updateStrategy ?? state.updateStrategy,
-                jobs: jobs ?? state.jobs,
-                singleBranch: singleBranch ?? state.singleBranch,
-                noSingleBranch: noSingleBranch ?? state.noSingleBranch,
-                recommendShallow: recommendShallow ?? state.recommendShallow,
-                noRecommendShallow: noRecommendShallow ?? state.noRecommendShallow,
-                filter: filter ?? state.filter,
-                files: files ?? state.files,
-                summaryLimit: summaryLimit ?? state.summaryLimit,
-                summaryCommit: summaryCommit ?? state.summaryCommit,
-                repository: repository ?? state.repository,
-                newURL: newURL ?? state.newURL,
-                foreachCommand: foreachCommand ?? state.foreachCommand,
-                paths: paths ?? state.paths
-            )
-        )
-    }
 }
 
 private extension GitSubmodule {
@@ -853,112 +813,40 @@ private extension GitSubmodule {
     }
 
     struct State: Sendable {
-        let git: Git
-        let stdoutDestination: OutputDestination
-        let stderrDestination: OutputDestination
-        let subcommand: Subcommand?
-        let quiet: Bool
-        let cached: Bool
-        let recursive: Bool
-        let force: Bool
-        let progress: Bool
-        let all: Bool
-        let branch: String?
-        let usesDefaultBranch: Bool
-        let name: String?
-        let reference: String?
-        let dissociate: Bool
-        let refFormat: String?
-        let depth: Int?
-        let initializesOnUpdate: Bool
-        let remote: Bool
-        let noFetch: Bool
-        let updateStrategy: GitSubmoduleUpdateStrategy?
-        let jobs: Int?
-        let singleBranch: Bool
-        let noSingleBranch: Bool
-        let recommendShallow: Bool
-        let noRecommendShallow: Bool
-        let filter: String?
-        let files: Bool
-        let summaryLimit: Int?
-        let summaryCommit: String?
-        let repository: String?
-        let newURL: String?
-        let foreachCommand: String?
-        let paths: [String]
-
-        init(
-            git: Git,
-            stdoutDestination: OutputDestination = .capture,
-            stderrDestination: OutputDestination = .capture,
-            subcommand: Subcommand? = nil,
-            quiet: Bool = false,
-            cached: Bool = false,
-            recursive: Bool = false,
-            force: Bool = false,
-            progress: Bool = false,
-            all: Bool = false,
-            branch: String? = nil,
-            usesDefaultBranch: Bool = false,
-            name: String? = nil,
-            reference: String? = nil,
-            dissociate: Bool = false,
-            refFormat: String? = nil,
-            depth: Int? = nil,
-            initializesOnUpdate: Bool = false,
-            remote: Bool = false,
-            noFetch: Bool = false,
-            updateStrategy: GitSubmoduleUpdateStrategy? = nil,
-            jobs: Int? = nil,
-            singleBranch: Bool = false,
-            noSingleBranch: Bool = false,
-            recommendShallow: Bool = false,
-            noRecommendShallow: Bool = false,
-            filter: String? = nil,
-            files: Bool = false,
-            summaryLimit: Int? = nil,
-            summaryCommit: String? = nil,
-            repository: String? = nil,
-            newURL: String? = nil,
-            foreachCommand: String? = nil,
-            paths: [String] = []
-        ) {
-            self.git = git
-            self.stdoutDestination = stdoutDestination
-            self.stderrDestination = stderrDestination
-            self.subcommand = subcommand
-            self.quiet = quiet
-            self.cached = cached
-            self.recursive = recursive
-            self.force = force
-            self.progress = progress
-            self.all = all
-            self.branch = branch
-            self.usesDefaultBranch = usesDefaultBranch
-            self.name = name
-            self.reference = reference
-            self.dissociate = dissociate
-            self.refFormat = refFormat
-            self.depth = depth
-            self.initializesOnUpdate = initializesOnUpdate
-            self.remote = remote
-            self.noFetch = noFetch
-            self.updateStrategy = updateStrategy
-            self.jobs = jobs
-            self.singleBranch = singleBranch
-            self.noSingleBranch = noSingleBranch
-            self.recommendShallow = recommendShallow
-            self.noRecommendShallow = noRecommendShallow
-            self.filter = filter
-            self.files = files
-            self.summaryLimit = summaryLimit
-            self.summaryCommit = summaryCommit
-            self.repository = repository
-            self.newURL = newURL
-            self.foreachCommand = foreachCommand
-            self.paths = paths
-        }
+        var git: Git
+        var stdoutDestination: OutputDestination = .capture
+        var stderrDestination: OutputDestination = .capture
+        var subcommand: Subcommand? = nil
+        var quiet: Bool = false
+        var cached: Bool = false
+        var recursive: Bool = false
+        var force: Bool = false
+        var progress: Bool = false
+        var all: Bool = false
+        var branch: String? = nil
+        var usesDefaultBranch: Bool = false
+        var name: String? = nil
+        var reference: String? = nil
+        var dissociate: Bool = false
+        var refFormat: String? = nil
+        var depth: Int? = nil
+        var initializesOnUpdate: Bool = false
+        var remote: Bool = false
+        var noFetch: Bool = false
+        var updateStrategy: GitSubmoduleUpdateStrategy? = nil
+        var jobs: Int? = nil
+        var singleBranch: Bool = false
+        var noSingleBranch: Bool = false
+        var recommendShallow: Bool = false
+        var noRecommendShallow: Bool = false
+        var filter: String? = nil
+        var files: Bool = false
+        var summaryLimit: Int? = nil
+        var summaryCommit: String? = nil
+        var repository: String? = nil
+        var newURL: String? = nil
+        var foreachCommand: String? = nil
+        var paths: [String] = []
     }
 }
 #endif

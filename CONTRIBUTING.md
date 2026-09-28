@@ -51,7 +51,7 @@ The `Makefile` is a thin wrapper around those scripts, so `make linux-test` and 
 
 For the standard local pre-PR pass, run `make check`. It bundles:
 
-- `swift-format lint --strict --recursive Sources Tests Scripts`
+- `swift-format lint --strict --recursive Sources Tests Scripts Benchmarks/Benchmarks Benchmarks/Package.swift`
 - `swift test -Xswiftc -warnings-as-errors`
 - `swift -warnings-as-errors Scripts/validate-traits.swift`
 - `swift -warnings-as-errors Scripts/validate-docc-coverage.swift`

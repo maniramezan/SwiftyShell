@@ -115,6 +115,10 @@ Test suite. Sub-folders mirror the source layout: `Brew/`, `Bun/`, `Cargo/`, `Co
 
 A standalone SwiftPM executable package that demonstrates real SwiftyShell usage. Depends on SwiftyShell via a local path reference.
 
+### `Benchmarks/`
+
+A standalone SwiftPM package (Swift 6.3+) with [ordo-one/benchmark](https://github.com/ordo-one/benchmark) benchmarks for process overhead, output routing, pipelines, and builder cost. It depends on SwiftyShell by local path, so the library has no benchmark dependency and keeps its Swift 6.2 floor. Run `swift package --disable-sandbox benchmark` from `Benchmarks/`; use `baseline update` / `baseline compare` to measure an execution-engine change before and after. The `Benchmarks` workflow (`.github/workflows/benchmark.yml`) compares pull requests that touch `Core/`, `Internal/`, `Package.swift`, or `Benchmarks/` against `main` and fails on allocation-count regressions; time and memory are report-only. If a change intentionally adds allocations, update that benchmark's threshold in the same PR. See `Benchmarks/README.md`.
+
 ### `.claude/skills/`
 
 `swiftyshell.md` — the shared SwiftyShell agent skill for Claude and Codex/GPT-style assistants. Claude loads it directly from `.claude/skills/swiftyshell.md`; Codex/GPT agents should read that same file when a task involves generating SwiftyShell code, changing public API, or authoring command families. **Keep `AGENTS.md` and `.claude/skills/swiftyshell.md` aligned and update both files in the same PR whenever shared agent guidance or public API expectations change.**
@@ -160,7 +164,7 @@ Do not mark a task complete, declare work finished, or hand back to the user unt
 
 This applies to any code change (new command families, bug fixes, doc snippets that live in Swift, tests). Do not skip either gate. If a lint rule feels wrong for a specific construct, propose a `.swift-format` change in the same PR rather than bypassing the check.
 
-The repository ships a `.swift-format` config at the repo root that encodes the project's 4-space indentation, 120-column line length, and other style rules. The tree is currently fully compliant — `swift-format lint --strict --recursive Sources Tests Scripts` exits clean, and CI runs the same command on every push. Keep it that way. `swift-format` parses inputs as Swift source, so Markdown-only documentation changes should use the DocC validation gates rather than direct Markdown linting with `swift-format`.
+The repository ships a `.swift-format` config at the repo root that encodes the project's 4-space indentation, 120-column line length, and other style rules. The tree is currently fully compliant — `swift-format lint --strict --recursive Sources Tests Scripts Benchmarks/Benchmarks Benchmarks/Package.swift` exits clean, and CI runs the same command on every push. Keep it that way. `swift-format` parses inputs as Swift source, so Markdown-only documentation changes should use the DocC validation gates rather than direct Markdown linting with `swift-format`.
 
 ## Key Conventions
 

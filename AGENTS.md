@@ -211,6 +211,14 @@ Built-in execution failures surface as `ShellError`. Workflow closures, transfor
 
 The production executor uses the `swift-subprocess` package for process lifecycle management. Keep SwiftyShell's public error semantics stable when changing it: map built-in execution failures into `ShellError`, preserve captured partial output on timeout/output-limit/cancellation paths, and keep `MockExecutor` behavior aligned with production where practical. `run()` hands `.discard` and `.file` destinations to the child as `.discarded` / `.fileDescriptor` outputs (only `.capture` / `.tee` streams are read by SwiftyShell, via the generic `runRouted` helpers), maps `Command.stdinSource` (`InputSource`, empty by default) to `NoInput` or a `FileDescriptorInput` (text/bytes via a Linux `memfd_create` file or, on Darwin, a SwiftyShell-fed `F_SETNOSIGPIPE` pipe; never swift-subprocess `DataInput`, which traps or raises SIGPIPE when the child exits without reading) (spawned processes use the same mapping through the type-erased `SpawnedExecution`) and gets forced teardown from swift-subprocess itself: each configuration's `teardownSequence` sends `SIGKILL` to the command's process group, and swift-subprocess runs it whenever the awaiting task is cancelled or the body closure throws. Don't reintroduce SwiftyShell-side process bookkeeping for this. `run()` returns once the command's process exits: swift-subprocess then stops waiting for the output pipes to close, so a background descendant's later output is not captured (see ARCHITECTURE.md, Timeout & Cancellation). Spawned processes carry their `TeardownStrategy` as the teardown sequence, with every step (and the final kill) sent to the process group.
 
+### Build log routing
+
+Use `.teeTo(.stderr)` for live progress when the parent stdout carries JSON. `.log(path:append:tailBytes:tee:)`
+writes a full log and keeps a bounded byte tail; zero retains nothing, negative sizes are rejected.
+The shared hard output limit still applies to retained bytes. `run()` and pipelines kill their process group
+if a routed stream cannot be consumed or written. Mocks retain log tails without filesystem or terminal writes.
+Spawned processes only retain tails with `captureOutput: true`; their live streams still carry full chunks.
+
 ### Workflows
 
 `Workflow<Value>.run()` is `consuming`, but workflows are copyable values that retain reusable closures. Each run starts the described operation again. Typed workflow types (`GitStatusWorkflow`) queue steps until `run()` is awaited; avoid repeated or concurrent runs only when the underlying operation makes them unsafe.

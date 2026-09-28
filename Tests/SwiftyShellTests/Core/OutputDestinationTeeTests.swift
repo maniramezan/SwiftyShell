@@ -50,6 +50,58 @@ private func capturingStandardStreams(
 
 @Suite(.serialized)
 struct OutputDestinationTeeTests {
+    @Test func redirectedTeeKeepsJSONChannelClean() async throws {
+        var captured: ShellOutput?
+        let streams = try await capturingStandardStreams([STDOUT_FILENO, STDERR_FILENO]) {
+            captured = try? await Command("/bin/sh", arguments: "-c", "printf routed-out; printf routed-err >&2")
+                .stdout(.teeTo(.stderr))
+                .stderr(.teeTo(.stderr))
+                .run()
+        }
+        let output = try #require(captured)
+        #expect(output.stdout == "routed-out")
+        #expect(output.stderr == "routed-err")
+        #expect(streams[STDOUT_FILENO]?.contains("routed-out") == false)
+        #expect(streams[STDOUT_FILENO]?.contains("routed-err") == false)
+        #expect(streams[STDERR_FILENO]?.contains("routed-out") == true)
+        #expect(streams[STDERR_FILENO]?.contains("routed-err") == true)
+    }
+
+    @Test(arguments: [false, true])
+    func explicitTeeRoutesSpawnAndPipelineToStdout(spawn: Bool) async throws {
+        var captured: ShellOutput?
+        let streams = try await capturingStandardStreams([STDOUT_FILENO, STDERR_FILENO]) {
+            if spawn {
+                let process = try? await Command("/bin/sh", arguments: "-c", "printf spawned-error >&2")
+                    .stderr(.teeTo(.stdout)).spawn(captureOutput: true)
+                captured = await process?.waitForExit()
+            } else {
+                captured = try? await Command("printf", arguments: "pipeline-output")
+                    .pipe(to: Command("cat").stdout(.teeTo(.stdout))).run()
+            }
+        }
+        let marker = spawn ? "spawned-error" : "pipeline-output"
+        let output = try #require(captured)
+        #expect((spawn ? output.stderr : output.stdout) == marker)
+        #expect(streams[STDOUT_FILENO]?.contains(marker) == true)
+        #expect(streams[STDERR_FILENO]?.contains(marker) == false)
+    }
+
+    @Test func logCanAlsoStreamToParentStderr() async throws {
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        var captured: ShellOutput?
+        let streams = try await capturingStandardStreams([STDOUT_FILENO, STDERR_FILENO]) {
+            captured = try? await Command("printf", arguments: "log-progress")
+                .stdout(.log(path: path, append: false, tailBytes: 4, tee: .stderr))
+                .run()
+        }
+        #expect(try #require(captured).stdout == "ress")
+        #expect(try String(contentsOfFile: path, encoding: .utf8) == "log-progress")
+        #expect(streams[STDOUT_FILENO]?.contains("log-progress") == false)
+        #expect(streams[STDERR_FILENO]?.contains("log-progress") == true)
+    }
+
     @Test func teeStillCapturesStreamForShellOutput() async throws {
         let context = ShellContext()
         var captured: ShellOutput?

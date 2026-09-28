@@ -44,6 +44,20 @@ public struct MockSpawnedProcess: SpawnedProcess, Sendable {
         output: ShellOutput = ShellOutput(exitCode: 0),
         captureOutput: Bool = true
     ) {
+        self.init(
+            processIdentifier: processIdentifier,
+            teardown: teardown,
+            output: output,
+            retainedOutput: captureOutput ? output : ShellOutput(exitCode: output.exitCode)
+        )
+    }
+
+    init(
+        processIdentifier: Int32 = 1,
+        teardown: TeardownStrategy,
+        output: ShellOutput,
+        retainedOutput: ShellOutput
+    ) {
         self.processIdentifier = processIdentifier
         self.standardOutput = AsyncStream { continuation in
             if !output.stdout.isEmpty { continuation.yield(output.stdout) }
@@ -62,7 +76,7 @@ public struct MockSpawnedProcess: SpawnedProcess, Sendable {
             continuation.finish()
         }
         // Like a real spawn without capture, the streams still carry the output.
-        self.state = MockSpawnedProcessState(output: captureOutput ? output : ShellOutput(exitCode: output.exitCode))
+        self.state = MockSpawnedProcessState(output: retainedOutput)
         self.configuredTeardown = teardown
     }
 

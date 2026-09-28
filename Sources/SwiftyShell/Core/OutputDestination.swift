@@ -93,4 +93,38 @@ public enum OutputDestination: Sendable, Equatable {
     /// Captured bytes count toward the output limit exactly like ``capture``. Live bytes are
     /// written to the inherited FD immediately and are not buffered until exit.
     case tee
+
+    /// Streams to the selected parent stream while capturing the original child stream.
+    ///
+    /// Use `.stdout(.teeTo(.stderr))` to keep the parent's stdout available for JSON.
+    /// Captured bytes still count toward the command's output limit.
+    /// - Parameter stream: The parent stream that receives live bytes.
+    case teeTo(StreamKind)
+
+    /// Writes a complete log while retaining only the last `tailBytes` bytes of this stream.
+    ///
+    /// Unlike the hard output limit, filling this tail does not terminate the command. Retained
+    /// bytes still count toward the shared command output limit. A tail may start within a UTF-8
+    /// character; use raw `ShellOutput` data for exact bytes. For spawned processes, the tail is
+    /// retained only with `spawn(captureOutput: true)`.
+    ///
+    /// - Parameters:
+    ///   - path: Log path, resolved against the command's working directory.
+    ///   - append: Whether to append to an existing log instead of truncating it.
+    ///   - tailBytes: Maximum bytes retained for this stream; zero retains nothing; must be nonnegative.
+    ///   - tee: Optional parent stream to receive live bytes as well as the file.
+    case log(path: String, append: Bool, tailBytes: Int, tee: StreamKind? = nil)
+
+    var fileDestination: (path: String, append: Bool)? {
+        switch self {
+        case let .file(path, append), let .log(path, append, _, _): (path, append)
+        default: nil
+        }
+    }
+
+    func validate() throws {
+        if case let .log(_, _, tailBytes, _) = self, tailBytes < 0 {
+            throw ShellError.invalidConfiguration(description: "Log tail size must be nonnegative")
+        }
+    }
 }

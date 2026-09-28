@@ -148,7 +148,7 @@ public struct MockExecutor: CommandExecutor {
     public func execute(_ command: Command, in context: ShellContext) async throws -> ShellOutput {
         try validateConfiguration(for: command, in: context)
         log.append(command)
-        return try validate(output: try await handler(command, context), for: command)
+        return try validate(output: retainingLogTails(try await handler(command, context), for: command), for: command)
     }
 
     /// Executes a pipeline by running each stage's command through the handler.
@@ -175,9 +175,15 @@ public struct MockExecutor: CommandExecutor {
         }
 
         var outputs: [ShellOutput] = []
-        for stage in pipeline.stages {
+        for (index, stage) in pipeline.stages.enumerated() {
             log.append(stage)
-            outputs.append(try await handler(stage, context))
+            outputs.append(
+                retainingLogTails(
+                    try await handler(stage, context),
+                    for: stage,
+                    includeStdout: index == pipeline.stages.count - 1
+                )
+            )
         }
 
         let stdoutData = outputs.last?.stdoutData ?? Data()
@@ -216,14 +222,33 @@ public struct MockExecutor: CommandExecutor {
     ) async throws -> any SpawnedProcess {
         try validateConfiguration(for: command, in: context)
         log.append(command)
+        let output = try await handler(command, context)
         return MockSpawnedProcess(
             teardown: teardown,
-            output: try await handler(command, context),
-            captureOutput: command.spawnRetainsOutput
+            output: output,
+            retainedOutput: command.spawnRetainsOutput
+                ? retainingLogTails(output, for: command) : ShellOutput(exitCode: output.exitCode)
         )
     }
 
+    private func retainingLogTails(
+        _ output: ShellOutput,
+        for command: Command,
+        includeStdout: Bool = true
+    ) -> ShellOutput {
+        var result = output
+        if includeStdout, case let .log(_, _, count, _) = command.stdoutDestination {
+            result.stdoutData = Data(output.stdoutData.suffix(count))
+        }
+        if case let .log(_, _, count, _) = command.stderrDestination {
+            result.stderrData = Data(output.stderrData.suffix(count))
+        }
+        return result
+    }
+
     private func validateConfiguration(for command: Command, in context: ShellContext) throws {
+        try command.stdoutDestination.validate()
+        try command.stderrDestination.validate()
         if let timeout = command.timeoutOverride ?? context.defaultTimeout, timeout < .zero {
             throw ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")
         }

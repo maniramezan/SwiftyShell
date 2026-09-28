@@ -1,0 +1,108 @@
+name: Benchmarks
+
+# Runs the Benchmarks/ suite for main and the pull request on the same runner, then fails the
+# pull request when an allocation count regresses past the thresholds declared in the benchmark
+# code. Time and memory metrics are reported in the job summary but never gate, because shared
+# runners are too noisy for them.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      # Only the execution engine and the benchmarks themselves affect these numbers; command
+      # family wrappers are pure argument builders.
+      - "Package.swift"
+      - "Sources/SwiftyShell/Core/**"
+      - "Sources/SwiftyShell/Internal/**"
+      - "Benchmarks/**"
+      - ".github/workflows/benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark-delta:
+    name: Benchmark PR vs main
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            Benchmarks/.build
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-benchmarks-${{ hashFiles('Benchmarks/Package.swift', 'Package.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-benchmarks-
+
+      # main runs first so the final checkout is the pull request: `baseline check` reads the
+      # thresholds from the checked-out benchmark code, and they must be the pull request's.
+      - name: Benchmark main
+        id: main
+        run: |
+          if ! git cat-file -e "origin/$BASE_REF:Benchmarks/Package.swift" 2>/dev/null; then
+            echo "has_baseline=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git checkout --quiet "origin/$BASE_REF"
+          swift package --package-path Benchmarks --disable-sandbox \
+            benchmark baseline update main --no-progress --quiet
+          git checkout --quiet "$GITHUB_SHA"
+          echo "has_baseline=true" >> "$GITHUB_OUTPUT"
+
+      - name: Benchmark pull request
+        run: |
+          swift package --package-path Benchmarks --disable-sandbox \
+            benchmark baseline update pull_request --no-progress --quiet
+
+      - name: Compare against main
+        run: |
+          if [ "${{ steps.main.outputs.has_baseline }}" != "true" ]; then
+            {
+              echo "## Benchmarks"
+              echo "\`$BASE_REF\` has no \`Benchmarks/\` package yet, so there is nothing to compare against."
+              echo
+              swift package --package-path Benchmarks benchmark baseline read pull_request --no-progress --format markdown
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          set +e
+          swift package --package-path Benchmarks \
+            benchmark baseline check main pull_request --format markdown > check.md 2> check.err
+          status=$?
+          set -e
+          cat check.err >&2
+
+          {
+            echo "## Benchmark threshold check"
+            cat check.md
+            echo
+            echo "## Full comparison (time and memory are informational)"
+            swift package --package-path Benchmarks \
+              benchmark baseline compare main pull_request --no-progress --format markdown
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # SwiftPM collapses every plugin failure to exit code 1, so recover the reason from stderr.
+          # An improvement past the thresholds is also reported as a failure; it should not block.
+          if [ "$status" -eq 0 ] || grep -q "benchmarkThresholdImprovement" check.err; then
+            exit 0
+          fi
+          if grep -q "benchmarkThresholdRegression" check.err; then
+            echo "::error::Allocation counts regressed past the thresholds in Benchmarks/. See the job summary."
+          fi
+          exit 1

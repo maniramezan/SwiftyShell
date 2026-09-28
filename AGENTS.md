@@ -8,7 +8,7 @@ SwiftyShell is a Swift package that models shell execution as Swift values: comm
 
 ### `Sources/SwiftyShell/Core/`
 
-The execution primitives: `Command`, `Pipeline`, `SpawnedProcess`, `ProcessSignal`, `TeardownStrategy`, `ProcessTeardownStep`, `ShellContext`, `ShellPlatform`, `Workflow`, `ShellError`, `ShellOutput`, `OutputDestination`, `CommandExecutor`, `MockExecutor`, `MockSpawnedProcess`, `ToolConfiguration`, and the `ToolConfigurableCommandFamily` / `OutputRedirectingCommandFamily` / `RunnableCommandFamily` protocol hierarchy.
+The execution primitives: `Command` (including opt-in retained output for spawned processes), `Pipeline`, `SpawnedProcess` (live text and byte streams), `ProcessSignal`, `TeardownStrategy`, `ProcessTeardownStep`, `ShellContext`, `ShellPlatform`, `Workflow`, `ShellError`, `ShellOutput`, `OutputDestination`, `CommandExecutor`, `MockExecutor`, `MockSpawnedProcess`, `ToolConfiguration`, and the `ToolConfigurableCommandFamily` / `OutputRedirectingCommandFamily` / `RunnableCommandFamily` protocol hierarchy.
 
 ### `Sources/SwiftyShell/Git/`
 

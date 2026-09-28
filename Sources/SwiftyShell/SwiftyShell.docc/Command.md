@@ -110,6 +110,8 @@ print(command)  // git commit -m 'it'\''s $HOME'
 
 - ``run(in:)``
 - ``spawn(in:teardown:)``
+- ``spawn(captureOutput:in:teardown:)``
+- ``spawnRetainsOutput``
 
 ### Piping
 

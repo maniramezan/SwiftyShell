@@ -97,7 +97,7 @@ do {
 
 #### `timeout`
 
-The command or pipeline ran longer than the configured limit. The ``ShellError/timeout(command:duration:partialOutput:)`` case carries any output captured up to the point the process was terminated.
+The command or pipeline ran longer than the configured limit. The ``ShellError/timeout(command:duration:partialOutput:)-enum.case`` case carries any output captured up to the point the process was terminated.
 
 ```swift
 let context = ShellContext(defaultTimeout: .seconds(30))
@@ -145,11 +145,28 @@ let archive = try await Command("tar", arguments: "-cz", "Sources").run(in: cont
 try archive.stdoutData.write(to: URL(fileURLWithPath: "sources.tgz"))
 ```
 
+### Inspecting the Failed Command
+
+Every command-bearing error carries a ``CommandSnapshot`` with the executable,
+the argv (argument boundaries preserved), and the resolved executable path.
+It never includes environment values or stdin, so it is safe to log:
+
+```swift
+} catch ShellError.exitFailure(let command, let output) {
+    logger.error("\(command.executableName ?? "?") failed", metadata: [
+        "argv": "\(command.arguments ?? [])",
+        "status": "\(output.exitCode)",
+    ])
+}
+```
+
+`ShellError` is `Equatable`, so tests can compare errors directly.
+
 ### Task and Workflow Errors
 
 #### `canceled`
 
-The Swift `Task` enclosing the `run()` call was canceled. SwiftyShell rethrows the cancellation as ``ShellError/canceled(command:partialOutput:)`` and attaches partial output captured so far.
+The Swift `Task` enclosing the `run()` call was canceled. SwiftyShell rethrows the cancellation as ``ShellError/canceled(command:partialOutput:)-enum.case`` and attaches partial output captured so far.
 
 For `run()`, SwiftyShell tears down each subprocess and descendants in its dedicated process group when it must stop execution. Timeout, cancellation, and output-limit failures wait for process completion and reaping before returning. The process-group leader remains owned until signaling completes, preventing its PID and group ID from being recycled during teardown. This is separate from ``TeardownStrategy``, which controls caller-requested teardown for a process started with `spawn`.
 

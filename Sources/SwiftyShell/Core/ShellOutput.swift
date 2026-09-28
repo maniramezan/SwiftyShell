@@ -15,7 +15,7 @@ import Foundation
 /// }
 /// ```
 ///
-/// The built-in executors throw ``ShellError/exitFailure(command:output:)`` for non-zero exits
+/// The built-in executors throw ``ShellError/exitFailure(command:output:)-enum.case`` for non-zero exits
 /// from both raw commands and typed command families, so successful `run()` calls normally return
 /// an output whose ``isSuccess`` is `true`. Inspect the output attached to `exitFailure` for a
 /// failed process.
@@ -66,7 +66,7 @@ public struct ShellOutput: Sendable, Equatable {
     ///
     /// `0` indicates success; any non-zero value indicates failure. When using
     /// ``Command/run(in:)`` or any typed command family's `run()`, a non-zero exit raises
-    /// ``ShellError/exitFailure(command:output:)`` rather than returning a `ShellOutput` for
+    /// ``ShellError/exitFailure(command:output:)-enum.case`` rather than returning a `ShellOutput` for
     /// the caller to inspect.
     public var exitCode: Int32
 
@@ -134,10 +134,10 @@ extension ShellOutput {
     /// Typed families that parse paths or names out of stdout use this instead of the lossy
     /// ``stdout`` so invalid bytes surface as an error rather than as U+FFFD in parsed values.
     ///
-    /// - Throws: ``ShellError/decodingError(command:stream:)`` when stdout is not valid UTF-8.
+    /// - Throws: ``ShellError/decodingError(command:stream:)-enum.case`` when stdout is not valid UTF-8.
     func validatedStdout(for command: Command) throws -> String {
         guard let text = validatedText(.stdout) else {
-            throw ShellError.decodingError(command: command.displayString(), stream: .stdout)
+            throw ShellError.decodingError(command: CommandSnapshot(command), stream: .stdout)
         }
         return text
     }

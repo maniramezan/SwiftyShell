@@ -172,7 +172,7 @@ struct MockExecutorTests {
             try await Command("first").pipe(to: Command("last")).run(in: ShellContext(executor: mock))
         } throws: { error in
             guard case let .exitFailure(command, output) = error as? ShellError else { return false }
-            return command == "last" && output.exitCode == 128 + SIGPIPE
+            return command.displayString == "last" && output.exitCode == 128 + SIGPIPE
         }
     }
 
@@ -190,7 +190,7 @@ struct MockExecutorTests {
                 .run(in: ShellContext(executor: mock))
         } throws: { error in
             guard case let .exitFailure(command, output) = error as? ShellError else { return false }
-            return command == "b" && output.exitCode == 2 && output.stderr == "b failedc failed"
+            return command.displayString == "b" && output.exitCode == 2 && output.stderr == "b failedc failed"
         }
     }
 }

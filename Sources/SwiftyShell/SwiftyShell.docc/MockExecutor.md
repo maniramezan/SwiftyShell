@@ -8,7 +8,7 @@ A test-double implementation of ``CommandExecutor`` that returns caller-controll
 ``ShellContext/init(executor:searchPaths:environment:workingDirectory:defaultTimeout:defaultOutputLimit:)-(_,_,_,_,Duration?,_)``
 and every command — typed or raw — that runs in that context goes through the
 mock instead of spawning a real subprocess. The mock mirrors the real executor's
-failure semantics (non-zero exit codes throw ``ShellError/exitFailure(command:output:)``,
+failure semantics (non-zero exit codes throw ``ShellError/exitFailure(command:output:)-enum.case``,
 configuration validation runs before the response is returned), so tests assert
 the same code paths production runs.
 
@@ -70,12 +70,12 @@ Pipelines follow the production executor's semantics: every stage's
 configuration is validated first, every stage is invoked, the result has the
 final stage's stdout and every stage's stderr in order, and the first failing
 stage in pipeline order is reported through
-``ShellError/exitFailure(command:output:)``. As in production, a non-final
+``ShellError/exitFailure(command:output:)-enum.case``. As in production, a non-final
 stage that reports `128 + SIGPIPE` is not a failure. The mock does not feed one
 stage's stdout into the next.
 
 To exercise error paths, return a non-zero exit code — typed families and raw
-``Command`` calls both throw ``ShellError/exitFailure(command:output:)`` exactly
+``Command`` calls both throw ``ShellError/exitFailure(command:output:)-enum.case`` exactly
 as they do in production:
 
 ```swift

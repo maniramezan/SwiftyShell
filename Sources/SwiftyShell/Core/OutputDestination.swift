@@ -50,7 +50,7 @@ public enum OutputDestination: Sendable, Equatable {
     ///
     /// This is the default. Captured bytes count toward ``ShellContext/defaultOutputLimit`` (or
     /// the per-command override applied via ``Command/outputLimit(_:)``); exceeding that limit
-    /// raises ``ShellError/outputLimitExceeded(command:limit:partialOutput:)``.
+    /// raises ``ShellError/outputLimitExceeded(command:limit:partialOutput:)-enum.case``.
     case capture
 
     /// Discards the stream entirely.

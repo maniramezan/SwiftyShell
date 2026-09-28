@@ -29,7 +29,7 @@ Build a `Command` or `Pipeline`, override config as needed, then run it in a `Sh
 ```swift
 let output = try await Command("ruby", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
-    .timeout(120)
+    .timeout(.seconds(120))
     .run(in: context)
 ```
 
@@ -85,10 +85,10 @@ This does **not** validate arbitrary strings accepted by typed wrappers, make in
 
 ### Output Handling
 
-- Output is buffered in memory by default (stdout and stderr decoded as UTF-8).
+- Output is buffered in memory by default as raw bytes (`ShellOutput.stdoutData` / `stderrData`); `stdout` / `stderr` decode them as UTF-8 on access, replacing invalid sequences with U+FFFD; `validatedText(_:)` decodes strictly and returns `nil` instead.
 - Default output limit is unlimited (`0`); configurable via `ShellContext.defaultOutputLimit` or per-command/client `.outputLimit(_:)`. Pass a positive byte count to cap captured output.
 - For one command, the limit is the combined captured stdout and stderr byte count. Exceeding it terminates the command and throws `ShellError.outputLimitExceeded` with at most the configured number of captured bytes.
-- Invalid UTF-8 throws `ShellError.decodingError`.
+- `run()` never fails on non-UTF-8 output, so binary output (archives, images) can be captured. Typed workflows that parse stdout decode it strictly and throw `ShellError.decodingError` on invalid UTF-8 rather than parsing replacement characters.
 - Negative timeout or output-limit values throw `ShellError.invalidConfiguration`.
 - Redirected output (`OutputDestination.file` or `.discard`) is not also captured.
 
@@ -102,6 +102,7 @@ This does **not** validate arbitrary strings accepted by typed wrappers, make in
 - Pipelines are explicit value types, not parsed shell strings.
 - `pipe(to:)` connects stdout from one command to stdin of the next.
 - All stages run concurrently. If a stage exits non-zero, the pipeline reports an observed failing stage and cancels the remaining stage tasks; concurrent failures do not provide a deterministic "first by pipeline order" guarantee.
+- A non-final stage terminated by `SIGPIPE` is not a failure: it means a downstream stage stopped reading early (`yes | head -n 1`), which shells also treat as success. A final stage killed by `SIGPIPE` still fails.
 - Successful output contains the final stage's captured stdout and captured stderr concatenated in stage order. An exit failure uses the failing stage's exit code with that aggregate captured output.
 - Each stage has its own captured-output limit. Intermediate stdout is piped rather than captured, while captured stderr and the final stage's captured stdout count against their respective stage limits.
 
@@ -109,6 +110,7 @@ This does **not** validate arbitrary strings accepted by typed wrappers, make in
 
 - A command override replaces the context default. For a pipeline, the shortest resolved non-`nil` stage timeout governs the whole pipeline.
 - Timeout and task cancellation terminate each running process group immediately with `SIGKILL`, then throw `ShellError.timeout` or `ShellError.canceled` with captured partial output. They do not use the configurable graceful teardown strategy reserved for explicitly spawned processes.
+- Spawned-process teardown sends every `TeardownStrategy` step, and the final kill, to the process group, so descendants of wrappers such as `sh -c` or `npm run` do not outlive teardown. swift-subprocess stops its sequence once the process itself exits, so after the sequence SwiftyShell also sends `SIGKILL` to whatever is left of the group (for example a background job that ignored `SIGINT`), but only when the process was still running when teardown began. `SpawnedProcess.send(_:)` still signals only the process itself.
 - `run()` does not inherit or accept interactive stdin. A single command gets an empty stdin (`/dev/null`, so reads hit end-of-file); the first pipeline stage receives no input, and later stages receive the preceding stage's stdout.
 - `run()` finishes when the command's process exits, not when its output pipes close. Output that is already buffered is still captured, but a background descendant that outlives the command and writes afterwards is not waited for, and its later output is not captured. This keeps a command that leaves a helper running (for example `sh -c 'daemon &'`) from blocking `run()` until its timeout.
 

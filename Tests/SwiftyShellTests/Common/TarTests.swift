@@ -4,6 +4,16 @@ import Testing
 @testable import SwiftyShell
 
 struct TarCommandTests {
+    @Test func exclusiveExtractPoliciesUseLastSelection() {
+        #expect(Tar().extract().sameOwner().noSameOwner().command().arguments == ["-x", "--no-same-owner"])
+        #expect(Tar().extract().noSameOwner().sameOwner().command().arguments == ["-x", "--same-owner"])
+        #expect(Tar().extract().sameOwner().noSameOwner(false).command().arguments == ["-x", "--same-owner"])
+        #expect(Tar().extract().keepOldFiles().skipOldFiles().overwrite().command().arguments == ["-x", "--overwrite"])
+        #expect(Tar().extract().overwrite().keepOldFiles().command().arguments == ["-x", "-k"])
+        #expect(Tar().extract().overwrite().skipOldFiles().command().arguments == ["-x", "--skip-old-files"])
+        #expect(Tar().extract().skipOldFiles().overwrite(false).command().arguments == ["-x", "--skip-old-files"])
+    }
+
     let subject = Tar()
 
     @Test func buildsDefaultTarCommand() {
@@ -113,7 +123,7 @@ struct TarCommandTests {
         let output = try await Tar(context: context)
             .executable("/usr/bin/tar")
             .workingDirectory("/override")
-            .timeout(5)
+            .timeout(.seconds(5))
             .outputLimit(1024)
             .create()
             .file("archive.tar")
@@ -125,7 +135,7 @@ struct TarCommandTests {
         #expect(command?.executableName == "tar")
         #expect(command?.executableOverride == "/usr/bin/tar")
         #expect(command?.workingDirectoryOverride == "/override")
-        #expect(command?.timeoutOverride == 5)
+        #expect(command?.timeoutOverride == .seconds(5))
         #expect(command?.outputLimitOverride == 1024)
         #expect(command?.arguments == ["-c", "-f", "archive.tar", "file.txt"])
         #expect(await recorder.workingDirectory == "/context")

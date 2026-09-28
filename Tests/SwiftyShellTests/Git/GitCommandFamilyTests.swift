@@ -10,6 +10,33 @@ struct GitCommandFamilyTests {
         #expect(Git().gitConfig().global().local().command().arguments == ["config", "--local", "--list"])
     }
 
+    @Test func branchOperationsAreMutuallyExclusiveLastWins() {
+        let branch = Git().branch()
+
+        #expect(branch.list().delete("old").move(to: "new").command().arguments == ["branch", "-m", "old", "new"])
+        #expect(branch.move(to: "new").forceDelete("old").command().arguments == ["branch", "-D", "old"])
+        #expect(branch.delete("old").list().command().arguments == ["branch", "--list", "old"])
+        #expect(branch.forceDelete("x").delete("x").command().arguments == ["branch", "-d", "x"])
+    }
+
+    @Test func branchOptionsAreEmittedOnlyForTheirOperation() {
+        let branch = Git().branch()
+
+        #expect(branch.named("feature").startPoint("main").command().arguments == ["branch", "feature", "main"])
+        #expect(branch.named("feat*").startPoint("main").list().command().arguments == ["branch", "--list", "feat*"])
+        #expect(branch.all().command().arguments == ["branch", "--all"])
+        #expect(branch.all().named("feature").command().arguments == ["branch", "feature"])
+        #expect(branch.all().delete("old").command().arguments == ["branch", "-d", "old"])
+        #expect(branch.list().all().command().arguments == ["branch", "--list", "--all"])
+    }
+
+    @Test func disablingListOnlyClearsListMode() {
+        let branch = Git().branch()
+
+        #expect(branch.list().list(false).command().arguments == ["branch"])
+        #expect(branch.delete("old").list(false).command().arguments == ["branch", "-d", "old"])
+    }
+
     @Test func buildsBranchListCommand() {
         let command = Git()
             .workingDirectory("/tmp/repo")
@@ -531,7 +558,7 @@ struct GitCommandFamilyTests {
         let repoURL = try makeTemporaryDirectoryForGitCommandTests()
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
         _ = try await Git(context: context)
             .workingDirectory(repoURL.path)
@@ -556,7 +583,7 @@ struct GitCommandFamilyTests {
         let repoURL = try makeTemporaryDirectoryForGitCommandTests()
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
         _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.email", "test@test.com").run(
             in: context
@@ -583,7 +610,7 @@ struct GitCommandFamilyTests {
         let repoURL = try makeTemporaryDirectoryForGitCommandTests()
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
         _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.email", "test@test.com").run(
             in: context
@@ -629,7 +656,7 @@ struct GitCommandFamilyTests {
         let repoURL = try makeTemporaryDirectoryForGitCommandTests()
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
         _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.email", "test@test.com").run(
             in: context
@@ -676,7 +703,7 @@ struct GitCommandFamilyTests {
         let repoURL = try makeTemporaryDirectoryForGitCommandTests()
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
         _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.email", "test@test.com").run(
             in: context
@@ -703,7 +730,7 @@ struct GitCommandFamilyTests {
     @Test func typedDiffPreservesUnusualRenamePaths() async throws {
         let repoURL = try makeTemporaryDirectoryForGitCommandTests()
         defer { try? FileManager.default.removeItem(at: repoURL) }
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         try await initializeRepository(at: repoURL, context: context)
 
         let oldPath = "old name\twith tab.txt"
@@ -752,7 +779,7 @@ struct GitCommandFamilyTests {
         defer { try? FileManager.default.removeItem(at: parentURL) }
         defer { try? FileManager.default.removeItem(at: childURL) }
 
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         try await initializeRepository(at: childURL, context: context)
         try await initializeRepository(at: parentURL, context: context)
         _ = try await Command("git", arguments: "submodule", "add", childURL.path, "Vendor/Child With Spaces")

@@ -41,9 +41,10 @@ The cases group naturally by failure source:
 - **Resource errors** — ``timeout(command:duration:partialOutput:)`` and
   ``outputLimitExceeded(command:limit:partialOutput:)`` carry the captured
   output up to the point the process or pipeline was terminated.
-- **Stream errors** — ``decodingError(command:stream:)`` is raised when output
-  is not valid UTF-8. Redirect to a file with
-  ``OutputDestination/file(path:append:)`` and read it as `Data` instead.
+- **Stream errors** — ``decodingError(command:stream:)`` is raised when a typed
+  workflow that parses stdout (such as `Git` status or `Which` lookup) receives
+  bytes that are not valid UTF-8. Plain `run()` calls never throw it: they keep
+  the raw bytes in ``ShellOutput/stdoutData``.
 - **Parsing errors** — ``parsingError(command:reason:)`` is raised when a
   typed workflow receives valid text that does not match the expected structured
   output shape.

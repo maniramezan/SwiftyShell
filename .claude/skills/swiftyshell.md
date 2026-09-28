@@ -92,7 +92,7 @@ public struct ShellContext: Sendable {
         searchPaths: [String] = ShellContext.defaultSearchPaths,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         workingDirectory: String? = nil,
-        defaultTimeout: TimeInterval? = nil,
+        defaultTimeout: Duration? = nil,
         defaultOutputLimit: Int = 0
     )
 
@@ -100,7 +100,7 @@ public struct ShellContext: Sendable {
     public let searchPaths: [String]
     public let environment: [String: String]
     public let workingDirectory: String?
-    public let defaultTimeout: TimeInterval?
+    public let defaultTimeout: Duration?
     public let defaultOutputLimit: Int
 }
 ```
@@ -110,6 +110,7 @@ public struct ShellContext: Sendable {
 ```swift
 public struct Command: Sendable {
     public init(_ executable: String, arguments: String...)
+    public init(_ executable: String, arguments: [String])
 
     public func executable(_ path: String) -> Self
     public func arg(_ value: String) -> Self
@@ -117,7 +118,7 @@ public struct Command: Sendable {
     public func env(_ name: String, _ value: String) -> Self
     public func env(_ values: [String: String]) -> Self
     public func workingDirectory(_ path: String) -> Self
-    public func timeout(_ seconds: TimeInterval) -> Self
+    public func timeout(_ duration: Duration) -> Self   // TimeInterval overload is deprecated
     public func outputLimit(_ bytes: Int) -> Self
     public func stdout(_ destination: OutputDestination) -> Self
     public func stderr(_ destination: OutputDestination) -> Self
@@ -128,6 +129,9 @@ public struct Command: Sendable {
         in context: ShellContext = .init(),
         teardown: TeardownStrategy = .graceful
     ) async throws -> any SpawnedProcess
+
+    // POSIX single-quoted display (also `description`); pasting it into sh/bash/zsh runs the same argv.
+    public func displayString(using resolvedExecutable: String? = nil) -> String
 }
 ```
 
@@ -147,6 +151,9 @@ public struct Pipeline: Sendable {
 ```swift
 public protocol SpawnedProcess: Sendable {
     var processIdentifier: Int32 { get }
+    // Arbitrary-size chunks (not lines) that never split a UTF-8 character. The built-in
+    // executor buffers the 1,024 most recent unread chunks; use `.stdout(.discard)` on
+    // long-lived processes to stream without retaining output for the final ShellOutput.
     var standardOutput: AsyncStream<String> { get }
     var standardError: AsyncStream<String> { get }
 
@@ -220,11 +227,17 @@ public enum OutputDestination: Sendable, Equatable {
 #### ShellOutput
 
 ```swift
-public struct ShellOutput: Sendable {
-    public var stdout: String
+public struct ShellOutput: Sendable, Equatable {
+    public var stdoutData: Data      // raw captured bytes; binary output is preserved
+    public var stderrData: Data
+    public var stdout: String        // lossy UTF-8 view of stdoutData (decoded on each access)
     public var stderr: String
     public var exitCode: Int32
     public var isSuccess: Bool
+
+    public init(stdout: String = "", stderr: String = "", exitCode: Int32)
+    public init(stdoutData: Data, stderrData: Data = Data(), exitCode: Int32)
+    public func validatedText(_ stream: StreamKind = .stdout) -> String?   // nil if not valid UTF-8
 }
 ```
 
@@ -235,7 +248,7 @@ public enum ShellError: Error, LocalizedError {
     case invalidConfiguration(description: String)
     case commandNotFound(String)
     case exitFailure(command: String, output: ShellOutput)
-    case timeout(command: String, duration: TimeInterval, partialOutput: ShellOutput)
+    case timeout(command: String, duration: Duration, partialOutput: ShellOutput)
     case decodingError(command: String, stream: StreamKind)
     case parsingError(command: String, reason: String)
     case outputLimitExceeded(command: String, limit: Int, partialOutput: ShellOutput)
@@ -284,7 +297,7 @@ public struct Git: Sendable {
     public func env(_ name: String, _ value: String) -> Self
     public func env(_ values: [String: String]) -> Self
     public func workingDirectory(_ path: String) -> Self
-    public func timeout(_ seconds: TimeInterval) -> Self
+    public func timeout(_ duration: Duration) -> Self   // TimeInterval overload is deprecated
     public func outputLimit(_ bytes: Int) -> Self
 
     public func status() -> GitStatusWorkflow
@@ -1766,6 +1779,14 @@ public struct MockExecutor: CommandExecutor {
 
     public init(handler: @escaping Handler)
     public init(stdout: String = "", stderr: String = "", exitCode: Int32 = 0)
+    public init(stubs: [Stub], fallback: ShellOutput? = nil)   // unmatched + nil fallback → commandNotFound(executableName)
+
+    public var recordedCommands: [Command] { get }   // every command received, in order; copies share it
+
+    public struct Stub: Sendable {
+        public init(_ executable: String, arguments: [String]? = nil, returning output: ShellOutput)
+        public init(matching predicate: @escaping @Sendable (Command) -> Bool, returning output: ShellOutput)
+    }
 }
 
 public struct MockSpawnedProcess: SpawnedProcess, Sendable {
@@ -1788,11 +1809,11 @@ public struct MockSpawnedProcess: SpawnedProcess, Sendable {
 }
 ```
 
-`MockExecutor` mirrors real `run()` semantics for invalid configuration and non-zero exits so unit tests behave like subprocess-backed execution. Its `spawn` support returns `MockSpawnedProcess`, which records signals, teardown, and the configured `TeardownStrategy`.
+`MockExecutor` mirrors real `run()` semantics for invalid configuration and non-zero exits so unit tests behave like subprocess-backed execution. Assert on `recordedCommands` instead of writing recorder actors. Pipelines validate every stage, invoke every stage, return final-stage stdout with every stage's stderr, and report the first failing stage in pipeline order (a non-final `128 + SIGPIPE` is not a failure). Its `spawn` support returns `MockSpawnedProcess`, which records signals, teardown, and the configured `TeardownStrategy`.
 
-For pipelines, all stages run concurrently. The shortest resolved stage timeout governs the pipeline, each stage has its own captured-output limit, intermediate stdout is piped rather than captured, and captured stderr is aggregated in stage order. A non-zero stage cancels remaining stage tasks, but simultaneous failures do not guarantee a pipeline-order winner.
+For pipelines, all stages run concurrently. The shortest resolved stage timeout governs the pipeline, each stage has its own captured-output limit, intermediate stdout is piped rather than captured, and captured stderr is aggregated in stage order. A non-zero stage cancels remaining stage tasks, but simultaneous failures do not guarantee a pipeline-order winner. A non-final stage killed by `SIGPIPE` (downstream stopped reading, e.g. `yes | head -n 1`) is not a failure.
 
-`SubprocessExecutor` is the default production executor and is backed by the `swift-subprocess` package. Preserve SwiftyShell's public `ShellError` semantics when changing the execution layer, including captured partial output on timeout, output-limit, and cancellation paths. `run()` leaves stdin to swift-subprocess (`input: .none`) and gets forced teardown from swift-subprocess itself: each configuration's `teardownSequence` sends `SIGKILL` to the command's process group, and swift-subprocess runs it whenever the awaiting task is cancelled or the body closure throws. Don't reintroduce SwiftyShell-side process bookkeeping for this. `run()` returns once the command's process exits: swift-subprocess then stops waiting for the output pipes to close, so a background descendant's later output is not captured (see ARCHITECTURE.md, Timeout & Cancellation). Spawned processes carry their `TeardownStrategy` as the teardown sequence.
+`SubprocessExecutor` is the default production executor and is backed by the `swift-subprocess` package. Preserve SwiftyShell's public `ShellError` semantics when changing the execution layer, including captured partial output on timeout, output-limit, and cancellation paths. `run()` leaves stdin to swift-subprocess (`input: .none`) and gets forced teardown from swift-subprocess itself: each configuration's `teardownSequence` sends `SIGKILL` to the command's process group, and swift-subprocess runs it whenever the awaiting task is cancelled or the body closure throws. Don't reintroduce SwiftyShell-side process bookkeeping for this. `run()` returns once the command's process exits: swift-subprocess then stops waiting for the output pipes to close, so a background descendant's later output is not captured (see ARCHITECTURE.md, Timeout & Cancellation). Spawned processes carry their `TeardownStrategy` as the teardown sequence, with every step (and the final kill) sent to the process group.
 
 ### Code Generation Rules
 
@@ -1948,7 +1969,7 @@ let status = try await Git(context: context).status().run()
 | `exitFailure` | Non-zero exit code | Inspect `output.stderr`; retry or abort |
 | `timeout` | Command exceeded time limit | Inspect `partialOutput`, increase timeout |
 | `outputLimitExceeded` | Output exceeded configured limit | Raise `outputLimit(_:)` or redirect to file |
-| `decodingError` | Output is not valid UTF-8 | Redirect output to file and read as `Data` |
+| `decodingError` | A typed workflow parsed stdout that is not valid UTF-8 (plain `run()` never throws it) | Run the raw `command()` and read `stdoutData` |
 | `cancelled` | Parent Swift task was cancelled | Inspect `partialOutput`, propagate cancellation |
 | `workflowConditionFailed` | A `require` predicate returned false | Handle the specific workflow gate |
 | `spawnError` | Process could not be launched | Check executable path and permissions |
@@ -2032,6 +2053,7 @@ Use this section when adding or revising command families.
 5. If the command supports stdout/stderr redirection, conform to `OutputRedirectingCommandFamily`
 6. If the command can materialize a `Command`, conform to `RunnableCommandFamily`
 7. Build argv in exactly one place: `command()`
+7a. Model mutually exclusive flags (operations, modes, overwrite policies) as one internal enum rather than independent `Bool`s, so invalid argv such as `git branch --list -d -m` cannot be built; enabling one selects it and the last call wins (use the internal `toggledMode` helper), and options that belong to one operation are emitted only in that operation.
 8. Prefer semantic methods like `.source(_:)`, `.destination(_:)` over raw option strings
 9. Add tests for both command building and real execution where practical
 10. **Every `public` declaration must have a `///` doc comment** — apply documentation rules from Part 2

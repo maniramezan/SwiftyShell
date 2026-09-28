@@ -51,7 +51,7 @@ public struct Git: ToolConfigurableCommandFamily {
     /// Holds the executor, environment, working-directory, timeout, and output-limit overrides
     /// that get merged onto every `git` command this client builds. Mutated through the
     /// protocol-provided helpers (``executable(_:)``, ``env(_:_:)``, ``workingDirectory(_:)``,
-    /// ``timeout(_:)``, ``outputLimit(_:)``).
+    /// ``timeout(_:)-(Duration)``, ``outputLimit(_:)``).
     public let config: ToolConfiguration
 
     /// The shell context used when running git workflows.
@@ -108,7 +108,11 @@ public struct Git: ToolConfigurableCommandFamily {
             workflow: Workflow {
                 let command = makeCommand("status", "--porcelain=v2", "--branch").stdout(.capture)
                 let output = try await command.run(in: context)
-                return try GitParsers.parse(output.stdout, from: command, using: GitParsers.parseStatus)
+                return try GitParsers.parse(
+                    try output.validatedStdout(for: command),
+                    from: command,
+                    using: GitParsers.parseStatus
+                )
             }
         )
     }
@@ -263,8 +267,9 @@ public struct Git: ToolConfigurableCommandFamily {
     }
 
     private func preferredRemote() async throws -> String {
-        let output = try await makeCommand("remote").run(in: context)
-        let remotes = output.stdout
+        let command = makeCommand("remote")
+        let output = try await command.run(in: context)
+        let remotes = try output.validatedStdout(for: command)
             .split(whereSeparator: \.isNewline)
             .map(String.init)
             .filter { !$0.isEmpty }

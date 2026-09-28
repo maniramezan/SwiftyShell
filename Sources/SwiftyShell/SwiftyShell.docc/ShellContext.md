@@ -7,7 +7,7 @@ Default execution settings shared by commands and pipelines.
 A ``ShellContext`` carries the executor, search paths, environment,
 working directory, default timeout, and default output limit that every
 ``Command`` or ``Pipeline`` inherits when it runs. Per-command overrides
-(``Command/timeout(_:)``, ``Command/workingDirectory(_:)``, …) take priority
+(``Command/timeout(_:)-(Duration)``, ``Command/workingDirectory(_:)``, …) take priority
 over the context's defaults, so a single context can serve a whole program
 while individual calls tune themselves where needed.
 
@@ -33,7 +33,7 @@ every call inherits them. You can opt into an output cap if needed:
 ```swift
 let buildContext = ShellContext(
     workingDirectory: "/var/app",
-    defaultTimeout: 120,
+    defaultTimeout: .seconds(120),
     defaultOutputLimit: 50_000_000   // 50 MB for verbose build output
 )
 
@@ -64,7 +64,7 @@ let status = try await Git(context: context).status().run()
 
 ### Creating a Context
 
-- ``init(executor:searchPaths:environment:workingDirectory:defaultTimeout:defaultOutputLimit:)``
+- ``init(executor:searchPaths:environment:workingDirectory:defaultTimeout:defaultOutputLimit:)-(_,_,_,_,Duration?,_)``
 
 ### Resolving Search Paths
 

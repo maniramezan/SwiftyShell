@@ -4,6 +4,21 @@ import Testing
 @testable import SwiftyShell
 
 struct GitTests {
+    @Test func typedParsingRejectsInvalidUTF8() async throws {
+        let context = ShellContext(
+            executor: MockExecutor { _, _ in
+                ShellOutput(stdoutData: Data("# branch.head ".utf8) + Data([0xFF]), exitCode: 0)
+            }
+        )
+
+        await #expect {
+            try await Git(context: context).status().run()
+        } throws: { error in
+            guard case let .decodingError(_, stream) = error as? ShellError else { return false }
+            return stream == .stdout
+        }
+    }
+
     @Test func statusWorkflowMapProjectsBranch() async throws {
         let context = ShellContext(executor: MockExecutor(stdout: "# branch.head feature/demo\n"))
 
@@ -188,7 +203,7 @@ struct GitTests {
         let repoURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
         try "hello".write(to: repoURL.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
 
@@ -206,7 +221,7 @@ struct GitTests {
         let repoURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
 
         let status = try await Git(context: context)
@@ -222,7 +237,7 @@ struct GitTests {
         let repoURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
         _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.email", "test@test.com").run(
             in: context
@@ -247,7 +262,7 @@ struct GitTests {
         let repoURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
         _ = try await Command("git", arguments: "-C", repoURL.path, "config", "user.email", "test@test.com").run(
             in: context
@@ -279,7 +294,7 @@ struct GitTests {
         let repoURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
         try "hello".write(to: repoURL.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
 
@@ -302,7 +317,7 @@ struct GitTests {
         let repoURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: repoURL) }
 
-        let context = ShellContext()
+        let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "feature-branch").workingDirectory(repoURL.path).run(
             in: context
         )

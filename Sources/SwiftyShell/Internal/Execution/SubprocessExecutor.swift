@@ -16,7 +16,7 @@ private typealias StreamingExecution = Execution<NoInput, SequenceOutput, Sequen
 
 /// The default ``CommandExecutor`` that runs commands using Swift's `Subprocess` package.
 ///
-/// `SubprocessExecutor` is what ``ShellContext/init(executor:searchPaths:environment:workingDirectory:defaultTimeout:defaultOutputLimit:)``
+/// `SubprocessExecutor` is what ``ShellContext/init(executor:searchPaths:environment:workingDirectory:defaultTimeout:defaultOutputLimit:)-(_,_,_,_,Duration?,_)``
 /// installs by default. It spawns a real OS subprocess for each ``Command`` or ``Pipeline``
 /// stage, wires stdin/stdout/stderr per the configured ``OutputDestination``, enforces
 /// per-command timeouts and output limits, and converts non-zero exits into ``ShellError``.
@@ -98,7 +98,7 @@ private struct ResolvedCommand: Sendable {
     let arguments: [String]
     let environment: [String: String]
     let workingDirectory: String?
-    let timeout: TimeInterval?
+    let timeout: Duration?
     let outputLimit: Int
     let stdoutDestination: OutputDestination
     let stderrDestination: OutputDestination
@@ -125,7 +125,7 @@ private struct ResolvedCommand: Sendable {
         }
         // 0 means unlimited; normalize to Int.max so downstream comparisons work unchanged.
         self.outputLimit = rawLimit == 0 ? Int.max : rawLimit
-        if let timeout, timeout < 0 || timeout.isFinite == false {
+        if let timeout, timeout < .zero {
             throw ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")
         }
         self.stdoutDestination = Self.resolveOutputDestination(
@@ -332,7 +332,7 @@ private struct SingleCommandRunner {
         }
         let timeoutTask = resolved.timeout.map { timeout in
             Task {
-                try? await Task.sleep(for: durationFromSeconds(timeout))
+                try? await Task.sleep(for: timeout)
                 await eventNotifier.notify(.timedOut)
             }
         }
@@ -354,7 +354,7 @@ private struct SingleCommandRunner {
         } catch is CancellationError {
             processTask.cancel()
             _ = await processTask.result
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
         }
     }
@@ -427,11 +427,7 @@ private struct SingleCommandRunner {
             }
 
             let snapshot = store.snapshot()
-            let output = try decodeOutput(
-                command: resolved.displayCommand,
-                snapshot: snapshot,
-                exitCode: outcome.terminationStatus.swiftyShellExitCode
-            )
+            let output = makeOutput(snapshot: snapshot, exitCode: outcome.terminationStatus.swiftyShellExitCode)
 
             if Task.isCancelled {
                 throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
@@ -443,14 +439,14 @@ private struct SingleCommandRunner {
 
             return output
         } catch is CaptureLimitExceeded {
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.outputLimitExceeded(
                 command: resolved.displayCommand,
                 limit: resolved.outputLimit,
                 partialOutput: output
             )
         } catch is CancellationError {
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
         } catch let error as ShellError {
             throw error
@@ -474,10 +470,10 @@ private struct SingleCommandRunner {
         case .timedOut:
             processTask.cancel()
             _ = await processTask.result
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.timeout(
                 command: resolved.displayCommand,
-                duration: resolved.timeout ?? 0,
+                duration: resolved.timeout ?? .zero,
                 partialOutput: output
             )
         case let .earlyTerminated(reason):
@@ -485,13 +481,13 @@ private struct SingleCommandRunner {
             _ = await processTask.result
             switch reason {
             case let .outputLimitExceeded(command, limit):
-                let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+                let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
                 throw ShellError.outputLimitExceeded(command: command, limit: limit, partialOutput: output)
             }
         case .canceled:
             processTask.cancel()
             _ = await processTask.result
-            let output = lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            let output = makeOutput(snapshot: store.snapshot(), exitCode: -1)
             throw ShellError.canceled(command: resolved.displayCommand, partialOutput: output)
         }
     }
@@ -517,20 +513,26 @@ private enum SpawnedCommandTaskResult: Sendable {
     case streamComplete
 }
 
+/// Keeps the most recent chunks of a live spawned-process stream that the caller has not read yet.
+private let liveStreamBufferingPolicy = AsyncStream<String>.Continuation.BufferingPolicy.bufferingNewest(1024)
+
 private struct SpawnedCommandRunner: Sendable {
     let resolved: ResolvedCommand
     let teardown: TeardownStrategy
 
     func spawn() async throws -> any SpawnedProcess {
-        let stdoutStream = AsyncStream.makeStream(of: String.self)
-        let stderrStream = AsyncStream.makeStream(of: String.self)
+        // Bounded so an unread stream cannot grow without limit over a long-lived process.
+        let stdoutStream = AsyncStream.makeStream(of: String.self, bufferingPolicy: liveStreamBufferingPolicy)
+        let stderrStream = AsyncStream.makeStream(of: String.self, bufferingPolicy: liveStreamBufferingPolicy)
         let state = SubprocessSpawnedProcessState(teardown: teardown)
         let task = Task<ShellOutput, Never> {
-            await runSpawnedProcess(
+            let output = await runSpawnedProcess(
                 state: state,
                 stdoutContinuation: stdoutStream.continuation,
                 stderrContinuation: stderrStream.continuation
             )
+            await state.markExited()
+            return output
         }
         await state.attachTask(task)
         let execution = try await state.waitForExecution()
@@ -611,12 +613,12 @@ private struct SpawnedCommandRunner: Sendable {
                 }
             }
 
-            return lossyOutput(snapshot: store.snapshot(), exitCode: outcome.terminationStatus.swiftyShellExitCode)
+            return makeOutput(snapshot: store.snapshot(), exitCode: outcome.terminationStatus.swiftyShellExitCode)
         } catch is CaptureLimitExceeded {
-            return lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            return makeOutput(snapshot: store.snapshot(), exitCode: -1)
         } catch {
             await state.failStartupIfNeeded(error)
-            return lossyOutput(snapshot: store.snapshot(), exitCode: -1)
+            return makeOutput(snapshot: store.snapshot(), exitCode: -1)
         }
     }
 }
@@ -667,6 +669,7 @@ private actor SubprocessSpawnedProcessState {
     private var executionResult: Result<StreamingExecution, any Error>?
     private var executionContinuations: [CheckedContinuation<Result<StreamingExecution, any Error>, Never>] = []
     private var didTeardown = false
+    private var hasExited = false
 
     init(teardown: TeardownStrategy) {
         self.teardown = teardown
@@ -716,11 +719,25 @@ private actor SubprocessSpawnedProcessState {
     func teardownAndWait() async -> ShellOutput {
         if !didTeardown {
             didTeardown = true
-            if let execution = try? await waitForExecution() {
+            if !hasExited, let execution = try? await waitForExecution() {
                 await execution.teardown(using: teardown.subprocessSteps)
+                // swift-subprocess stops tearing down as soon as the process itself exits, so a
+                // descendant that ignored an earlier step's signal (for example a background job,
+                // which starts with SIGINT ignored) would survive. Kill whatever is left of the
+                // group. This is sent unconditionally: the process may already have been reaped
+                // (swift-subprocess stops waiting on the output pipes once it exits) while
+                // descendants live on, so `hasExited` cannot tell whether anything remains. A group
+                // ID cannot be reused while any member is alive; only if every member exited during
+                // the teardown await could the ID be free, and it would have to be reused by an
+                // unrelated group within that instant for this kill to reach it.
+                try? execution.send(signal: .kill, toProcessGroup: true)
             }
         }
         return await output()
+    }
+
+    func markExited() {
+        hasExited = true
     }
 
     func waitForExit() async -> ShellOutput {
@@ -744,10 +761,16 @@ private func routeSpawnStream(
     store: OutputCaptureStore,
     continuation: AsyncStream<String>.Continuation
 ) async throws {
+    var decoder = UTF8ChunkDecoder()
+    defer {
+        if let text = decoder.finish() {
+            continuation.yield(text)
+        }
+    }
     for try await buffer in sequence {
         let data = Data(buffer: buffer)
-        if !data.isEmpty {
-            continuation.yield(String(decoding: data, as: UTF8.self))
+        if let text = decoder.decode(data) {
+            continuation.yield(text)
         }
         try routeData(data, stream: stream, destination: destination, fileHandle: fileHandle, store: store)
     }
@@ -859,7 +882,7 @@ private struct PipelineRunner {
         }
         let timeoutTask = resolved.compactMap(\.timeout).min().map { timeout in
             Task {
-                try? await Task.sleep(for: durationFromSeconds(timeout))
+                try? await Task.sleep(for: timeout)
                 await eventNotifier.notify(.timedOut(duration: timeout))
             }
         }
@@ -885,7 +908,7 @@ private struct PipelineRunner {
             let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.canceled(
                 command: finalCommand.displayCommand,
-                partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
+                partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
             )
         }
     }
@@ -985,7 +1008,11 @@ private struct PipelineRunner {
                         // propagates through the stage task. Checking Task.isCancelled here prevents those
                         // signal-induced exits from masking the ShellError.timeout that
                         // waitForPipeline already threw.
-                        if stageResult.exitCode != 0, firstFailure == nil, !Task.isCancelled {
+                        // A non-final stage killed by SIGPIPE only means a downstream stage
+                        // stopped reading early (`yes | head -n 1`); the shell treats that as
+                        // success, so it is not a pipeline failure here either.
+                        let isBenignBrokenPipe = stageResult.brokePipe && stageResult.index < resolved.count - 1
+                        if stageResult.exitCode != 0, !isBenignBrokenPipe, firstFailure == nil, !Task.isCancelled {
                             firstFailure = stageResult
                             group.cancelAll()
                         }
@@ -1009,7 +1036,7 @@ private struct PipelineRunner {
                 if Task.isCancelled {
                     throw ShellError.canceled(
                         command: finalCommand.displayCommand,
-                        partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
+                        partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
                     )
                 }
 
@@ -1017,8 +1044,7 @@ private struct PipelineRunner {
                     throw firstThrownFailure
                 }
 
-                let output = try decodeOutput(
-                    command: finalCommand.displayCommand,
+                let output = makeOutput(
                     snapshot: snapshot,
                     exitCode: stageResults.first { $0.index == resolved.count - 1 }?.exitCode ?? 0
                 )
@@ -1036,8 +1062,8 @@ private struct PipelineRunner {
                     throw ShellError.exitFailure(
                         command: firstFailure.command.displayCommand,
                         output: ShellOutput(
-                            stdout: output.stdout,
-                            stderr: output.stderr,
+                            stdoutData: output.stdoutData,
+                            stderrData: output.stderrData,
                             exitCode: firstFailure.exitCode
                         )
                     )
@@ -1049,7 +1075,7 @@ private struct PipelineRunner {
             let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.canceled(
                 command: finalCommand.displayCommand,
-                partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
+                partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
             )
         }
     }
@@ -1072,14 +1098,14 @@ private struct PipelineRunner {
             throw ShellError.timeout(
                 command: finalCommand.displayCommand,
                 duration: duration,
-                partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
+                partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
             )
         case let .earlyTerminated(reason):
             processTask.cancel()
             _ = await processTask.result
             switch reason {
             case let .outputLimitExceeded(command, limit):
-                let output = lossyOutput(snapshot: pipelineSnapshot(stores: stores), exitCode: -1)
+                let output = makeOutput(snapshot: pipelineSnapshot(stores: stores), exitCode: -1)
                 throw ShellError.outputLimitExceeded(command: command, limit: limit, partialOutput: output)
             }
         case .canceled:
@@ -1088,7 +1114,7 @@ private struct PipelineRunner {
             let snapshot = pipelineSnapshot(stores: stores)
             throw ShellError.canceled(
                 command: finalCommand.displayCommand,
-                partialOutput: lossyOutput(snapshot: snapshot, exitCode: -1)
+                partialOutput: makeOutput(snapshot: snapshot, exitCode: -1)
             )
         }
     }
@@ -1101,7 +1127,7 @@ private enum PipelineProcessCompletion: Sendable {
 
 private enum PipelineRunEvent: Sendable {
     case completed(PipelineProcessCompletion)
-    case timedOut(duration: TimeInterval)
+    case timedOut(duration: Duration)
     case earlyTerminated(EarlyTerminationReason)
     case canceled
 }
@@ -1115,6 +1141,15 @@ private struct PipelineStageResult: Sendable {
     let index: Int
     let command: ResolvedCommand
     let exitCode: Int32
+    /// Whether the stage was terminated by `SIGPIPE` after its reader went away.
+    let brokePipe: Bool
+
+    init(index: Int, command: ResolvedCommand, terminationStatus: TerminationStatus) {
+        self.index = index
+        self.command = command
+        self.exitCode = terminationStatus.swiftyShellExitCode
+        self.brokePipe = terminationStatus.isBrokenPipe
+    }
 }
 
 private enum PipelineTaskResult: Sendable {
@@ -1244,11 +1279,7 @@ private func runPipelineStageWithPipedStdout<Input: InputProtocol, Output: Outpu
         }
     }
 
-    return PipelineStageResult(
-        index: index,
-        command: command,
-        exitCode: outcome.terminationStatus.swiftyShellExitCode
-    )
+    return PipelineStageResult(index: index, command: command, terminationStatus: outcome.terminationStatus)
 }
 
 private func runPipelineStageWithStreamedStdout<Input: InputProtocol>(
@@ -1306,28 +1337,15 @@ private func runPipelineStageWithStreamedStdout<Input: InputProtocol>(
         }
     }
 
-    return PipelineStageResult(
-        index: index,
-        command: command,
-        exitCode: outcome.terminationStatus.swiftyShellExitCode
-    )
+    return PipelineStageResult(index: index, command: command, terminationStatus: outcome.terminationStatus)
 }
 
 /// Converts a `TimeInterval` (seconds, `Double`) to a Swift `Duration`.
 ///
-/// The public API uses `TimeInterval` for timeouts (``Command/timeout(_:)``,
+/// The public API uses `TimeInterval` for timeouts (``Command/timeout(_:)-(Duration)``,
 /// ``ShellContext/defaultTimeout``). Internally we convert to `Duration` at the
 /// boundary so all sleep calls use the modern `Task.sleep(for:)` API instead of
 /// the nanosecond-based overload that requires manual overflow handling.
-private func durationFromSeconds(_ seconds: TimeInterval) -> Duration {
-    if seconds <= 0 { return .zero }
-    let maximumNanosecondDuration = Double(Int64.max) / 1_000_000_000
-    if seconds >= maximumNanosecondDuration { return .nanoseconds(Int64.max) }
-    let wholeSeconds = Int64(seconds)
-    let fractionalNanoseconds = Int64((seconds - Double(wholeSeconds)) * 1_000_000_000)
-    return .seconds(wholeSeconds) + .nanoseconds(fractionalNanoseconds)
-}
-
 /// Stops `run()` and pipeline stages immediately: `SIGKILL` to the whole process group, so any
 /// descendants the command started die with it.
 ///
@@ -1355,8 +1373,17 @@ private func subprocessPlatformOptions(teardownSequence: [TeardownStep]) -> Plat
 
 private extension TeardownStrategy {
     var subprocessSteps: [TeardownStep] {
-        steps.map { step in
-            TeardownStep.send(signal: step.signal.subprocessSignal, allowedDurationToNextStep: step.gracePeriod)
+        // swift-subprocess's implicit final kill inherits the last step's process-group targeting,
+        // so an empty strategy needs an explicit group kill to reach descendants.
+        guard !steps.isEmpty else { return forcedTeardownSequence }
+        return steps.map { step in
+            // Signal the whole process group (the child leads its own group) so wrappers such as
+            // `sh -c` or `npm run` do not leave their descendants running.
+            TeardownStep.send(
+                signal: step.signal.subprocessSignal,
+                toProcessGroup: true,
+                allowedDurationToNextStep: step.gracePeriod
+            )
         }
     }
 }
@@ -1384,25 +1411,8 @@ private extension Execution {
     }
 }
 
-private func decodeOutput(command: String, snapshot: CaptureSnapshot, exitCode: Int32) throws -> ShellOutput {
-    let stdout = try decodeStrict(snapshot.stdout, stream: .stdout, command: command)
-    let stderr = try decodeStrict(snapshot.stderr, stream: .stderr, command: command)
-    return ShellOutput(stdout: stdout, stderr: stderr, exitCode: exitCode)
-}
-
-private func lossyOutput(snapshot: CaptureSnapshot, exitCode: Int32) -> ShellOutput {
-    ShellOutput(
-        stdout: String(decoding: snapshot.stdout, as: UTF8.self),
-        stderr: String(decoding: snapshot.stderr, as: UTF8.self),
-        exitCode: exitCode
-    )
-}
-
-private func decodeStrict(_ data: Data, stream: StreamKind, command: String) throws -> String {
-    guard let string = String(data: data, encoding: .utf8) else {
-        throw ShellError.decodingError(command: command, stream: stream)
-    }
-    return string
+private func makeOutput(snapshot: CaptureSnapshot, exitCode: Int32) -> ShellOutput {
+    ShellOutput(stdoutData: snapshot.stdout, stderrData: snapshot.stderr, exitCode: exitCode)
 }
 
 private func mapSubprocessError(_ error: SubprocessError, command: String, limit: Int) -> ShellError {
@@ -1437,6 +1447,12 @@ private func makeFileHandle(path: String, append: Bool) throws -> FileHandle {
 }
 
 extension TerminationStatus {
+    /// Whether the process was killed by `SIGPIPE`.
+    fileprivate var isBrokenPipe: Bool {
+        guard case let .signaled(signal) = self else { return false }
+        return signal == SIGPIPE
+    }
+
     fileprivate var swiftyShellExitCode: Int32 {
         switch self {
         case let .exited(code):

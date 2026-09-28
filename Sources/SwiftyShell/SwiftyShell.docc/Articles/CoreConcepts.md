@@ -30,7 +30,7 @@ let context = ShellContext()
 // With defaults customized for a long-running build script
 let buildContext = ShellContext(
     workingDirectory: "/var/app",
-    defaultTimeout: 120,
+    defaultTimeout: .seconds(120),
     defaultOutputLimit: 50_000_000   // 50 MB for verbose build output
 )
 ```
@@ -40,11 +40,11 @@ let buildContext = ShellContext(
 Per-command overrides take priority over context defaults, which take priority over platform defaults:
 
 ```swift
-let context = ShellContext(defaultTimeout: 30)
+let context = ShellContext(defaultTimeout: .seconds(30))
 
 // This call times out after 300 s, not 30 s
 try await Command("swift", arguments: "build")
-    .timeout(300)
+    .timeout(.seconds(300))
     .run(in: context)
 
 // This call still uses the 30-second context default
@@ -94,7 +94,7 @@ Build a command by naming the executable and chaining modifier methods. Each mod
 let cmd = Command("ruby", arguments: "deploy.rb")
     .env("RAILS_ENV", "production")
     .workingDirectory("/var/app")
-    .timeout(300)
+    .timeout(.seconds(300))
     .stdout(.file(path: "/var/log/deploy.log", append: true))
 ```
 
@@ -186,7 +186,7 @@ let result = try await Command("ls", arguments: "-la")
     .run(in: context)
 ```
 
-The first stage receives closed stdin; each later stage receives the preceding stage's stdout. Successful output contains the final stage's captured stdout and captured stderr concatenated in stage order. All stages run concurrently, and an observed non-zero stage cancels the remaining stage tasks. Each stage resolves its own output limit; intermediate stdout is piped rather than captured, while captured stderr and final-stage stdout count against their stage limits. The shortest resolved stage timeout governs the pipeline. Timeout, cancellation, and output-limit errors carry captured partial output.
+The first stage receives closed stdin; each later stage receives the preceding stage's stdout. Successful output contains the final stage's captured stdout and captured stderr concatenated in stage order. All stages run concurrently, and an observed non-zero stage cancels the remaining stage tasks. A non-final stage terminated by `SIGPIPE` is not a failure, since it only means a downstream stage stopped reading early (`yes | head -n 1`). Each stage resolves its own output limit; intermediate stdout is piped rather than captured, while captured stderr and final-stage stdout count against their stage limits. The shortest resolved stage timeout governs the pipeline. Timeout, cancellation, and output-limit errors carry captured partial output.
 
 ## Executor Protocol
 
@@ -199,7 +199,7 @@ public protocol CommandExecutor: Sendable {
 }
 ```
 
-``SubprocessExecutor`` is the default production executor and is backed by the `swift-subprocess` package. It resolves executables from ``ShellContext/searchPaths``, runs single commands and pipelines as subprocesses, gives `run()` calls an empty stdin, and preserves captured partial output for timeout, cancellation, and output-limit failures. On Unix platforms each process started for `run()` executes as its own process-group leader; early termination sends `SIGKILL` to the process group, including descendants, and waits for process completion before returning. Explicitly spawned processes instead use their configured ``TeardownStrategy`` when the caller requests teardown.
+``SubprocessExecutor`` is the default production executor and is backed by the `swift-subprocess` package. It resolves executables from ``ShellContext/searchPaths``, runs single commands and pipelines as subprocesses, gives `run()` calls an empty stdin, and preserves captured partial output for timeout, cancellation, and output-limit failures. On Unix platforms each process started for `run()` executes as its own process-group leader; early termination sends `SIGKILL` to the process group, including descendants, and waits for process completion before returning. Explicitly spawned processes instead use their configured ``TeardownStrategy`` when the caller requests teardown; each teardown signal also goes to the spawned process's group, so descendants are stopped too.
 
 ``MockExecutor`` is the test double. You can also implement your own — for example, to add structured logging around every command:
 

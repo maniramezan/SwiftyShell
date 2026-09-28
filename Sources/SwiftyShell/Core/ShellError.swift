@@ -50,11 +50,15 @@ public enum ShellError: Error, LocalizedError, Sendable {
     ///
     /// - Parameters:
     ///   - command: The shell-quoted display string of the command that timed out.
-    ///   - duration: The timeout in seconds that was exceeded.
+    ///   - duration: The timeout that was exceeded.
     ///   - partialOutput: Whatever output was captured before the process was terminated.
-    case timeout(command: String, duration: TimeInterval, partialOutput: ShellOutput)
+    case timeout(command: String, duration: Duration, partialOutput: ShellOutput)
 
     /// A captured output stream contained bytes that could not be decoded as UTF-8.
+    ///
+    /// Typed workflows that parse stdout (for example `Git` status or `Which` lookup) throw this
+    /// instead of parsing U+FFFD replacement characters. Plain `run()` calls do not throw it; they
+    /// return the raw bytes in ``ShellOutput/stdoutData``.
     ///
     /// - Parameters:
     ///   - command: The shell-quoted display string of the command whose output failed to decode.
@@ -110,7 +114,7 @@ public enum ShellError: Error, LocalizedError, Sendable {
         case let .exitFailure(command, output):
             return "'\(command)' exited with status \(output.exitCode)"
         case let .timeout(command, duration, _):
-            return "'\(command)' timed out after \(duration) seconds"
+            return "'\(command)' timed out after \(duration)"
         case let .decodingError(command, stream):
             return "Failed to decode \(stream) output for '\(command)' as UTF-8"
         case let .parsingError(command, reason):
@@ -145,7 +149,7 @@ extension ShellError: CustomDebugStringConvertible {
                 "ShellError.exitFailure(command: \(command.debugDescription), exitCode: \(output.exitCode), stderr: \(output.stderr.debugDescription))"
         case let .timeout(command, duration, partialOutput):
             return
-                "ShellError.timeout(command: \(command.debugDescription), duration: \(duration)s, partialOutput: \(partialOutput.debugDescription))"
+                "ShellError.timeout(command: \(command.debugDescription), duration: \(duration), partialOutput: \(partialOutput.debugDescription))"
         case let .outputLimitExceeded(command, limit, partialOutput):
             return
                 "ShellError.outputLimitExceeded(command: \(command.debugDescription), limit: \(limit), partialOutput: \(partialOutput.debugDescription))"

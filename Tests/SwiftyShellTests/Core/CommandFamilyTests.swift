@@ -6,7 +6,7 @@ struct CommandFamilyTests {
     @Test func protocolDefaultsApplySharedConfigurationAndOutputRedirection() {
         let command = DemoCommand()
             .workingDirectory("/tmp")
-            .timeout(3)
+            .timeout(.seconds(3))
             .outputLimit(2048)
             .env("MODE", "test")
             .stdout(.discard)
@@ -18,7 +18,7 @@ struct CommandFamilyTests {
         #expect(command.executableName == "printf")
         #expect(command.arguments == ["--verbose", "value"])
         #expect(command.workingDirectoryOverride == "/tmp")
-        #expect(command.timeoutOverride == 3)
+        #expect(command.timeoutOverride == .seconds(3))
         #expect(command.outputLimitOverride == 2048)
         #expect(command.environmentOverrides["MODE"] == "test")
         #expect(command.stdoutDestination == .discard)

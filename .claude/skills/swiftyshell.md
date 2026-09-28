@@ -129,7 +129,8 @@ public struct Command: Sendable {
     public func pipe(to next: Command) -> Pipeline
 
     public func run(in context: ShellContext = .init()) async throws -> ShellOutput
-    public func spawn(                                  // streams live; does NOT retain output
+    // streams live; does NOT retain output
+    public func spawn(
         in context: ShellContext = .init(),
         teardown: TeardownStrategy = .graceful
     ) async throws -> any SpawnedProcess
@@ -163,7 +164,8 @@ public protocol SpawnedProcess: Sendable {
     // output: waitForExit()/teardownAndWait() return empty output unless spawn(captureOutput: true).
     var standardOutput: AsyncStream<String> { get }
     var standardError: AsyncStream<String> { get }
-    var standardOutputData: AsyncStream<Data> { get }   // raw bytes (default: empty stream)
+    // raw bytes (default: empty stream)
+    var standardOutputData: AsyncStream<Data> { get }
     var standardErrorData: AsyncStream<Data> { get }
 
     func send(_ signal: ProcessSignal) async throws

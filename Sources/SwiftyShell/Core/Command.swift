@@ -492,7 +492,8 @@ public struct Command: Sendable {
     /// ```swift
     /// let build = try await Command("swift", arguments: "build").spawn(captureOutput: true)
     /// for await chunk in build.standardOutput { print(chunk, terminator: "") }
-    /// let output = await build.waitForExit()   // output.stdout holds the full log
+    /// // output.stdout holds the full log
+    /// let output = await build.waitForExit()
     /// ```
     ///
     /// - Parameters:

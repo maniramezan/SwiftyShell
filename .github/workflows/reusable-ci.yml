@@ -74,7 +74,7 @@ jobs:
         run: swift-format --version
 
       - name: swift-format lint --strict
-        run: swift-format lint --strict --recursive Sources Tests Scripts
+        run: swift-format lint --strict --recursive Sources Tests Scripts Benchmarks/Benchmarks Benchmarks/Package.swift
 
   docc:
     name: Build DocC

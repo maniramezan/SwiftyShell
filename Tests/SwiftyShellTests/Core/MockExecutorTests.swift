@@ -127,6 +127,20 @@ struct MockExecutorTests {
         #expect(output.stderr == "a-err;b-err;c-err;")
     }
 
+    @Test func pipelinePreservesBinaryBytes() async throws {
+        let mock = MockExecutor { command, _ in
+            command.executableName == "producer"
+                ? ShellOutput(stdoutData: Data([0xFF]), stderrData: Data([0xFE, 0x00]), exitCode: 0)
+                : ShellOutput(stdoutData: Data([0x00, 0xFF]), stderrData: Data([0x80]), exitCode: 0)
+        }
+
+        let output = try await Command("producer").pipe(to: Command("consumer"))
+            .run(in: ShellContext(executor: mock))
+
+        #expect(output.stdoutData == Data([0x00, 0xFF]))
+        #expect(output.stderrData == Data([0xFE, 0x00, 0x80]))
+    }
+
     @Test func pipelineValidatesEveryStageBeforeRunningAny() async throws {
         let mock = MockExecutor()
 

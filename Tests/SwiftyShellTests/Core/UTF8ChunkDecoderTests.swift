@@ -58,4 +58,45 @@ struct UTF8ChunkDecoderTests {
         #expect(decoder.decode(Data([0x61, 0xFF])) == "a\u{FFFD}")
         #expect(decoder.finish() == nil)
     }
+
+    @Test(
+        arguments: [
+            [0xC0], [0xC1], [0xF5], [0xF7], [0x80], [0xBF],
+            [0xE0, 0x80], [0xED, 0xA0], [0xF0, 0x80], [0xF4, 0x90],
+            [0xF0, 0x80, 0x80], [0xF4, 0x90, 0x80],
+        ] as [[UInt8]]
+    )
+    func invalidPrefixesDecodeImmediately(bytes: [UInt8]) {
+        var decoder = UTF8ChunkDecoder()
+
+        #expect(decoder.decode(Data(bytes)) == String(decoding: bytes, as: UTF8.self))
+        #expect(decoder.finish() == nil)
+    }
+
+    @Test(
+        arguments: [
+            [0xC2, 0x80], [0xDF, 0xBF], [0xE0, 0xA0, 0x80], [0xED, 0x9F, 0xBF],
+            [0xF0, 0x90, 0x80, 0x80], [0xF4, 0x8F, 0xBF, 0xBF],
+        ] as [[UInt8]]
+    )
+    func boundaryScalarsRemainPendingUntilComplete(bytes: [UInt8]) {
+        var decoder = UTF8ChunkDecoder()
+
+        for byte in bytes.dropLast() {
+            #expect(decoder.decode(Data([byte])) == nil)
+        }
+        #expect(decoder.decode(Data([bytes.last!])) == String(decoding: bytes, as: UTF8.self))
+        #expect(decoder.finish() == nil)
+    }
+
+    @Test func emptyChunksPreservePendingBytes() {
+        var decoder = UTF8ChunkDecoder()
+
+        #expect(decoder.decode(Data()) == nil)
+        #expect(decoder.decode(Data([0xE2])) == nil)
+        #expect(decoder.decode(Data()) == nil)
+        #expect(decoder.decode(Data([0x82, 0xAC])) == "€")
+        #expect(decoder.finish() == nil)
+    }
+
 }

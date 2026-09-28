@@ -117,20 +117,26 @@ public struct Command: Sendable {
     public func args(_ values: [String]) -> Self
     public func env(_ name: String, _ value: String) -> Self
     public func env(_ values: [String: String]) -> Self
-    public func unsetEnv(_ names: String...) -> Self   // removes inherited vars; last env/unsetEnv call wins
+    // removes inherited vars; last env/unsetEnv call wins
+    public func unsetEnv(_ names: String...) -> Self
     public func workingDirectory(_ path: String) -> Self
     public func timeout(_ duration: Duration) -> Self   // TimeInterval overload is deprecated
     public func outputLimit(_ bytes: Int) -> Self
-    public func stdin(_ source: InputSource) -> Self          // default .none (empty stdin)
+    // default .none (empty stdin)
+    public func stdin(_ source: InputSource) -> Self
     public func stdout(_ destination: OutputDestination) -> Self
     public func stderr(_ destination: OutputDestination) -> Self
     public func pipe(to next: Command) -> Pipeline
 
     public func run(in context: ShellContext = .init()) async throws -> ShellOutput
+    // streams live; does NOT retain output
     public func spawn(
         in context: ShellContext = .init(),
         teardown: TeardownStrategy = .graceful
     ) async throws -> any SpawnedProcess
+    public func spawn(captureOutput: Bool, in context: ShellContext = .init(),
+                      teardown: TeardownStrategy = .graceful) async throws -> any SpawnedProcess
+    public var spawnRetainsOutput: Bool { get }
 
     // POSIX single-quoted display (also `description`); pasting it into sh/bash/zsh runs the same argv.
     public func displayString(using resolvedExecutable: String? = nil) -> String
@@ -154,10 +160,13 @@ public struct Pipeline: Sendable {
 public protocol SpawnedProcess: Sendable {
     var processIdentifier: Int32 { get }
     // Arbitrary-size chunks (not lines) that never split a UTF-8 character. The built-in
-    // executor buffers the 1,024 most recent unread chunks; use `.stdout(.discard)` on
-    // long-lived processes to stream without retaining output for the final ShellOutput.
+    // executor buffers the 1,024 most recent unread chunks. Plain spawn() does not retain
+    // output: waitForExit()/teardownAndWait() return empty output unless spawn(captureOutput: true).
     var standardOutput: AsyncStream<String> { get }
     var standardError: AsyncStream<String> { get }
+    // raw bytes (default: empty stream)
+    var standardOutputData: AsyncStream<Data> { get }
+    var standardErrorData: AsyncStream<Data> { get }
 
     func send(_ signal: ProcessSignal) async throws
     func interrupt() async throws
@@ -219,10 +228,13 @@ public extension RunnableCommandFamily {
 
 ```swift
 public enum InputSource: Sendable, Equatable {
-    case none                  // empty stdin (default)
+    // empty stdin (default)
+    case none
     case data(Data)
-    case string(String)        // UTF-8
-    case file(path: String)    // like shell `<`; relative to the working directory
+    // UTF-8
+    case string(String)
+    // like shell `<`; relative to the working directory
+    case file(path: String)
 }
 // Typed families: `try await Jq(".name").rawOutput().run(stdin: .string(json))`
 // Pipelines: only the first stage may set stdin; a later stage's source throws invalidConfiguration.
@@ -2244,4 +2256,4 @@ A change is not done — do not declare completion, open a PR, or hand back to t
 3. `swift -warnings-as-errors Scripts/validate-docc-coverage.swift` — authored DocC links and command-family examples are present.
 4. `swift package -Xswiftc -warnings-as-errors --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
 
-The repo ships a `.swift-format` config at the root; use it for Swift source. The tree is currently fully compliant (`swift-format lint --strict --recursive Sources Tests Scripts` exits clean) — keep it that way. `swift-format` parses inputs as Swift, so Markdown-only documentation changes should use the DocC validation gates rather than direct Markdown linting with `swift-format`. If a lint rule is genuinely wrong for a specific Swift construct, update `.swift-format` in the same change rather than skipping the gate.
+The repo ships a `.swift-format` config at the root; use it for Swift source. The tree is currently fully compliant (`swift-format lint --strict --recursive Sources Tests Scripts Benchmarks/Benchmarks Benchmarks/Package.swift` exits clean) — keep it that way. `swift-format` parses inputs as Swift, so Markdown-only documentation changes should use the DocC validation gates rather than direct Markdown linting with `swift-format`. If a lint rule is genuinely wrong for a specific Swift construct, update `.swift-format` in the same change rather than skipping the gate.

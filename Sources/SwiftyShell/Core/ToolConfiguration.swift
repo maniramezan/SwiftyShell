@@ -116,12 +116,14 @@ public struct ToolConfiguration: Sendable {
 
     /// Returns a copy with one environment variable set or replaced.
     ///
+    /// Also clears any earlier removal of this variable without creating a temporary dictionary.
+    ///
     /// - Parameters:
     ///   - name: The environment variable name.
     ///   - value: The value to assign.
     /// - Returns: A new configuration with the environment override applied.
     public func env(_ name: String, _ value: String) -> Self {
-        modified(self) { $0.options.setEnvironment([name: value]) }
+        modified(self) { $0.options.setEnvironment(name, value) }
     }
 
     /// Returns a copy with multiple environment variable overrides merged in.

@@ -4,6 +4,12 @@ import Testing
 @testable import SwiftyShell
 
 struct GitCommandFamilyTests {
+    @Test func disablingConfigScopeClearsIt() {
+        #expect(Git().gitConfig().local().local(false).command().arguments == ["config", "--list"])
+        #expect(Git().gitConfig().global().global(false).command().arguments == ["config", "--list"])
+        #expect(Git().gitConfig().global().local().command().arguments == ["config", "--local", "--list"])
+    }
+
     @Test func branchOperationsAreMutuallyExclusiveLastWins() {
         let branch = Git().branch()
 
@@ -29,12 +35,6 @@ struct GitCommandFamilyTests {
 
         #expect(branch.list().list(false).command().arguments == ["branch"])
         #expect(branch.delete("old").list(false).command().arguments == ["branch", "-d", "old"])
-    }
-
-    @Test func disablingConfigScopeClearsIt() {
-        #expect(Git().gitConfig().local().local(false).command().arguments == ["config", "--list"])
-        #expect(Git().gitConfig().global().global(false).command().arguments == ["config", "--list"])
-        #expect(Git().gitConfig().global().local().command().arguments == ["config", "--local", "--list"])
     }
 
     @Test func buildsBranchListCommand() {

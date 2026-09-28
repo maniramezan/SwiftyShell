@@ -26,7 +26,7 @@ test:
 	swift test -Xswiftc -warnings-as-errors
 
 lint:
-	swift-format lint --strict --recursive Sources Tests Scripts
+	swift-format lint --strict --recursive Sources Tests Scripts Benchmarks/Benchmarks Benchmarks/Package.swift
 
 validate-traits:
 	swift -warnings-as-errors Scripts/validate-traits.swift

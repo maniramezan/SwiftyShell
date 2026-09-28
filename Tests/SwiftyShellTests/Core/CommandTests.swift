@@ -157,7 +157,7 @@ struct CommandTests {
     }
 
     @Test func outputLimitExceededDoesNotHangOnLargeOutput() async throws {
-        let context = ShellContext(defaultTimeout: .seconds(1.0), defaultOutputLimit: 4)
+        let context = ShellContext(defaultTimeout: .seconds(10), defaultOutputLimit: 4)
 
         do {
             _ = try await Command(

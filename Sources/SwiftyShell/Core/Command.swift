@@ -229,7 +229,7 @@ public struct Command: Sendable {
     ///   - value: The value to assign for this command's execution.
     /// - Returns: A new ``Command`` with the environment override applied.
     public func env(_ name: String, _ value: String) -> Self {
-        modified(self) { $0.options.setEnvironment([name: value]) }
+        modified(self) { $0.options.setEnvironment(name, value) }
     }
 
     /// Returns a copy of the command with multiple environment variable overrides merged in.

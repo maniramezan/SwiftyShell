@@ -298,6 +298,29 @@ func toggledMode<Mode: Equatable>(_ current: Mode?, _ mode: Mode, enabled: Bool)
     enabled ? mode : (current == mode ? nil : current)
 }
 
+/// Returns a copy of `value` changed by `update`.
+///
+/// Fluent builders use this to return an updated copy without mutating `self`:
+///
+/// ```swift
+/// public func quiet(_ enabled: Bool = true) -> Self {
+///     modified(self) { $0.state.isQuiet = enabled }
+/// }
+/// ```
+func modified<Value>(_ value: Value, _ update: (inout Value) -> Void) -> Value {
+    var copy = value
+    update(&copy)
+    return copy
+}
+
+/// Returns the mode that results from toggling `mode` within a set of mutually exclusive modes.
+///
+/// Enabling selects `mode`, replacing any other mode, so the last enabled mode wins. Disabling clears
+/// the selection only when `mode` is the current one.
+func toggledMode<Mode: Equatable>(_ current: Mode?, _ mode: Mode, enabled: Bool) -> Mode? {
+    enabled ? mode : (current == mode ? nil : current)
+}
+
 func appendOption(_ name: String, _ value: String?, to arguments: inout [String]) {
     if let value { arguments += [name, value] }
 }

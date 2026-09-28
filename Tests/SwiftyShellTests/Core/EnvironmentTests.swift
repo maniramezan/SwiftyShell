@@ -44,6 +44,16 @@ struct EnvironmentTests {
         #expect(setAfterUnset.unsetEnvironmentVariables.isEmpty)
     }
 
+    @Test func singleConfigurationOverrideRestoresOnlyItsVariableAndPreservesOriginal() {
+        let original = ToolConfiguration().env("KEEP", "original").unsetEnv(["RESTORE", "DROP"])
+        let updated = original.env("RESTORE", "value")
+
+        #expect(updated.environmentOverrides == ["KEEP": "original", "RESTORE": "value"])
+        #expect(updated.unsetEnvironmentVariables == ["DROP"])
+        #expect(original.environmentOverrides == ["KEEP": "original"])
+        #expect(original.unsetEnvironmentVariables == ["RESTORE", "DROP"])
+    }
+
     @Test func toolConfigurationAppliesUnsetVariables() async throws {
         let command = ToolConfiguration(context: context).env("X", "1").unsetEnv(["DROP", "X"]).apply(
             to: Command("env")

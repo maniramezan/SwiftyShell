@@ -29,7 +29,7 @@ struct HelmCommandTests {
             #expect(command.stderrDestination == .discard)
             #expect(operation.command().arguments == original.arguments)
             #expect(try await updated.run().stdout == "ok")
-            let process = try await updated.spawn(captureOutput: true)
+            let process = try await updated.spawn()
             #expect(await process.waitForExit().stdout == "ok")
         }
     }

@@ -12,6 +12,12 @@ struct ExecutionOptions: Sendable, Equatable {
     var timeoutOverride: Duration?
     var outputLimitOverride: Int?
 
+    /// Sets one variable directly and clears any earlier removal of that variable.
+    mutating func setEnvironment(_ name: String, _ value: String) {
+        environmentOverrides[name] = value
+        unsetEnvironmentVariables.remove(name)
+    }
+
     /// Sets or replaces environment variables; a variable set here is no longer unset.
     mutating func setEnvironment(_ values: [String: String]) {
         environmentOverrides.merge(values) { _, new in new }

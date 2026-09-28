@@ -8,12 +8,25 @@ private let payloadBytes = 64 * 1024 * 1024
 /// A command that writes `payloadBytes` zero bytes to stdout.
 private let producer = Command("head", arguments: "-c", "\(payloadBytes)", "/dev/zero")
 
-nonisolated(unsafe) let benchmarks: @Sendable () -> Void = {
+let benchmarks: @Sendable () -> Void = {
+    // Metrics reported but never gated. Time is too noisy on shared CI runners to fail a pull request
+    // on, and peak resident memory is inflated by libmalloc's large-allocation cache (see README.md).
+    let reportOnlyThresholds: [BenchmarkMetric: BenchmarkThresholds] = [
+        .wallClock: .none,
+        .cpuTotal: .none,
+        .peakMemoryResident: .none,
+    ]
+
+    // Allocation counts vary by well under 1% between identical runs, so they gate CI. The 64 MiB
+    // benchmarks allocate per read chunk, and chunk sizes depend on scheduling, hence the 2% slack.
     let processConfiguration = Benchmark.Configuration(
         metrics: [.wallClock, .cpuTotal, .mallocCountTotal, .peakMemoryResident],
         warmupIterations: 2,
         maxDuration: .seconds(5),
-        maxIterations: 50
+        maxIterations: 50,
+        thresholds: reportOnlyThresholds.merging([
+            .mallocCountTotal: .init(relative: [.p50: 2.0, .p75: 2.0])
+        ]) { _, gated in gated }
     )
 
     // Per-process overhead: resolve, spawn, capture, and reap a command that does nothing.
@@ -52,10 +65,18 @@ nonisolated(unsafe) let benchmarks: @Sendable () -> Void = {
         }
     }
 
-    // Pure builder cost: no process is spawned.
+    // Pure builder cost: no process is spawned. Its allocation count is deterministic, so any extra
+    // allocation in the median fails CI.
     Benchmark(
         "builder/command-20-args",
-        configuration: .init(metrics: [.wallClock, .mallocCountTotal], maxDuration: .seconds(2))
+        configuration: .init(
+            metrics: [.wallClock, .mallocCountTotal],
+            maxDuration: .seconds(2),
+            thresholds: [
+                .wallClock: .none,
+                .mallocCountTotal: .init(absolute: [.p50: 0, .p75: 0]),
+            ]
+        )
     ) { benchmark in
         for _ in benchmark.scaledIterations {
             var command = Command("tool")

@@ -136,7 +136,9 @@ private struct ResolvedCommand: Sendable {
             workingDirectory: resolvedWorkingDirectory
         )
         self.arguments = command.arguments
-        self.environment = context.environment.merging(command.environmentOverrides) { _, new in new }
+        self.environment = context.environment
+            .merging(command.environmentOverrides) { _, new in new }
+            .filter { !command.unsetEnvironmentVariables.contains($0.key) }
         self.workingDirectory = resolvedWorkingDirectory
         self.timeout = command.timeoutOverride ?? context.defaultTimeout
         let rawLimit = command.outputLimitOverride ?? context.defaultOutputLimit

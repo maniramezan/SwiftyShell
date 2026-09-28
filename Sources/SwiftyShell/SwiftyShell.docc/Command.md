@@ -83,6 +83,8 @@ print(command)  // git commit -m 'it'\''s $HOME'
 
 - ``env(_:_:)``
 - ``env(_:)``
+- ``unsetEnv(_:)-(String...)``
+- ``unsetEnv(_:)-([String])``
 
 ### Constraining Execution
 
@@ -114,6 +116,7 @@ print(command)  // git commit -m 'it'\''s $HOME'
 - ``arguments``
 - ``executableOverride``
 - ``environmentOverrides``
+- ``unsetEnvironmentVariables``
 - ``workingDirectoryOverride``
 - ``timeoutOverride``
 - ``outputLimitOverride``

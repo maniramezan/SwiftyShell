@@ -34,6 +34,11 @@ try await Command("ruby", arguments: "deploy.rb")
     .run(in: context)
 ```
 
+Use ``env(_:_:)`` for a single environment override and ``env(_:)`` for a batch.
+The single-variable form updates the override directly without constructing a temporary
+dictionary. Both return a new command and clear any earlier ``unsetEnv(_:)-(String...)``
+for the variables being set, leaving unrelated removals unchanged.
+
 When you want to redirect output to a file instead of capturing it, use
 ``OutputDestination/file(path:append:)`` on ``stdout(_:)`` and ``stderr(_:)``:
 

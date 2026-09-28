@@ -206,6 +206,7 @@ public struct Command: Sendable {
 
     /// Returns a copy of the command with one environment variable set or replaced.
     ///
+    /// Setting a single variable updates the override directly without constructing a temporary dictionary.
     /// The override is merged onto ``ShellContext/environment`` at execution time. If the same
     /// `name` is supplied to this method multiple times, the last value wins. To remove a
     /// variable from the inherited environment, use ``unsetEnv(_:)-(String...)``; an empty value is not the
@@ -222,7 +223,7 @@ public struct Command: Sendable {
     ///   - value: The value to assign for this command's execution.
     /// - Returns: A new ``Command`` with the environment override applied.
     public func env(_ name: String, _ value: String) -> Self {
-        modified(self) { $0.options.setEnvironment([name: value]) }
+        modified(self) { $0.options.setEnvironment(name, value) }
     }
 
     /// Returns a copy of the command with multiple environment variable overrides merged in.

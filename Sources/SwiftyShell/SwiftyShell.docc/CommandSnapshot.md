@@ -12,9 +12,12 @@ display string:
 do {
     try await Command("swift", arguments: "test", "--filter", "Parser Tests").run(in: context)
 } catch ShellError.exitFailure(let command, let output) {
-    print(command.resolvedExecutable ?? "?")   // /usr/bin/swift
-    print(command.arguments ?? [])             // ["test", "--filter", "Parser Tests"]
-    print(command)                             // /usr/bin/swift test --filter 'Parser Tests'
+    // /usr/bin/swift
+    print(command.resolvedExecutable ?? "?")
+    // ["test", "--filter", "Parser Tests"]
+    print(command.arguments ?? [])
+    // /usr/bin/swift test --filter 'Parser Tests'
+    print(command)
     print(output.exitCode)
 }
 ```

@@ -115,7 +115,7 @@ public struct Swift: RunnableCommandFamily {
     }
 
     /// Returns a copy that selects a top-level Swift subcommand or flag.
-    public func subcommand(_ value: SwiftSubcommand) -> Self { copy(subcommand: value, packageSubcommand: nil) }
+    public func subcommand(_ value: SwiftSubcommand) -> Self { copy(subcommand: value, packageSubcommand: .some(nil)) }
 
     /// Returns a copy that selects a raw top-level Swift subcommand or flag.
     public func subcommand(_ value: String) -> Self { subcommand(.custom(value)) }
@@ -131,7 +131,7 @@ public struct Swift: RunnableCommandFamily {
     /// - Parameter product: Optional executable product name to pass after `swift run` options.
     /// - Returns: A new ``Swift`` value configured for `swift run`.
     public func runProduct(_ product: String? = nil) -> Self {
-        copy(subcommand: .run, packageSubcommand: nil, positionalArguments: product.map { [$0] } ?? [])
+        copy(subcommand: .run, packageSubcommand: .some(nil), positionalArguments: product.map { [$0] } ?? [])
     }
 
     /// Returns a copy that performs a Swift Package Manager operation (`swift package`).

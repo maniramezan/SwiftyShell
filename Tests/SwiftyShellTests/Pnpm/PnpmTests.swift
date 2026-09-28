@@ -3,6 +3,11 @@ import Testing
 @testable import SwiftyShell
 
 struct PnpmCommandTests {
+    @Test func switchingSubcommandClearsScriptName() {
+        #expect(Pnpm().runScript("build").add(["x"]).command().arguments == ["add", "x"])
+        #expect(Pnpm().runScript("build").subcommand("audit").command().arguments == ["audit"])
+    }
+
     @Test func defaultsToVersionCommand() {
         let command = Pnpm().command()
 

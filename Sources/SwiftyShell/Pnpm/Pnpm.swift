@@ -64,10 +64,10 @@ public struct Pnpm: RunnableCommandFamily {
     }
 
     /// Returns a copy that selects a pnpm subcommand.
-    public func subcommand(_ value: PnpmSubcommand) -> Self { copy(subcommand: value.rawValue, scriptName: nil) }
+    public func subcommand(_ value: PnpmSubcommand) -> Self { copy(subcommand: value.rawValue, scriptName: .some(nil)) }
 
     /// Returns a copy that selects a raw pnpm subcommand.
-    public func subcommand(_ value: String) -> Self { copy(subcommand: value, scriptName: nil) }
+    public func subcommand(_ value: String) -> Self { copy(subcommand: value, scriptName: .some(nil)) }
 
     /// Returns a copy configured for `pnpm install`.
     public func install() -> Self { subcommand(.install) }
@@ -76,14 +76,16 @@ public struct Pnpm: RunnableCommandFamily {
     public func add(_ packages: String...) -> Self { add(packages) }
 
     /// Returns a copy configured for `pnpm add <packages>`.
-    public func add(_ packages: [String]) -> Self { copy(subcommand: "add", scriptName: nil, positionals: packages) }
+    public func add(_ packages: [String]) -> Self {
+        copy(subcommand: "add", scriptName: .some(nil), positionals: packages)
+    }
 
     /// Returns a copy configured for `pnpm remove <packages>`.
     public func remove(_ packages: String...) -> Self { remove(packages) }
 
     /// Returns a copy configured for `pnpm remove <packages>`.
     public func remove(_ packages: [String]) -> Self {
-        copy(subcommand: "remove", scriptName: nil, positionals: packages)
+        copy(subcommand: "remove", scriptName: .some(nil), positionals: packages)
     }
 
     /// Returns a copy configured for `pnpm test`.
@@ -91,12 +93,12 @@ public struct Pnpm: RunnableCommandFamily {
 
     /// Returns a copy configured for `pnpm exec <binary>`.
     public func exec(_ binary: String? = nil) -> Self {
-        copy(subcommand: "exec", scriptName: nil, positionals: binary.map { [$0] } ?? [])
+        copy(subcommand: "exec", scriptName: .some(nil), positionals: binary.map { [$0] } ?? [])
     }
 
     /// Returns a copy configured for `pnpm dlx <package>`.
     public func dlx(_ package: String? = nil) -> Self {
-        copy(subcommand: "dlx", scriptName: nil, positionals: package.map { [$0] } ?? [])
+        copy(subcommand: "dlx", scriptName: .some(nil), positionals: package.map { [$0] } ?? [])
     }
 
     /// Returns a copy configured for `pnpm run <name>`.

@@ -63,10 +63,10 @@ public struct Bun: RunnableCommandFamily {
     }
 
     /// Returns a copy that selects a Bun subcommand.
-    public func subcommand(_ value: BunSubcommand) -> Self { copy(subcommand: value.rawValue, scriptName: nil) }
+    public func subcommand(_ value: BunSubcommand) -> Self { copy(subcommand: value.rawValue, scriptName: .some(nil)) }
 
     /// Returns a copy that selects a raw Bun subcommand.
-    public func subcommand(_ value: String) -> Self { copy(subcommand: value, scriptName: nil) }
+    public func subcommand(_ value: String) -> Self { copy(subcommand: value, scriptName: .some(nil)) }
 
     /// Returns a copy configured for `bun install`.
     public func install() -> Self { subcommand(.install) }
@@ -75,14 +75,16 @@ public struct Bun: RunnableCommandFamily {
     public func add(_ packages: String...) -> Self { add(packages) }
 
     /// Returns a copy configured for `bun add <packages>`.
-    public func add(_ packages: [String]) -> Self { copy(subcommand: "add", scriptName: nil, positionals: packages) }
+    public func add(_ packages: [String]) -> Self {
+        copy(subcommand: "add", scriptName: .some(nil), positionals: packages)
+    }
 
     /// Returns a copy configured for `bun remove <packages>`.
     public func remove(_ packages: String...) -> Self { remove(packages) }
 
     /// Returns a copy configured for `bun remove <packages>`.
     public func remove(_ packages: [String]) -> Self {
-        copy(subcommand: "remove", scriptName: nil, positionals: packages)
+        copy(subcommand: "remove", scriptName: .some(nil), positionals: packages)
     }
 
     /// Returns a copy configured for `bun test`.
@@ -93,12 +95,12 @@ public struct Bun: RunnableCommandFamily {
 
     /// Returns a copy configured for `bun build <entrypoints>`.
     public func build(_ entrypoints: [String]) -> Self {
-        copy(subcommand: "build", scriptName: nil, buildEntrypoints: entrypoints, positionals: [])
+        copy(subcommand: "build", scriptName: .some(nil), buildEntrypoints: entrypoints, positionals: [])
     }
 
     /// Returns a copy configured for `bun x <binary>`.
     public func x(_ binary: String? = nil) -> Self {
-        copy(subcommand: "x", scriptName: nil, positionals: binary.map { [$0] } ?? [])
+        copy(subcommand: "x", scriptName: .some(nil), positionals: binary.map { [$0] } ?? [])
     }
 
     /// Returns a copy configured for `bun run <name>`.

@@ -3,6 +3,11 @@ import Testing
 @testable import SwiftyShell
 
 struct NpmCommandTests {
+    @Test func switchingSubcommandClearsScriptName() {
+        #expect(Npm().runScript("build").subcommand(.install).command().arguments == ["install"])
+        #expect(Npm().runScript("build").exec("vite").command().arguments == ["exec", "vite"])
+    }
+
     @Test func defaultsToVersionCommand() {
         let command = Npm().command()
 

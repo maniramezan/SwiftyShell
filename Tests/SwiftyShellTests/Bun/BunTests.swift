@@ -3,6 +3,11 @@ import Testing
 @testable import SwiftyShell
 
 struct BunCommandTests {
+    @Test func switchingSubcommandClearsScriptName() {
+        #expect(Bun().runScript("build").add(["x"]).command().arguments == ["add", "x"])
+        #expect(Bun().runScript("build").subcommand("test").command().arguments == ["test"])
+    }
+
     @Test func defaultsToVersionCommand() {
         let command = Bun().command()
 

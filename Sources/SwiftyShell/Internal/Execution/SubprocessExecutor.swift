@@ -823,9 +823,11 @@ private func routeSpawnStream(
             try store?.append(data, to: stream)
             try writeTee(data, to: target)
         case let .log(_, _, tailBytes, tee):
+            // Update the retained tail before the file, so the tail is never behind the log: anyone
+            // who observes bytes in the log file is then guaranteed to find them in the tail too.
+            try store?.appendTail(data, to: stream, capacity: tailBytes)
             try fileHandle?.write(contentsOf: data)
             if let tee { try writeTee(data, to: tee) }
-            try store?.appendTail(data, to: stream, capacity: tailBytes)
         case .file:
             try fileHandle?.write(contentsOf: data)
         case .discard:
@@ -884,9 +886,10 @@ private func captureStream(
         let data = Data(buffer: buffer)
         switch destination {
         case let .log(_, _, tailBytes, tee):
+            // Keep the retained tail ahead of the log, matching `captureStream`.
+            try store.appendTail(data, to: stream, capacity: tailBytes)
             try fileHandle?.write(contentsOf: data)
             if let tee { try writeTee(data, to: tee) }
-            try store.appendTail(data, to: stream, capacity: tailBytes)
         default:
             try store.append(data, to: stream)
             if destination == .tee { try writeTee(data, to: stream) }

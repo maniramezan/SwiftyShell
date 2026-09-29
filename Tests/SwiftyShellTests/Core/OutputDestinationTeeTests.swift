@@ -14,6 +14,11 @@ import Glibc
 ///
 /// Used to observe the live writes that ``OutputDestination/tee`` makes to the parent process's
 /// standard output and standard error without polluting the test runner's own output.
+///
+/// The redirect is process-wide, so it also swallows anything the rest of the (parallel) test suite
+/// prints while the window is open. Every captured byte is therefore replayed to the restored
+/// descriptor before the window closes. Without that replay, these tests would silently discard most
+/// of the runner's output — including the details of any failure recorded elsewhere in the run.
 private func capturingStandardStreams(
     _ fileDescriptors: [Int32],
     during body: () async -> Void
@@ -39,10 +44,17 @@ private func capturingStandardStreams(
     fflush(nil)
     var results: [Int32: String] = [:]
     for entry in entries {
+        // Restore the descriptor before reading the file, so a concurrent writer is never left
+        // writing into a descriptor this helper is about to close.
         dup2(entry.saved, entry.fileDescriptor)
+        let captured = (try? Data(contentsOf: entry.url)) ?? Data()
+        if !captured.isEmpty {
+            let replay = FileHandle(fileDescriptor: entry.saved, closeOnDealloc: false)
+            try? replay.write(contentsOf: captured)
+        }
         close(entry.saved)
         try? entry.handle.close()
-        results[entry.fileDescriptor] = (try? String(contentsOf: entry.url, encoding: .utf8)) ?? ""
+        results[entry.fileDescriptor] = String(decoding: captured, as: UTF8.self)
         try? FileManager.default.removeItem(at: entry.url)
     }
     return results

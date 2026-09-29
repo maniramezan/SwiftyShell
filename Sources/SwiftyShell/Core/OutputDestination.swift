@@ -105,8 +105,11 @@ public enum OutputDestination: Sendable, Equatable {
     ///
     /// Unlike the hard output limit, filling this tail does not terminate the command. Retained
     /// bytes still count toward the shared command output limit. A tail may start within a UTF-8
-    /// character; use raw `ShellOutput` data for exact bytes. For spawned processes, the tail is
+    /// character; use raw ``ShellOutput`` data for exact bytes. For spawned processes, the tail is
     /// retained only with `spawn(captureOutput: true)`.
+    ///
+    /// The tail is updated before the log file is written, so once a byte appears in the log the
+    /// tail is guaranteed to already contain it.
     ///
     /// - Parameters:
     ///   - path: Log path, resolved against the command's working directory.

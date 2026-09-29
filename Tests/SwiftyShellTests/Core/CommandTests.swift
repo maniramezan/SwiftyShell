@@ -572,11 +572,16 @@ struct CommandTests {
                 .run(in: context)
             Issue.record("Expected timeout")
         } catch let error as ShellError {
-            guard case .timeout = error else {
+            guard case let .timeout(_, duration, _) = error else {
                 Issue.record("Unexpected error: \(error)")
                 return
             }
-            #expect(Date().timeIntervalSince(started) < 3.0)
+            // The command-level timeout governs, not the context's 10 seconds. Asserting the
+            // reported duration keeps the test deterministic instead of depending on how quickly a
+            // loaded runner happens to get back to this task; the elapsed-time check below only
+            // guards against the timeout not firing at all.
+            #expect(duration == .milliseconds(200))
+            #expect(Date().timeIntervalSince(started) < 5.0)
         }
     }
 }

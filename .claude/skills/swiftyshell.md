@@ -224,6 +224,24 @@ public extension RunnableCommandFamily {
 }
 ```
 
+#### Detached processes
+
+```swift
+let pid = try await Command("emulator", arguments: "-avd", "Pixel")
+    .stdout(.file(path: "/tmp/emulator.log", append: true))
+    .stderr(.file(path: "/tmp/emulator.log", append: true))
+    .spawnDetached()
+```
+
+`Command.spawnDetached(in:)` and `RunnableCommandFamily.spawnDetached()` return the PID of a new
+session and process group; the caller owns eventual shutdown. The built-in executor uses
+swift-subprocess with direct file descriptors and reaps the child while the launcher is alive;
+the OS adopts it after launcher exit. Default output is discarded. Only empty/file stdin and
+file/discard output are supported. Timeouts (including context defaults), nonzero output limits,
+tee/log routes, and in-memory stdin are rejected. `CommandExecutor.spawnDetached(_:in:)` defaults
+to an unsupported-configuration error for custom executors. `MockExecutor` validates and records
+the normalized command, calls its handler, and returns synthetic PID `1` without launching.
+
 #### OutputDestination
 
 ```swift

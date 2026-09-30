@@ -231,6 +231,18 @@ public struct MockExecutor: CommandExecutor {
         )
     }
 
+    /// Records a detached launch without starting a process or writing files.
+    ///
+    /// Applies detached configuration validation, invokes the handler, and returns the synthetic
+    /// PID `1`. The stub's exit code describes eventual exit and does not make startup fail.
+    public func spawnDetached(_ command: Command, in context: ShellContext) async throws -> Int32 {
+        let command = try command.detachedCommand(in: context)
+        try validateConfiguration(for: command, in: context)
+        log.append(command)
+        _ = try await handler(command, context)
+        return 1
+    }
+
     private func retainingLogTails(
         _ output: ShellOutput,
         for command: Command,

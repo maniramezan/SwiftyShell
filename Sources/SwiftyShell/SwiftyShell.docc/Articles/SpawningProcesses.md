@@ -62,6 +62,32 @@ for await chunk in build.standardOutput {
 let output = await build.waitForExit()
 ```
 
+## Processes That Outlive the Launcher
+
+Use ``Command/spawnDetached(in:)`` for an independently owned emulator or service:
+
+```swift
+let pid = try await Command("emulator", arguments: "-avd", "Pixel")
+    .stdout(.file(path: "/tmp/emulator.log", append: true))
+    .stderr(.file(path: "/tmp/emulator.log", append: true))
+    .spawnDetached()
+```
+
+The returned PID also identifies a new session and process group. The caller owns eventual
+shutdown. The child has no controlling terminal and survives launcher exit; file output goes
+directly to the child, so logging continues after the launcher exits. Swift-subprocess reaps the
+child while the launcher is alive, and the OS adopts it after the launcher exits.
+
+The default output is discarded. Only `.file` and `.discard` output are supported; `.capture`
+is normalized to `.discard`. Stdin can be `.none` or `.file`. Timeouts, nonzero output limits,
+tee/log routes, and in-memory stdin are rejected because they require a live supervising caller.
+Use ordinary `spawn()` when you need streams, a final result, or managed teardown.
+
+Typed ``RunnableCommandFamily`` builders also expose `spawnDetached()`. ``MockExecutor`` records
+the normalized command and returns the synthetic PID `1` without launching a process. Custom
+executors must implement ``CommandExecutor/spawnDetached(_:in:)`` explicitly; its default
+implementation reports unsupported configuration.
+
 ## Choose a Teardown Strategy
 
 ``TeardownStrategy/graceful`` is the default. It sends `SIGTERM`, waits five

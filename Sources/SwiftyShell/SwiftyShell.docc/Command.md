@@ -112,6 +112,7 @@ print(command)  // git commit -m 'it'\''s $HOME'
 - ``spawn(in:teardown:)``
 - ``spawn(captureOutput:in:teardown:)``
 - ``spawnRetainsOutput``
+- ``spawnDetached(in:)``
 
 ### Piping
 

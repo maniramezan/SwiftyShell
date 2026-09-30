@@ -111,6 +111,61 @@ public struct SubprocessExecutor: CommandExecutor {
         let resolved = try ResolvedCommand(command: command, context: context)
         return try await SpawnedCommandRunner(resolved: resolved, teardown: teardown).spawn()
     }
+    /// Starts an independent session with direct file descriptors, returning once launch succeeds.
+    ///
+    /// See ``Command/spawnDetached(in:)`` for supported configuration and ownership semantics.
+    public func spawnDetached(_ command: Command, in context: ShellContext) async throws -> Int32 {
+        try Task.checkCancellation()
+        let resolved = try ResolvedCommand(command: command.detachedCommand(in: context), context: context)
+        let state = SubprocessSpawnedProcessState(teardown: .immediate)
+        // The background run only reaps the child. It owns no output pipes and is never cancelled
+        // by the caller, so application exit leaves the independent session and its files intact.
+        Task {
+            do {
+                let inputPath: String
+                if case let .file(path) = resolved.stdinSource { inputPath = path } else { inputPath = "/dev/null" }
+                let input = try FileHandle(forReadingFrom: URL(fileURLWithPath: inputPath))
+                defer { try? input.close() }
+                let output =
+                    try openFileHandleIfNeeded(for: resolved.stdoutDestination)
+                    ?? FileHandle(forWritingTo: URL(fileURLWithPath: "/dev/null"))
+                defer { try? output.close() }
+                let error =
+                    try openFileHandleIfNeeded(for: resolved.stderrDestination)
+                    ?? FileHandle(forWritingTo: URL(fileURLWithPath: "/dev/null"))
+                defer { try? error.close() }
+                var configuration = resolved.configuration
+                configuration.platformOptions.processGroupID = nil
+                configuration.platformOptions.createSession = true
+                _ = try await Subprocess.run(
+                    configuration,
+                    input: .fileDescriptor(
+                        FileDescriptor(rawValue: input.fileDescriptor),
+                        closeAfterSpawningProcess: false
+                    ),
+                    output: .fileDescriptor(
+                        FileDescriptor(rawValue: output.fileDescriptor),
+                        closeAfterSpawningProcess: false
+                    ),
+                    error: .fileDescriptor(
+                        FileDescriptor(rawValue: error.fileDescriptor),
+                        closeAfterSpawningProcess: false
+                    )
+                ) { execution in
+                    await state.setExecution(SpawnedExecution(execution))
+                }
+            } catch let error as SubprocessError {
+                await state.failStartupIfNeeded(
+                    mapSubprocessError(error, command: resolved.snapshot, limit: resolved.outputLimit)
+                )
+            } catch {
+                await state.failStartupIfNeeded(
+                    ShellError.spawnError(command: resolved.snapshot, reason: String(describing: error))
+                )
+            }
+        }
+        return try await state.waitForExecution().processIdentifier
+    }
 }
 
 private struct ResolvedCommand: Sendable {

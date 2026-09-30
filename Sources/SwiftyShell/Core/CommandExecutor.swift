@@ -34,6 +34,15 @@ import Foundation
 ///
 /// The default executor is ``SubprocessExecutor``.
 public protocol CommandExecutor: Sendable {
+    /// Starts a command in a new session that may outlive the calling application.
+    ///
+    /// - Parameters:
+    ///   - command: The command, using empty or file stdin and file or discarded output.
+    ///   - context: Environment, search paths, and working-directory defaults.
+    /// - Returns: The process identifier, also the new process-group identifier.
+    /// - Throws: ``ShellError`` for unsupported execution, invalid configuration, or launch failure.
+    func spawnDetached(_ command: Command, in context: ShellContext) async throws -> Int32
+
     /// Executes a single command in the given shell context and returns its captured output.
     ///
     /// Conformers are responsible for resolving the executable against
@@ -79,4 +88,11 @@ public protocol CommandExecutor: Sendable {
         in context: ShellContext,
         teardown: TeardownStrategy
     ) async throws -> any SpawnedProcess
+}
+
+public extension CommandExecutor {
+    /// Rejects detached execution unless the custom executor implements it explicitly.
+    func spawnDetached(_ command: Command, in context: ShellContext) async throws -> Int32 {
+        throw ShellError.invalidConfiguration(description: "This executor does not support detached processes")
+    }
 }

@@ -138,21 +138,21 @@ struct PipelineTests {
         defer { try? FileManager.default.removeItem(atPath: marker) }
 
         let task = Task {
-            // The timeout clock starts when `run` is called, so it must cover process startup on a
-            // slow runner; a 1-second timeout could fire before `start` was written.
-            try await Command("/bin/sh", arguments: "-c", "printf 'start'; exec sleep 30")
-                .timeout(.seconds(3))
+            // The timeout includes startup of both stages. Coverage runners can take more than
+            // three seconds to launch them, so allow ten seconds before enforcing termination.
+            try await Command("/bin/sh", arguments: "-c", "printf 'start\n'; exec sleep 60")
+                .timeout(.seconds(10))
                 .pipe(
                     to: Command(
                         "/bin/sh",
                         arguments: "-c",
-                        "chunk=$(dd bs=5 count=1 2>/dev/null); printf '%s' \"$chunk\"; touch '\(marker)'; exec sleep 30"
+                        "IFS= read -r chunk; printf '%s' \"$chunk\"; touch '\(marker)'; exec sleep 60"
                     )
                 )
                 .run(in: ShellContext())
         }
 
-        try await waitForFile(at: marker)
+        try await waitForFile(at: marker, timeout: .seconds(15))
 
         do {
             _ = try await task.value

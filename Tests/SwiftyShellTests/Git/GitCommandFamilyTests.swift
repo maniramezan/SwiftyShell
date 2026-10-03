@@ -1,5 +1,6 @@
 #if Git
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -555,8 +556,9 @@ struct GitCommandFamilyTests {
     }
 
     @Test func readsGitConfigFromRepository() async throws {
-        let repoURL = try makeTemporaryDirectoryForGitCommandTests()
-        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let repoDirectory = try TemporaryDirectory()
+        defer { try? repoDirectory.remove() }
+        let repoURL = repoDirectory.url
 
         let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
@@ -580,8 +582,9 @@ struct GitCommandFamilyTests {
     }
 
     @Test func readsGitLogWithOnelineFormat() async throws {
-        let repoURL = try makeTemporaryDirectoryForGitCommandTests()
-        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let repoDirectory = try TemporaryDirectory()
+        defer { try? repoDirectory.remove() }
+        let repoURL = repoDirectory.url
 
         let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
@@ -607,8 +610,9 @@ struct GitCommandFamilyTests {
     }
 
     @Test func parsesTypedBranchEntriesFromRepository() async throws {
-        let repoURL = try makeTemporaryDirectoryForGitCommandTests()
-        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let repoDirectory = try TemporaryDirectory()
+        defer { try? repoDirectory.remove() }
+        let repoURL = repoDirectory.url
 
         let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
@@ -653,8 +657,9 @@ struct GitCommandFamilyTests {
     }
 
     @Test func parsesTypedLogEntriesFromRepository() async throws {
-        let repoURL = try makeTemporaryDirectoryForGitCommandTests()
-        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let repoDirectory = try TemporaryDirectory()
+        defer { try? repoDirectory.remove() }
+        let repoURL = repoDirectory.url
 
         let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
@@ -700,8 +705,9 @@ struct GitCommandFamilyTests {
     }
 
     @Test func parsesTypedDiffFileChangesFromRepository() async throws {
-        let repoURL = try makeTemporaryDirectoryForGitCommandTests()
-        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let repoDirectory = try TemporaryDirectory()
+        defer { try? repoDirectory.remove() }
+        let repoURL = repoDirectory.url
 
         let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
@@ -728,8 +734,9 @@ struct GitCommandFamilyTests {
     }
 
     @Test func typedDiffPreservesUnusualRenamePaths() async throws {
-        let repoURL = try makeTemporaryDirectoryForGitCommandTests()
-        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let repoDirectory = try TemporaryDirectory()
+        defer { try? repoDirectory.remove() }
+        let repoURL = repoDirectory.url
         let context = ShellContext.isolatedGit()
         try await initializeRepository(at: repoURL, context: context)
 
@@ -774,10 +781,12 @@ struct GitCommandFamilyTests {
     }
 
     @Test func parsesTypedSubmoduleStatusEntriesFromRepository() async throws {
-        let parentURL = try makeTemporaryDirectoryForGitCommandTests()
-        let childURL = try makeTemporaryDirectoryForGitCommandTests()
-        defer { try? FileManager.default.removeItem(at: parentURL) }
-        defer { try? FileManager.default.removeItem(at: childURL) }
+        let parentDirectory = try TemporaryDirectory()
+        defer { try? parentDirectory.remove() }
+        let childDirectory = try TemporaryDirectory()
+        defer { try? childDirectory.remove() }
+        let parentURL = parentDirectory.url
+        let childURL = childDirectory.url
 
         let context = ShellContext.isolatedGit()
         try await initializeRepository(at: childURL, context: context)
@@ -884,12 +893,6 @@ private actor GitCommandRecorder {
     func snapshot() -> [Command] {
         commands
     }
-}
-
-private func makeTemporaryDirectoryForGitCommandTests() throws -> URL {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-    return url
 }
 
 private func initializeRepository(at url: URL, context: ShellContext) async throws {

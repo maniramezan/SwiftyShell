@@ -1,5 +1,6 @@
 #if Git
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -200,8 +201,9 @@ struct GitTests {
     }
 
     @Test func gitStatusDetectsDirtyRepo() async throws {
-        let repoURL = try makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let repoDirectory = try TemporaryDirectory()
+        defer { try? repoDirectory.remove() }
+        let repoURL = repoDirectory.url
 
         let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
@@ -218,8 +220,9 @@ struct GitTests {
     }
 
     @Test func gitRequireAcceptsCleanRepo() async throws {
-        let repoURL = try makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let repoDirectory = try TemporaryDirectory()
+        defer { try? repoDirectory.remove() }
+        let repoURL = repoDirectory.url
 
         let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
@@ -234,8 +237,9 @@ struct GitTests {
     }
 
     @Test func gitStatusDetectsStagedChanges() async throws {
-        let repoURL = try makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let repoDirectory = try TemporaryDirectory()
+        defer { try? repoDirectory.remove() }
+        let repoURL = repoDirectory.url
 
         let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
@@ -259,8 +263,9 @@ struct GitTests {
     }
 
     @Test func gitStatusDetectsUnstagedChanges() async throws {
-        let repoURL = try makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let repoDirectory = try TemporaryDirectory()
+        defer { try? repoDirectory.remove() }
+        let repoURL = repoDirectory.url
 
         let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
@@ -291,8 +296,9 @@ struct GitTests {
     }
 
     @Test func gitRequireFailsOnDirtyRepo() async throws {
-        let repoURL = try makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let repoDirectory = try TemporaryDirectory()
+        defer { try? repoDirectory.remove() }
+        let repoURL = repoDirectory.url
 
         let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "main").workingDirectory(repoURL.path).run(in: context)
@@ -314,8 +320,9 @@ struct GitTests {
     }
 
     @Test func gitStatusReportsBranchName() async throws {
-        let repoURL = try makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: repoURL) }
+        let repoDirectory = try TemporaryDirectory()
+        defer { try? repoDirectory.remove() }
+        let repoURL = repoDirectory.url
 
         let context = ShellContext.isolatedGit()
         _ = try await Command("git", arguments: "init", "-b", "feature-branch").workingDirectory(repoURL.path).run(
@@ -331,9 +338,4 @@ struct GitTests {
     }
 }
 
-private func makeTemporaryDirectory() throws -> URL {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-    return url
-}
 #endif

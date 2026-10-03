@@ -1,5 +1,6 @@
 #if Find
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -44,8 +45,9 @@ struct FindCommandTests {
     }
 
     @Test func findsSpecialPathsWithoutShellInterpretation() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let root = directory.appendingPathComponent("-root with spaces", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -63,8 +65,9 @@ struct FindCommandTests {
     }
 
     @Test func emitsNullDelimitedOutput() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let file = directory.appendingPathComponent("line\nbreak.txt")
         try "test".write(to: file, atomically: true, encoding: .utf8)

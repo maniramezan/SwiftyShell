@@ -1,5 +1,6 @@
 #if Ln
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -29,8 +30,9 @@ struct LnTests {
     }
 
     @Test func createsHardAndSymbolicLinks() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let source = directory.appendingPathComponent("source")
         let hardLink = directory.appendingPathComponent("hard")

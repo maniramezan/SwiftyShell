@@ -1,4 +1,5 @@
 import Foundation
+import TestCommons
 import Testing
 
 #if canImport(Darwin)
@@ -37,15 +38,14 @@ func processIsRunning(_ processIdentifier: Int32) -> Bool {
 /// Polls until `processIdentifier` has exited (or become a zombie), recording an issue and throwing
 /// ``ProcessExitTimeout`` if it is still running after `timeout`.
 func waitForProcessExit(processIdentifier: Int32, timeout: Duration = .seconds(12)) async throws {
-    let clock = ContinuousClock()
-    let deadline = clock.now + timeout
-    while clock.now < deadline {
-        if !processIsRunning(processIdentifier) {
-            return
-        }
-        try await Task.sleep(for: .milliseconds(10))
+    do {
+        _ = try await waitUntil(
+            timeout: timeout,
+            operation: { processIsRunning(processIdentifier) },
+            matching: { !$0 }
+        )
+    } catch is ObservationTimeout<Bool> {
+        Issue.record("Timed out waiting for process exit for pid \(processIdentifier)")
+        throw ProcessExitTimeout()
     }
-
-    Issue.record("Timed out waiting for process exit for pid \(processIdentifier)")
-    throw ProcessExitTimeout()
 }

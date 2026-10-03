@@ -1,5 +1,6 @@
 #if Pwd
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -20,8 +21,9 @@ struct PwdCommandTests {
     }
 
     @Test func printsWorkingDirectory() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let output = try await Pwd()
             .workingDirectory(directory.path)

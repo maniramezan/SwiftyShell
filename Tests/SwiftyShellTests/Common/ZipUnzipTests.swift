@@ -1,12 +1,14 @@
 #if Zip && Unzip
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
 struct ZipUnzipRoundTripTests {
     @Test func entriesRoundTripThroughRealZipAndUnzip() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let firstName = "first.txt"
         let secondName = "second.txt"

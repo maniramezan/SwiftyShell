@@ -1,5 +1,6 @@
 #if Mv
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -16,8 +17,9 @@ struct MvCommandTests {
     }
 
     @Test func movesFile() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let source = directory.appendingPathComponent("before.txt")
         let destination = directory.appendingPathComponent("after.txt")

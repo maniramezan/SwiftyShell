@@ -1,5 +1,6 @@
 #if Rm
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -16,7 +17,9 @@ struct RmCommandTests {
     }
 
     @Test func removesDirectories() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
         let nested = directory.appendingPathComponent("inner", isDirectory: true)
         try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
         try "gone".write(to: nested.appendingPathComponent("file.txt"), atomically: true, encoding: .utf8)

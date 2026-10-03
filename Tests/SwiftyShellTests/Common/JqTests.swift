@@ -1,5 +1,6 @@
 #if Jq
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -24,8 +25,9 @@ struct JqCommandTests {
             return
         }
 
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let input = directory.appendingPathComponent("input.json")
         try #"{"name":"SwiftyShell"}"#.write(to: input, atomically: true, encoding: .utf8)

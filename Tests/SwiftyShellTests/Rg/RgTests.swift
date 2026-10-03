@@ -1,5 +1,6 @@
 #if Rg
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -374,14 +375,10 @@ struct RgTests {
     }
 
     @Test func runsRecursiveSearch() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
-            UUID().uuidString,
-            isDirectory: true
-        )
-        let subdir = directory.appendingPathComponent("sub", isDirectory: true)
-        try FileManager.default.createDirectory(at: subdir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        try "hello world".write(to: subdir.appendingPathComponent("file.txt"), atomically: true, encoding: .utf8)
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
+        _ = try scratch.write(Data("hello world".utf8), named: "sub/file.txt")
         let output = try await Rg("hello").fixedStrings().noConfig().path(directory.path).run()
         #expect(output.stdout.contains("hello world"))
         #expect(output.exitCode == 0)
@@ -412,14 +409,11 @@ struct RgTests {
     }
 
     @Test func runsGlobFilter() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
-            UUID().uuidString,
-            isDirectory: true
-        )
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        try "needle".write(to: directory.appendingPathComponent("file.swift"), atomically: true, encoding: .utf8)
-        try "needle".write(to: directory.appendingPathComponent("file.txt"), atomically: true, encoding: .utf8)
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
+        _ = try scratch.write(Data("needle".utf8), named: "file.swift")
+        _ = try scratch.write(Data("needle".utf8), named: "file.txt")
         let output = try await Rg("needle").fixedStrings().glob("*.swift").noConfig().path(directory.path).run()
         #expect(output.stdout.contains("needle"))
         #expect(!output.stdout.contains("file.txt"))
@@ -427,18 +421,11 @@ struct RgTests {
     }
 
     @Test func runsFilesWithMatchesSearch() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
-            UUID().uuidString,
-            isDirectory: true
-        )
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        try "needle here".write(to: directory.appendingPathComponent("has-it.txt"), atomically: true, encoding: .utf8)
-        try "nothing here".write(
-            to: directory.appendingPathComponent("no-match.txt"),
-            atomically: true,
-            encoding: .utf8
-        )
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
+        _ = try scratch.write(Data("needle here".utf8), named: "has-it.txt")
+        _ = try scratch.write(Data("nothing here".utf8), named: "no-match.txt")
         let output = try await Rg("needle").fixedStrings().filesWithMatches().noConfig().path(directory.path).run()
         #expect(output.stdout.contains("has-it.txt"))
         #expect(!output.stdout.contains("no-match.txt"))
@@ -463,14 +450,7 @@ struct RgTests {
     }
 
     private func makeTemporaryFile(contents: String) throws -> URL {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
-            UUID().uuidString,
-            isDirectory: true
-        )
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let fileURL = directory.appendingPathComponent("input.txt")
-        try contents.write(to: fileURL, atomically: true, encoding: .utf8)
-        return fileURL
+        try TemporaryDirectory().write(Data(contents.utf8), named: "input.txt")
     }
 }
 

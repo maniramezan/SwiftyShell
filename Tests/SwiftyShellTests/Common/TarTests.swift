@@ -1,5 +1,6 @@
 #if Tar
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -142,8 +143,9 @@ struct TarCommandTests {
     }
 
     @Test func createsAndExtractsArchiveOnDisk() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let source = directory.appendingPathComponent("source", isDirectory: true)
         let destination = directory.appendingPathComponent("destination", isDirectory: true)
@@ -180,8 +182,9 @@ struct TarCommandTests {
     }
 
     @Test func listsArchiveEntriesOnDisk() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let inputName = "listed.txt"
         let input = directory.appendingPathComponent(inputName)

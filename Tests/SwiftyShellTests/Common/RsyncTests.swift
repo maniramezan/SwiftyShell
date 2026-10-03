@@ -1,5 +1,6 @@
 #if Rsync
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -165,8 +166,9 @@ struct RsyncCommandTests {
     }
 
     @Test func copiesDirectoryContentsOnDisk() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let source = directory.appendingPathComponent("source", isDirectory: true)
         let destination = directory.appendingPathComponent("destination", isDirectory: true)
@@ -192,8 +194,9 @@ struct RsyncCommandTests {
     }
 
     @Test func dryRunDoesNotCopyFilesOnDisk() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let source = directory.appendingPathComponent("source", isDirectory: true)
         let destination = directory.appendingPathComponent("destination", isDirectory: true)

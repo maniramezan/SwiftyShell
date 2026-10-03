@@ -1,4 +1,5 @@
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -59,10 +60,10 @@ struct DetachedProcessTests {
 
     /// Integration: the real child leads a new session and writes through direct file descriptors.
     @Test func newSessionHonorsFilesEnvironmentAndWorkingDirectory() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        try Data("input\n".utf8).write(to: directory.appendingPathComponent("input"))
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
+        _ = try scratch.write(Data("input\n".utf8), named: "input")
         let command = Command(
             "/bin/sh",
             arguments: "-c",

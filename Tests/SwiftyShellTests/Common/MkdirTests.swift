@@ -1,5 +1,6 @@
 #if Mkdir
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -25,8 +26,9 @@ struct MkdirCommandTests {
     }
 
     @Test func createsDirectories() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let nested = directory.appendingPathComponent("a/b/c", isDirectory: true)
         let output = try await Mkdir()

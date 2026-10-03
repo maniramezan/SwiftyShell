@@ -1,5 +1,6 @@
 #if Cp
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -17,8 +18,9 @@ struct CpCommandTests {
     }
 
     @Test func copiesFile() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let source = directory.appendingPathComponent("source.txt")
         let destination = directory.appendingPathComponent("destination.txt")

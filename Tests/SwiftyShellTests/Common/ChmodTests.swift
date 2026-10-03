@@ -1,5 +1,6 @@
 #if Chmod
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -25,8 +26,9 @@ struct ChmodCommandTests {
     }
 
     @Test func updatesPermissions() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let file = directory.appendingPathComponent("example.txt")
         #expect(FileManager.default.createFile(atPath: file.path, contents: Data()))

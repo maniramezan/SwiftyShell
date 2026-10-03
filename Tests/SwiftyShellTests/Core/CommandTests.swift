@@ -1,4 +1,5 @@
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -421,10 +422,9 @@ struct CommandTests {
     }
 
     @Test func resolvesRelativeExecutableAndOutputAgainstWorkingDirectory() async throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("swiftyshell-relative-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let executable = directory.appendingPathComponent("tool.sh")
         try "#!/bin/sh\nprintf relative".write(to: executable, atomically: true, encoding: .utf8)
@@ -507,10 +507,9 @@ struct CommandTests {
     }
 
     @Test func directoryPathIsNotAnExecutable() async throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("swiftyshell-dir-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         do {
             _ = try await Command(directory.path).run(in: ShellContext())
@@ -524,13 +523,13 @@ struct CommandTests {
     }
 
     @Test func searchPathSkipsDirectoryNamedLikeTheCommand() async throws {
-        let shadowingRoot = FileManager.default.temporaryDirectory
-            .appendingPathComponent("swiftyshell-shadow-\(UUID().uuidString)", isDirectory: true)
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let shadowingRoot = scratch.url
         try FileManager.default.createDirectory(
             at: shadowingRoot.appendingPathComponent("echo", isDirectory: true),
             withIntermediateDirectories: true
         )
-        defer { try? FileManager.default.removeItem(at: shadowingRoot) }
 
         let context = ShellContext(searchPaths: [shadowingRoot.path, "/bin"])
         let output = try await Command("echo", arguments: "resolved").run(in: context)

@@ -1,5 +1,6 @@
 #if Zip
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -118,8 +119,9 @@ struct ZipCommandTests {
     }
 
     @Test func createsArchiveOnDisk() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let inputName = "hello.txt"
         let input = directory.appendingPathComponent(inputName)

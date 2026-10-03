@@ -1,5 +1,6 @@
 #if Ls
 import Foundation
+import TestCommons
 import Testing
 @testable import SwiftyShell
 
@@ -19,8 +20,9 @@ struct LsCommandTests {
     }
 
     @Test func listsDirectoryContents() async throws {
-        let directory = try CommonTestSupport.makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
 
         let fileURL = directory.appendingPathComponent("note.txt")
         try "hello".write(to: fileURL, atomically: true, encoding: .utf8)

@@ -88,6 +88,8 @@ let package = Package(
             from: "1.0.0",
             traits: [.defaults, "SubprocessFoundation"]
         ),
+        // Shared, testing-framework-free helpers used only by the test target.
+        .package(url: "https://github.com/maniramezan/SwiftTestCommons.git", from: "0.1.0"),
     ],
     targets: [
         .target(
@@ -99,7 +101,10 @@ let package = Package(
         ),
         .testTarget(
             name: "SwiftyShellTests",
-            dependencies: ["SwiftyShell"]
+            dependencies: [
+                "SwiftyShell",
+                .product(name: "TestCommons", package: "SwiftTestCommons"),
+            ]
         ),
     ],
     swiftLanguageModes: [.v6]

@@ -35,7 +35,7 @@ jobs:
           set -euo pipefail
 
           pull_requests=$(gh api --paginate --slurp "repos/$GH_REPO/pulls?state=open&base=$DEFAULT_BRANCH&per_page=100" \
-            --jq 'add | .[] | select(.user.login == "dependabot[bot]") | .number')
+            | jq -r 'add | .[] | select(.user.login == "dependabot[bot]") | .number')
 
           for number in $pull_requests; do
             pull_request=$(gh api "repos/$GH_REPO/pulls/$number")
@@ -47,7 +47,7 @@ jobs:
 
             head_sha=$(jq -r '.head.sha' <<< "$pull_request")
             workflow_runs=$(gh api --paginate --slurp "repos/$GH_REPO/actions/runs?head_sha=$head_sha&event=pull_request&per_page=100" \
-              --jq '[.[].workflow_runs[]] | sort_by(.id) | group_by(.workflow_id) | map(max_by(.id))')
+              | jq -r '[.[].workflow_runs[]] | sort_by(.id) | group_by(.workflow_id) | map(max_by(.id))')
             if ! jq -e --argjson required "$REQUIRED_WORKFLOWS" \
               'length > 0 and all(.[]; .status == "completed" and .conclusion == "success") and ([.[].name] as $finished | all($required[]; . as $name | $finished | index($name) != null))' \
               <<< "$workflow_runs" > /dev/null; then
@@ -64,7 +64,7 @@ jobs:
             fi
 
             reviews=$(gh api --paginate --slurp "repos/$GH_REPO/pulls/$number/reviews?per_page=100" \
-              --jq '[.[][] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")] | sort_by(.id) | group_by(.user.login) | map(max_by(.id))')
+              | jq -r '[.[][] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")] | sort_by(.id) | group_by(.user.login) | map(max_by(.id))')
             if jq -e 'any(.[]; .state == "CHANGES_REQUESTED")' <<< "$reviews" > /dev/null; then
               echo "PR #$number has a review requesting changes."
               continue

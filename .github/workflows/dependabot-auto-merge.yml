@@ -1,0 +1,81 @@
+name: Dependabot auto-merge
+
+on:
+  workflow_run:
+    workflows: ["Benchmarks", "Pull Request Checks"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  checks: read
+  contents: write
+  pull-requests: write
+  statuses: read
+
+concurrency:
+  group: dependabot-auto-merge
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Merge passing Dependabot PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REQUIRE_APPROVAL: "true"
+          REQUIRED_WORKFLOWS: '["Pull Request Checks"]'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pull_requests=$(gh api --paginate --slurp "repos/$GH_REPO/pulls?state=open&base=$DEFAULT_BRANCH&per_page=100" \
+            --jq 'add | .[] | select(.user.login == "dependabot[bot]") | .number')
+
+          for number in $pull_requests; do
+            pull_request=$(gh api "repos/$GH_REPO/pulls/$number")
+            if ! jq -e --arg repository "$GH_REPO" --arg base "$DEFAULT_BRANCH" \
+              '.state == "open" and .user.login == "dependabot[bot]" and .draft == false and .base.ref == $base and .head.repo.full_name == $repository and (.head.ref | startswith("dependabot/"))' \
+              <<< "$pull_request" > /dev/null; then
+              continue
+            fi
+
+            head_sha=$(jq -r '.head.sha' <<< "$pull_request")
+            workflow_runs=$(gh api --paginate --slurp "repos/$GH_REPO/actions/runs?head_sha=$head_sha&event=pull_request&per_page=100" \
+              --jq '[.[].workflow_runs[]] | sort_by(.id) | group_by(.workflow_id) | map(max_by(.id))')
+            if ! jq -e --argjson required "$REQUIRED_WORKFLOWS" \
+              'length > 0 and all(.[]; .status == "completed" and .conclusion == "success") and ([.[].name] as $finished | all($required[]; . as $name | $finished | index($name) != null))' \
+              <<< "$workflow_runs" > /dev/null; then
+              echo "PR #$number is waiting for successful CI workflows."
+              continue
+            fi
+
+            checks=$(gh pr view "$number" --repo "$GH_REPO" --json statusCheckRollup --jq '.statusCheckRollup')
+            if ! jq -e \
+              'length > 0 and all(.[]; if .__typename == "CheckRun" then .status == "COMPLETED" and (.conclusion == "SUCCESS" or .conclusion == "NEUTRAL" or .conclusion == "SKIPPED") else .state == "SUCCESS" end)' \
+              <<< "$checks" > /dev/null; then
+              echo "PR #$number has pending or unsuccessful checks."
+              continue
+            fi
+
+            reviews=$(gh api --paginate --slurp "repos/$GH_REPO/pulls/$number/reviews?per_page=100" \
+              --jq '[.[][] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")] | sort_by(.id) | group_by(.user.login) | map(max_by(.id))')
+            if jq -e 'any(.[]; .state == "CHANGES_REQUESTED")' <<< "$reviews" > /dev/null; then
+              echo "PR #$number has a review requesting changes."
+              continue
+            fi
+
+            if [[ "$REQUIRE_APPROVAL" == "true" ]] && ! jq -e --arg sha "$head_sha" \
+              'any(.[]; .user.login == "github-actions[bot]" and .state == "APPROVED" and .commit_id == $sha)' \
+              <<< "$reviews" > /dev/null; then
+              jq -n --arg sha "$head_sha" '{event: "APPROVE", commit_id: $sha}' \
+                | gh api --method POST "repos/$GH_REPO/pulls/$number/reviews" --input - > /dev/null
+            fi
+
+            gh pr merge "$number" --repo "$GH_REPO" --squash --match-head-commit "$head_sha"
+          done

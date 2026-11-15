@@ -8,9 +8,12 @@ import Foundation
 ///
 /// ```swift
 /// let output = try await Ls(context: context)
-///     .all()              // Include hidden files.
-///     .longFormat()       // Include permissions, owner, size, and timestamps.
-///     .humanReadable()    // Format sizes with units such as K, M, or G.
+///     // Include hidden files.
+///     .all()
+///     // Include permissions, owner, size, and timestamps.
+///     .longFormat()
+///     // Format sizes with units such as K, M, or G.
+///     .humanReadable()
 ///     .path("/tmp")
 ///     .run()
 ///

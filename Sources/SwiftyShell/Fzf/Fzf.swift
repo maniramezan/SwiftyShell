@@ -15,7 +15,8 @@ import Foundation
 ///     .pipe(to: Fzf(context: context).filter("main").command())
 ///     .run(in: context)
 ///
-/// print(output.stdout)  // Lines matching "main"
+/// // Lines matching "main"
+/// print(output.stdout)
 /// ```
 ///
 /// Build a ``Command`` with ``command()`` to compose fzf into pipelines or pass to

@@ -100,6 +100,22 @@ struct BuildLogTests {
         #expect(output.exitCode == 0)
     }
 
+    @Test func largeTailKeepsExactSuffixOfNumberedLines() async throws {
+        let path = temporaryPath()
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        let tailBytes = 100_000
+        let output = try await Command(
+            "/bin/sh",
+            arguments: "-c",
+            "i=0; while [ $i -lt 60000 ]; do echo $i; i=$((i+1)); done"
+        )
+        .stdout(.log(path: path, append: false, tailBytes: tailBytes))
+        .run()
+        let log = try Data(contentsOf: URL(fileURLWithPath: path))
+        #expect(log.count > tailBytes)
+        #expect(output.stdoutData == Data(log.suffix(tailBytes)))
+    }
+
     @Test func logAppendsAndResolvesRelativeToCommandDirectory() async throws {
         let directory = temporaryPath()
         try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)

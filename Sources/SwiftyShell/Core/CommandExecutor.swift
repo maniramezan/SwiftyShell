@@ -43,6 +43,38 @@ public protocol CommandExecutor: Sendable {
     /// - Throws: ``ShellError`` for unsupported execution, invalid configuration, or launch failure.
     func spawnDetached(_ command: Command, in context: ShellContext) async throws -> Int32
 
+    /// Executes a pipeline and reports every stage's exit code instead of failing on them.
+    ///
+    /// Behaves like ``execute(_:in:)-(Pipeline,_)`` except that no stage's exit code raises
+    /// ``ShellError/exitFailure(command:output:)-enum.case``. The default implementation throws
+    /// ``ShellError/invalidConfiguration(description:)``, so custom executors opt in explicitly.
+    ///
+    /// - Parameters:
+    ///   - pipeline: The pipeline to run.
+    ///   - context: The shell context that supplies defaults to every stage.
+    /// - Returns: The final stage's output and each stage's exit code.
+    /// - Throws: ``ShellError`` for unsupported execution, invalid configuration, launch failure,
+    ///   timeout, output-limit overflow, or cancellation.
+    func executeReportingStages(_ pipeline: Pipeline, in context: ShellContext) async throws -> PipelineResult
+
+    /// Spawns every stage of a pipeline without waiting for exit.
+    ///
+    /// The returned ``SpawnedPipeline`` exposes the final stage's stdout, every stage's stderr, and
+    /// each stage's exit code. The default implementation throws
+    /// ``ShellError/invalidConfiguration(description:)``, so custom executors opt in explicitly.
+    ///
+    /// - Parameters:
+    ///   - pipeline: The pipeline to spawn.
+    ///   - context: The shell context that supplies defaults to every stage.
+    ///   - teardown: The strategy used by ``SpawnedProcess/teardownAndWait()``.
+    /// - Returns: A handle to the running pipeline.
+    /// - Throws: ``ShellError`` describing why a stage could not be spawned.
+    func spawn(
+        _ pipeline: Pipeline,
+        in context: ShellContext,
+        teardown: TeardownStrategy
+    ) async throws -> any SpawnedPipeline
+
     /// Executes a single command in the given shell context and returns its captured output.
     ///
     /// Conformers are responsible for resolving the executable against
@@ -91,6 +123,20 @@ public protocol CommandExecutor: Sendable {
 }
 
 public extension CommandExecutor {
+    /// Rejects pipeline spawning unless the custom executor implements it explicitly.
+    func spawn(
+        _ pipeline: Pipeline,
+        in context: ShellContext,
+        teardown: TeardownStrategy
+    ) async throws -> any SpawnedPipeline {
+        throw ShellError.invalidConfiguration(description: "This executor does not support spawning pipelines")
+    }
+
+    /// Rejects stage-reporting pipeline runs unless the custom executor implements them explicitly.
+    func executeReportingStages(_ pipeline: Pipeline, in context: ShellContext) async throws -> PipelineResult {
+        throw ShellError.invalidConfiguration(description: "This executor does not report pipeline stage exit codes")
+    }
+
     /// Rejects detached execution unless the custom executor implements it explicitly.
     func spawnDetached(_ command: Command, in context: ShellContext) async throws -> Int32 {
         throw ShellError.invalidConfiguration(description: "This executor does not support detached processes")

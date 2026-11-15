@@ -190,7 +190,8 @@ public enum BrewSubcommand: Sendable, Equatable, Hashable {
 /// ```swift
 /// try await Brew(context: context)
 ///     .install("firefox")
-///     .cask()    // Add `--cask`.
+///     // Add `--cask`.
+///     .cask()
 ///     .run()
 /// ```
 ///
@@ -200,7 +201,8 @@ public enum BrewSubcommand: Sendable, Equatable, Hashable {
 /// ```swift
 /// let outdated = try await Brew(context: context)
 ///     .outdated()
-///     .greedy()    // Include auto-updating/latest casks too.
+///     // Include auto-updating/latest casks too.
+///     .greedy()
 ///     .run()
 ///
 /// print(outdated.stdout)

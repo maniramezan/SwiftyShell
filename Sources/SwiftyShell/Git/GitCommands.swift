@@ -116,8 +116,10 @@ enum GitBranchMode: Sendable, Equatable {
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .branch()
-///     .list()    // Select `git branch --list`.
-///     .all()     // Include remote-tracking branches.
+///     // Select `git branch --list`.
+///     .list()
+///     // Include remote-tracking branches.
+///     .all()
 ///     .run()
 ///
 /// print(output.stdout)
@@ -348,9 +350,12 @@ public struct GitBranch: RunnableCommandFamily {
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .stash()
-///     .push()                 // Select `git stash push`.
-///     .message("checkpoint")    // Label the stash entry.
-///     .includeUntracked()     // Also stash untracked files.
+///     // Select `git stash push`.
+///     .push()
+///     // Label the stash entry.
+///     .message("checkpoint")
+///     // Also stash untracked files.
+///     .includeUntracked()
 ///     .run()
 ///
 /// print(output.stdout)
@@ -574,7 +579,8 @@ public struct GitStash: RunnableCommandFamily {
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .worktree()
-///     .list()    // Select `git worktree list`.
+///     // Select `git worktree list`.
+///     .list()
 ///     .run()
 ///
 /// print(output.stdout)
@@ -707,7 +713,8 @@ public struct GitWorktree: RunnableCommandFamily {
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .diff()
-///     .format(.nameStatus)    // Equivalent to `git diff --name-status`.
+///     // Equivalent to `git diff --name-status`.
+///     .format(.nameStatus)
 ///     .run()
 ///
 /// print(output.stdout)
@@ -879,8 +886,10 @@ public struct GitDiff: RunnableCommandFamily {
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .log()
-///     .format(.oneline)    // Use abbreviated hash plus subject.
-///     .maxCount(10)        // Limit to the latest ten commits.
+///     // Use abbreviated hash plus subject.
+///     .format(.oneline)
+///     // Limit to the latest ten commits.
+///     .maxCount(10)
 ///     .run()
 ///
 /// print(output.stdout)
@@ -1023,7 +1032,8 @@ public struct GitLog: RunnableCommandFamily {
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .configuration()
-///     .get("user.name")    // Select `git config --get user.name`.
+///     // Select `git config --get user.name`.
+///     .get("user.name")
 ///     .run()
 ///
 /// let userName = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1206,7 +1216,8 @@ public struct GitConfigCommand: RunnableCommandFamily {
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .merge()
-///     .branch("feature")    // Merge the feature branch into the current branch.
+///     // Merge the feature branch into the current branch.
+///     .branch("feature")
 ///     .run()
 ///
 /// print(output.stdout)
@@ -1309,8 +1320,10 @@ public struct GitMerge: RunnableCommandFamily {
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .commit()
-///     .message("Record update")    // Pass the commit message.
-///     .all()                       // Include all tracked modifications/deletions.
+///     // Pass the commit message.
+///     .message("Record update")
+///     // Include all tracked modifications/deletions.
+///     .all()
 ///     .run()
 ///
 /// print(output.stdout)
@@ -1413,7 +1426,8 @@ public struct GitCommit: RunnableCommandFamily {
 /// let output = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .rebase()
-///     .onto("main")    // Rebase the current branch onto main.
+///     // Rebase the current branch onto main.
+///     .onto("main")
 ///     .run()
 ///
 /// print(output.stdout)

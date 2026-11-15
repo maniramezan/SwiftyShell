@@ -11,8 +11,10 @@ import Foundation
 /// let branches = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .branch()
-///     .all()        // Include local and remote branches.
-///     .entries()    // Return [GitBranchEntry] instead of raw stdout.
+///     // Include local and remote branches.
+///     .all()
+///     // Return [GitBranchEntry] instead of raw stdout.
+///     .entries()
 ///     .run()
 ///
 /// for branch in branches where branch.isCurrent {
@@ -57,8 +59,10 @@ public struct GitBranchEntry: Sendable, Equatable {
 /// let commits = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .log()
-///     .maxCount(5)    // Limit the history window.
-///     .entries()      // Return [GitLogEntry] instead of raw stdout.
+///     // Limit the history window.
+///     .maxCount(5)
+///     // Return [GitLogEntry] instead of raw stdout.
+///     .entries()
 ///     .run()
 ///
 /// for commit in commits {
@@ -151,8 +155,10 @@ public enum GitDiffChangeKind: Sendable, Equatable {
 /// let changes = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .diff()
-///     .staged()         // Compare staged changes instead of unstaged changes.
-///     .fileChanges()    // Return [GitDiffFileChange] instead of raw stdout.
+///     // Compare staged changes instead of unstaged changes.
+///     .staged()
+///     // Return [GitDiffFileChange] instead of raw stdout.
+///     .fileChanges()
 ///     .run()
 ///
 /// for change in changes where change.kind == .deleted {
@@ -239,8 +245,10 @@ public enum GitSubmoduleStatusState: Sendable, Equatable, Hashable {
 /// let submodules = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .submodule()
-///     .recursive()        // Include nested submodules.
-///     .statusEntries()    // Return [GitSubmoduleStatusEntry] instead of raw stdout.
+///     // Include nested submodules.
+///     .recursive()
+///     // Return [GitSubmoduleStatusEntry] instead of raw stdout.
+///     .statusEntries()
 ///     .run()
 ///
 /// for submodule in submodules where submodule.state != .current {

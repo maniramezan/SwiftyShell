@@ -9,7 +9,8 @@ import Foundation
 ///
 /// ```swift
 /// try await Mkdir(context: context)
-///     .parents()    // Create missing parent directories.
+///     // Create missing parent directories.
+///     .parents()
 ///     .mode(
 ///         FileMode(
 ///             owner: [.read, .write, .execute],

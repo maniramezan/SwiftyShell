@@ -29,6 +29,9 @@ git switch my-branch && swift package --disable-sandbox benchmark baseline compa
 | `output/capture-64MiB` | 64 MiB of stdout captured in memory |
 | `output/discard-64MiB` | 64 MiB of stdout routed to `.discard` |
 | `output/file-64MiB` | 64 MiB of stdout routed to `.file` |
+| `output/log-tail-64MiB` | 64 MiB of stdout routed to `.log` with a 32 MiB retained tail, which exercises per-chunk tail trimming |
+| `output/tee-64MiB` | 64 MiB of stdout captured and live-teed to stderr (pointed at the null device for the run) |
+| `spawn/stream-64MiB` | 64 MiB read from a spawned process through `standardOutputData` |
 | `pipeline/3-stage-64MiB` | `head | cat | wc -c` with 64 MiB flowing through kernel pipes |
 | `builder/command-20-args` | Pure `Command` builder cost; no process is spawned |
 

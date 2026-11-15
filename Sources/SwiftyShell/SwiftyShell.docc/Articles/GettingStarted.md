@@ -4,8 +4,8 @@ Add SwiftyShell to your package, pick a typed command family, and run your first
 
 ## Requirements
 
-The upcoming 0.7.0 release requires Swift 6.2 or later, macOS 15 or later (or Linux), and uses
-swift-subprocess 1.0. Select a compatible toolchain before updating the dependency in CI.
+SwiftyShell requires Swift 6.2 or later, macOS 15 or later (or Linux), and uses swift-subprocess 1.0.
+Select a compatible toolchain in local development and CI.
 Typed command families remain opt-in; the core execution and wrapper protocols require no traits.
 
 ## Overview
@@ -23,8 +23,9 @@ Add the package to your `Package.swift` and select only the families you need:
 dependencies: [
     .package(
         url: "https://github.com/maniramezan/SwiftyShell.git",
-        from: "0.3.0",
-        traits: ["Git", "Brew"]   // pick only what you need
+        from: "0.7.0",
+        // pick only what you need
+        traits: ["Git", "Brew"]
     ),
 ],
 targets: [

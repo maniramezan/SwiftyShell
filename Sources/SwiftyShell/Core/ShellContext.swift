@@ -58,12 +58,14 @@ public enum ShellPlatform: Sendable {
 /// let context = ShellContext(
 ///     workingDirectory: "/var/app",
 ///     defaultTimeout: .seconds(30),
-///     defaultOutputLimit: 5_242_880   // 5 MB
+///     // 5 MB.
+///     defaultOutputLimit: 5_242_880
 /// )
 ///
 /// // Override per command — does not mutate the context
 /// try await Command("swift", arguments: "build", "--verbose")
-///     .timeout(.seconds(300))                   // overrides the 30-second default for this call only
+///     // Overrides the 30-second default for this call only.
+///     .timeout(.seconds(300))
 ///     .run(in: context)
 /// ```
 ///
@@ -181,6 +183,91 @@ public struct ShellContext: Sendable {
             workingDirectory: workingDirectory,
             defaultTimeout: Duration(timeoutSeconds: defaultTimeout),
             defaultOutputLimit: defaultOutputLimit
+        )
+    }
+
+    /// Returns a copy that uses a different executor and keeps every other setting.
+    ///
+    /// ```swift
+    /// let testContext = context.withExecutor(MockExecutor(stdout: "main\n"))
+    /// ```
+    ///
+    /// - Parameter executor: The executor the copy should use.
+    /// - Returns: A new context with the executor replaced.
+    public func withExecutor(_ executor: any CommandExecutor) -> ShellContext {
+        replacing(executor: executor)
+    }
+
+    /// Returns a copy with different executable search paths.
+    ///
+    /// - Parameter searchPaths: The paths used to resolve bare executable names.
+    /// - Returns: A new context with the search paths replaced.
+    public func withSearchPaths(_ searchPaths: [String]) -> ShellContext {
+        replacing(searchPaths: searchPaths)
+    }
+
+    /// Returns a copy whose base environment is exactly `environment`.
+    ///
+    /// Use ``addingEnvironment(_:)`` to keep the existing variables and layer new ones on top.
+    ///
+    /// - Parameter environment: The complete base environment for commands run in the copy.
+    /// - Returns: A new context with the environment replaced.
+    public func withEnvironment(_ environment: [String: String]) -> ShellContext {
+        replacing(environment: environment)
+    }
+
+    /// Returns a copy with `values` merged on top of the existing environment.
+    ///
+    /// ```swift
+    /// let ciContext = context.addingEnvironment(["CI": "1"])
+    /// ```
+    ///
+    /// - Parameter values: Variables to add or override.
+    /// - Returns: A new context whose environment includes `values`.
+    public func addingEnvironment(_ values: [String: String]) -> ShellContext {
+        replacing(environment: environment.merging(values) { _, new in new })
+    }
+
+    /// Returns a copy with a different default working directory.
+    ///
+    /// - Parameter workingDirectory: The default directory, or `nil` to inherit the calling
+    ///   process's working directory.
+    /// - Returns: A new context with the working directory replaced.
+    public func withWorkingDirectory(_ workingDirectory: String?) -> ShellContext {
+        replacing(workingDirectory: .some(workingDirectory))
+    }
+
+    /// Returns a copy with a different default timeout.
+    ///
+    /// - Parameter timeout: The default timeout, or `nil` to leave commands unbounded.
+    /// - Returns: A new context with the default timeout replaced.
+    public func withDefaultTimeout(_ timeout: Duration?) -> ShellContext {
+        replacing(defaultTimeout: .some(timeout))
+    }
+
+    /// Returns a copy with a different default captured-output limit.
+    ///
+    /// - Parameter bytes: The limit in bytes; `0` means unlimited. Must be `>= 0` at execution time.
+    /// - Returns: A new context with the default output limit replaced.
+    public func withDefaultOutputLimit(_ bytes: Int) -> ShellContext {
+        replacing(defaultOutputLimit: bytes)
+    }
+
+    private func replacing(
+        executor: (any CommandExecutor)? = nil,
+        searchPaths: [String]? = nil,
+        environment: [String: String]? = nil,
+        workingDirectory: String?? = nil,
+        defaultTimeout: Duration?? = nil,
+        defaultOutputLimit: Int? = nil
+    ) -> ShellContext {
+        ShellContext(
+            executor: executor ?? self.executor,
+            searchPaths: searchPaths ?? self.searchPaths,
+            environment: environment ?? self.environment,
+            workingDirectory: workingDirectory ?? self.workingDirectory,
+            defaultTimeout: defaultTimeout ?? self.defaultTimeout,
+            defaultOutputLimit: defaultOutputLimit ?? self.defaultOutputLimit
         )
     }
 

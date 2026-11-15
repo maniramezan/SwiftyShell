@@ -31,7 +31,8 @@ let context = ShellContext()
 let buildContext = ShellContext(
     workingDirectory: "/var/app",
     defaultTimeout: .seconds(120),
-    defaultOutputLimit: 50_000_000   // 50 MB for verbose build output
+    // 50 MB for verbose build output
+    defaultOutputLimit: 50_000_000
 )
 ```
 
@@ -188,14 +189,22 @@ let result = try await Command("ls", arguments: "-la")
 
 The first stage reads its ``Command/stdinSource`` (an empty stdin by default); each later stage receives the preceding stage's stdout. Successful output contains the final stage's captured stdout and captured stderr concatenated in stage order. All stages run concurrently, and an observed non-zero stage cancels the remaining stage tasks. A non-final stage terminated by `SIGPIPE` is not a failure, since it only means a downstream stage stopped reading early (`yes | head -n 1`). Each stage resolves its own output limit; intermediate stdout is piped rather than captured, while captured stderr and final-stage stdout count against their stage limits. The shortest resolved stage timeout governs the pipeline. Timeout, cancellation, and output-limit errors carry captured partial output.
 
+Use ``Pipeline/runReportingStages(in:)`` when a non-zero exit code is a meaningful result rather
+than a pipeline failure. It returns a ``PipelineResult`` with the final output and each stage's exit
+code in pipeline order; launch, timeout, cancellation, and output-limit errors still throw.
+
 ## Executor Protocol
 
-The ``CommandExecutor`` protocol is the seam between SwiftyShell's API and the process that actually runs. Swapping the executor is how testing works:
+The ``CommandExecutor`` protocol is the seam between SwiftyShell's API and the process that actually runs. It defines execution for commands and pipelines, detached launches, and pipeline stage reporting and spawning. Swapping the executor is how testing works:
 
 ```swift
 public protocol CommandExecutor: Sendable {
     func execute(_ command: Command, in context: ShellContext) async throws -> ShellOutput
     func execute(_ pipeline: Pipeline, in context: ShellContext) async throws -> ShellOutput
+    func spawn(_ command: Command, in context: ShellContext, teardown: TeardownStrategy) async throws -> any SpawnedProcess
+    func spawnDetached(_ command: Command, in context: ShellContext) async throws -> Int32
+    func executeReportingStages(_ pipeline: Pipeline, in context: ShellContext) async throws -> PipelineResult
+    func spawn(_ pipeline: Pipeline, in context: ShellContext, teardown: TeardownStrategy) async throws -> any SpawnedPipeline
 }
 ```
 

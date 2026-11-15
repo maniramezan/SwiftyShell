@@ -12,7 +12,7 @@ Add the package and select traits on the dependency:
 dependencies: [
     .package(
         url: "https://github.com/maniramezan/SwiftyShell.git",
-        from: "0.3.0",
+        from: "0.7.0",
         traits: ["Git", "Grep"]
     )
 ],

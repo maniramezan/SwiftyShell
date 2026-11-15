@@ -111,6 +111,69 @@ public struct ShellOutput: Sendable, Equatable {
 }
 
 extension ShellOutput {
+    /// ``stdout`` with leading and trailing whitespace and newlines removed.
+    ///
+    /// ```swift
+    /// let sha = try await Command("git", arguments: "rev-parse", "HEAD").run(in: context).trimmedStdout
+    /// ```
+    public var trimmedStdout: String {
+        stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// ``stderr`` with leading and trailing whitespace and newlines removed.
+    public var trimmedStderr: String {
+        stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// ``stdout`` split into lines on `\n` and `\r\n`.
+    ///
+    /// Line terminators are removed, empty lines are kept, and the newline that ends the last line
+    /// does not produce an extra empty element. Empty output yields an empty array. Splitting
+    /// behaves like ``SpawnedProcess/standardOutputLines``.
+    ///
+    /// ```swift
+    /// let files = try await Command("git", arguments: "ls-files").run(in: context).stdoutLines
+    /// ```
+    public var stdoutLines: [String] {
+        Self.lines(in: stdout)
+    }
+
+    /// ``stderr`` split into lines like ``stdoutLines``.
+    public var stderrLines: [String] {
+        Self.lines(in: stderr)
+    }
+
+    /// Decodes ``stdoutData`` as JSON.
+    ///
+    /// ```swift
+    /// struct Release: Decodable { let tagName: String }
+    /// let release = try await Gh(context: context)
+    ///     .api("repos/apple/swift/releases/latest")
+    ///     .run()
+    ///     .decodeStdout(Release.self)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - type: The `Decodable` type to produce.
+    ///   - decoder: The decoder to use. Defaults to a fresh `JSONDecoder`.
+    /// - Returns: The decoded value.
+    /// - Throws: A `DecodingError` when stdout is not valid JSON for `type`.
+    public func decodeStdout<Value: Decodable>(
+        _ type: Value.Type = Value.self,
+        using decoder: JSONDecoder = JSONDecoder()
+    ) throws -> Value {
+        try decoder.decode(type, from: stdoutData)
+    }
+
+    private static func lines(in text: String) -> [String] {
+        var splitter = LineSplitter()
+        var lines = splitter.push(text)
+        if let last = splitter.finish() {
+            lines.append(last)
+        }
+        return lines
+    }
+
     /// Returns a captured stream decoded strictly as UTF-8, or `nil` when it contains invalid bytes.
     ///
     /// Use this instead of the lossy ``stdout`` / ``stderr`` views when replacement characters

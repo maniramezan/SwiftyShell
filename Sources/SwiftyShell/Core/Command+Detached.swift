@@ -30,12 +30,25 @@ public extension Command {
 }
 
 extension Command {
+    /// Rejects a merge that also names a separate stderr destination.
+    func validateStderrMerge() throws {
+        guard mergesStderrIntoStdout, stderrDestination != .capture else { return }
+        throw ShellError.invalidConfiguration(
+            description: "stderr cannot have its own destination when it is merged into stdout"
+        )
+    }
+
     func detachedCommand(in context: ShellContext) throws -> Command {
         guard timeoutOverride == nil, context.defaultTimeout == nil,
             (outputLimitOverride ?? context.defaultOutputLimit) == 0
         else {
             throw ShellError.invalidConfiguration(
                 description: "Detached processes cannot enforce timeouts or output limits"
+            )
+        }
+        guard !mergesStderrIntoStdout else {
+            throw ShellError.invalidConfiguration(
+                description: "Detached processes cannot merge stderr into stdout"
             )
         }
         switch stdinSource {

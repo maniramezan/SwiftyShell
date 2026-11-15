@@ -9,8 +9,10 @@ import Foundation
 ///
 /// ```swift
 /// try await Rm(context: context)
-///     .recursive()    // Remove directory contents.
-///     .force()        // Do not fail for missing paths.
+///     // Remove directory contents.
+///     .recursive()
+///     // Do not fail for missing paths.
+///     .force()
 ///     .path("/tmp/build")
 ///     .run()
 /// ```

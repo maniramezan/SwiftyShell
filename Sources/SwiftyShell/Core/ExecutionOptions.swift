@@ -11,6 +11,8 @@ struct ExecutionOptions: Sendable, Equatable {
     var workingDirectoryOverride: String?
     var timeoutOverride: Duration?
     var outputLimitOverride: Int?
+    var acceptedExitCodes: Set<Int32> = []
+    var mergesStderrIntoStdout = false
 
     /// Sets one variable directly and clears any earlier removal of that variable.
     mutating func setEnvironment(_ name: String, _ value: String) {

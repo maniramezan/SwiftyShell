@@ -169,10 +169,14 @@ This keeps the API aligned with how developers think about shell work: a configu
 public protocol CommandExecutor: Sendable {
     func execute(_ command: Command, in context: ShellContext) async throws -> ShellOutput
     func execute(_ pipeline: Pipeline, in context: ShellContext) async throws -> ShellOutput
+    func spawn(_ command: Command, in context: ShellContext, teardown: TeardownStrategy) async throws -> any SpawnedProcess
+    func spawnDetached(_ command: Command, in context: ShellContext) async throws -> Int32
+    func executeReportingStages(_ pipeline: Pipeline, in context: ShellContext) async throws -> PipelineResult
+    func spawn(_ pipeline: Pipeline, in context: ShellContext, teardown: TeardownStrategy) async throws -> any SpawnedPipeline
 }
 ```
 
-`ShellContext` stores the executor, so both raw commands and typed clients use the same injectable runtime. In tests, inject `MockExecutor`:
+`spawnDetached`, `executeReportingStages`, and pipeline `spawn` have default implementations that throw `ShellError.invalidConfiguration`, so custom executors opt in explicitly. `ShellContext` stores the executor, so both raw commands and typed clients use the same injectable runtime. In tests, inject `MockExecutor`:
 
 ```swift
 let context = ShellContext(executor: MockExecutor(stdout: "main\n"))

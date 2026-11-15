@@ -43,6 +43,9 @@ public struct ToolConfiguration: Sendable {
     /// ``ShellContext/defaultOutputLimit``.
     public var outputLimitOverride: Int? { options.outputLimitOverride }
 
+    /// Non-zero exit codes that built commands treat as success; empty means only `0` succeeds.
+    public var acceptedExitCodes: Set<Int32> { options.acceptedExitCodes }
+
     /// Creates a tool configuration with optional execution overrides.
     ///
     /// - Parameters:
@@ -184,6 +187,16 @@ public struct ToolConfiguration: Sendable {
         modified(self) { $0.options.outputLimitOverride = bytes }
     }
 
+    /// Returns a copy that treats the given non-zero exit codes as success for built commands.
+    ///
+    /// See ``Command/acceptingExitCodes(_:)`` for the underlying semantics.
+    ///
+    /// - Parameter codes: The non-zero exit codes to treat as success.
+    /// - Returns: A new configuration with the accepted exit codes applied.
+    public func acceptingExitCodes(_ codes: Set<Int32>) -> Self {
+        modified(self) { $0.options.acceptedExitCodes = codes }
+    }
+
     /// Applies all non-nil overrides in this configuration to a command, returning the updated command.
     ///
     /// Use this method inside a ``RunnableCommandFamily/command()`` implementation to
@@ -210,6 +223,9 @@ public struct ToolConfiguration: Sendable {
         }
         if let outputLimitOverride {
             cmd = cmd.outputLimit(outputLimitOverride)
+        }
+        if !acceptedExitCodes.isEmpty {
+            cmd = cmd.acceptingExitCodes(acceptedExitCodes)
         }
         return cmd
     }

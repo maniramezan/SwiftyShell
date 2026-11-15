@@ -17,9 +17,12 @@ gate, transform, and follow-up actions, then run once:
 ```swift
 let branch = try await Git(context: context)
     .workingDirectory(repoPath)
-    .status()                                // Workflow<GitStatus>
-    .require(\.state, equals: .noChanges)    // abort if working tree is dirty
-    .map(\.branch)                           // Workflow<String?>
+    // Workflow<GitStatus>
+    .status()
+    // abort if working tree is dirty
+    .require(\.state, equals: .noChanges)
+    // Workflow<String?>
+    .map(\.branch)
     .run()
 
 print(branch ?? "detached HEAD")
@@ -34,7 +37,8 @@ let pullResult = try await Git(context: context)
     .workingDirectory(repoPath)
     .status()
     .require(\.state, equals: .noChanges)
-    .pull()                                  // returns Workflow<GitPullResult>
+    // returns Workflow<GitPullResult>
+    .pull()
     .run()
 ```
 

@@ -42,8 +42,10 @@ public enum GitSubmoduleUpdateStrategy: Sendable, Equatable, Hashable {
 /// let entries = try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .submodule()
-///     .recursive()        // Include submodules inside submodules.
-///     .statusEntries()    // Parse `git submodule status` into Swift values.
+///     // Include submodules inside submodules.
+///     .recursive()
+///     // Parse `git submodule status` into Swift values.
+///     .statusEntries()
 ///     .run()
 /// ```
 ///
@@ -61,9 +63,12 @@ public enum GitSubmoduleUpdateStrategy: Sendable, Equatable, Hashable {
 /// try await Git(context: context)
 ///     .workingDirectory(repoPath)
 ///     .submodule()
-///     .update()                // Select `git submodule update`.
-///     .initializeOnUpdate()    // Add `--init` for missing submodules.
-///     .recursive()             // Add `--recursive` for nested submodules.
+///     // Select `git submodule update`.
+///     .update()
+///     // Add `--init` for missing submodules.
+///     .initializeOnUpdate()
+///     // Add `--recursive` for nested submodules.
+///     .recursive()
 ///     .run()
 /// ```
 ///

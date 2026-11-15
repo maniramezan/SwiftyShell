@@ -76,9 +76,9 @@ public struct MockExecutor: CommandExecutor {
 
     /// The commands this mock has received, in the order they ran.
     ///
-    /// Pipelines record each stage in pipeline order, and ``spawn(_:in:teardown:)`` records the
-    /// spawned command. Commands rejected by configuration validation are not recorded, because
-    /// the production executor would not have run them. Copies of a mock share one log.
+    /// Pipelines record each stage in pipeline order, and spawned commands are recorded as well.
+    /// Commands rejected by configuration validation are not recorded, because the production
+    /// executor would not have run them. Copies of a mock share one log.
     public var recordedCommands: [Command] {
         log.commands
     }
@@ -148,7 +148,10 @@ public struct MockExecutor: CommandExecutor {
     public func execute(_ command: Command, in context: ShellContext) async throws -> ShellOutput {
         try validateConfiguration(for: command, in: context)
         log.append(command)
-        return try validate(output: retainingLogTails(try await handler(command, context), for: command), for: command)
+        return try validate(
+            output: retainingLogTails(merging(try await handler(command, context), for: command), for: command),
+            for: command
+        )
     }
 
     /// Executes a pipeline by running each stage's command through the handler.
@@ -169,6 +172,50 @@ public struct MockExecutor: CommandExecutor {
     /// - Throws: Whatever the handler throws for any stage, plus the same configuration and
     ///   exit-code errors as ``execute(_:in:)-(Command,_)``.
     public func execute(_ pipeline: Pipeline, in context: ShellContext) async throws -> ShellOutput {
+        let outputs = try await runStages(of: pipeline, in: context)
+        let stdoutData = outputs.last?.stdoutData ?? Data()
+        let stderrData = outputs.reduce(into: Data()) { $0.append($1.stderrData) }
+        let finalIndex = outputs.count - 1
+        let failure = zip(pipeline.stages, outputs).enumerated().first { index, stageAndOutput in
+            let exitCode = stageAndOutput.1.exitCode
+            let isBenignBrokenPipe = index < finalIndex && exitCode == 128 + SIGPIPE
+            let isAccepted = exitCode == 0 || stageAndOutput.0.acceptedExitCodes.contains(exitCode)
+            return !isAccepted && !isBenignBrokenPipe
+        }.map(\.element)
+        if let failure {
+            throw ShellError.exitFailure(
+                command: CommandSnapshot(failure.0),
+                output: ShellOutput(stdoutData: stdoutData, stderrData: stderrData, exitCode: failure.1.exitCode)
+            )
+        }
+        return ShellOutput(stdoutData: stdoutData, stderrData: stderrData, exitCode: outputs.last?.exitCode ?? 0)
+    }
+
+    /// Runs a pipeline through the handler and reports every stage's exit code.
+    ///
+    /// Like ``execute(_:in:)-(Pipeline,_)`` but no stage's exit code raises
+    /// ``ShellError/exitFailure(command:output:)-enum.case``; the codes the handler returned are
+    /// reported in ``PipelineResult/stageExitCodes``.
+    ///
+    /// - Parameters:
+    ///   - pipeline: The pipeline to run.
+    ///   - context: The shell context that supplies defaults to every stage.
+    /// - Returns: The final stage's stdout with the combined stderr, and each stage's exit code.
+    /// - Throws: Whatever the handler throws, plus the configuration errors of
+    ///   ``execute(_:in:)-(Command,_)``.
+    public func executeReportingStages(_ pipeline: Pipeline, in context: ShellContext) async throws -> PipelineResult {
+        let outputs = try await runStages(of: pipeline, in: context)
+        return PipelineResult(
+            output: ShellOutput(
+                stdoutData: outputs.last?.stdoutData ?? Data(),
+                stderrData: outputs.reduce(into: Data()) { $0.append($1.stderrData) },
+                exitCode: outputs.last?.exitCode ?? 0
+            ),
+            stageExitCodes: outputs.map(\.exitCode)
+        )
+    }
+
+    private func runStages(of pipeline: Pipeline, in context: ShellContext) async throws -> [ShellOutput] {
         try pipeline.validateInputSources()
         for stage in pipeline.stages {
             try validateConfiguration(for: stage, in: context)
@@ -179,28 +226,13 @@ public struct MockExecutor: CommandExecutor {
             log.append(stage)
             outputs.append(
                 retainingLogTails(
-                    try await handler(stage, context),
+                    merging(try await handler(stage, context), for: stage),
                     for: stage,
                     includeStdout: index == pipeline.stages.count - 1
                 )
             )
         }
-
-        let stdoutData = outputs.last?.stdoutData ?? Data()
-        let stderrData = outputs.reduce(into: Data()) { $0.append($1.stderrData) }
-        let finalIndex = outputs.count - 1
-        let failure = zip(pipeline.stages, outputs).enumerated().first { index, stageAndOutput in
-            let exitCode = stageAndOutput.1.exitCode
-            let isBenignBrokenPipe = index < finalIndex && exitCode == 128 + SIGPIPE
-            return exitCode != 0 && !isBenignBrokenPipe
-        }.map(\.element)
-        if let failure {
-            throw ShellError.exitFailure(
-                command: CommandSnapshot(failure.0),
-                output: ShellOutput(stdoutData: stdoutData, stderrData: stderrData, exitCode: failure.1.exitCode)
-            )
-        }
-        return ShellOutput(stdoutData: stdoutData, stderrData: stderrData, exitCode: 0)
+        return outputs
     }
 
     /// Spawns a mock process by invoking the mock handler and returning a ``MockSpawnedProcess``.
@@ -222,12 +254,36 @@ public struct MockExecutor: CommandExecutor {
     ) async throws -> any SpawnedProcess {
         try validateConfiguration(for: command, in: context)
         log.append(command)
-        let output = try await handler(command, context)
+        let output = merging(try await handler(command, context), for: command)
         return MockSpawnedProcess(
             teardown: teardown,
             output: output,
             retainedOutput: command.spawnRetainsOutput
                 ? retainingLogTails(output, for: command) : ShellOutput(exitCode: output.exitCode)
+        )
+    }
+
+    /// Spawns a mock pipeline by invoking the handler for every stage.
+    ///
+    /// Every stage's configuration is validated and recorded in ``recordedCommands``, and the
+    /// handler's responses become the stage exit codes reported by
+    /// ``MockSpawnedPipeline/waitForStageExitCodes()``. Stage stdout is not fed to the next stage.
+    ///
+    /// - Parameters:
+    ///   - pipeline: The pipeline to spawn.
+    ///   - context: The shell context that supplies defaults.
+    ///   - teardown: The strategy stored on the returned ``MockSpawnedPipeline``.
+    /// - Returns: A ``MockSpawnedPipeline`` wrapping the handler's outputs.
+    public func spawn(
+        _ pipeline: Pipeline,
+        in context: ShellContext,
+        teardown: TeardownStrategy
+    ) async throws -> any SpawnedPipeline {
+        let outputs = try await runStages(of: pipeline, in: context)
+        return MockSpawnedPipeline(
+            stageOutputs: outputs,
+            teardown: teardown,
+            captureOutput: pipeline.stages.last?.spawnRetainsOutput ?? false
         )
     }
 
@@ -241,6 +297,15 @@ public struct MockExecutor: CommandExecutor {
         log.append(command)
         _ = try await handler(command, context)
         return 1
+    }
+
+    private func merging(_ output: ShellOutput, for command: Command) -> ShellOutput {
+        guard command.mergesStderrIntoStdout else { return output }
+        return ShellOutput(
+            stdoutData: output.stdoutData + output.stderrData,
+            stderrData: Data(),
+            exitCode: output.exitCode
+        )
     }
 
     private func retainingLogTails(
@@ -261,6 +326,7 @@ public struct MockExecutor: CommandExecutor {
     private func validateConfiguration(for command: Command, in context: ShellContext) throws {
         try command.stdoutDestination.validate()
         try command.stderrDestination.validate()
+        try command.validateStderrMerge()
         if let timeout = command.timeoutOverride ?? context.defaultTimeout, timeout < .zero {
             throw ShellError.invalidConfiguration(description: "Timeout must be greater than or equal to zero seconds")
         }
@@ -274,7 +340,7 @@ public struct MockExecutor: CommandExecutor {
     }
 
     private func validate(output: ShellOutput, for command: Command) throws -> ShellOutput {
-        guard output.exitCode == 0 else {
+        guard output.exitCode == 0 || command.acceptedExitCodes.contains(output.exitCode) else {
             throw ShellError.exitFailure(command: CommandSnapshot(command), output: output)
         }
         return output

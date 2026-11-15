@@ -13,11 +13,15 @@ command families, also read `.claude/skills/swiftyshell.md`. `AGENTS.md` and
 `.claude/skills/swiftyshell.md` must be kept aligned and updated together when the
 shared agent guidance changes.
 
-## Hard Gate — Do Not Finish Without Both
+## Hard Gate — Do Not Finish Without All Six
 
-Before you mark any task complete or hand back to the user, both of the following must pass on every file you added or modified:
+Before you mark any task complete or hand back to the user, every gate in the **Definition of Done — HARD GATE** section of [`AGENTS.md`](AGENTS.md) must pass on every file you added or modified. In short:
 
-1. **`swift test`** — all tests green.
+1. **`swift test -Xswiftc -warnings-as-errors`** — all tests green.
 2. **`swift-format lint --strict`** — no errors on the files you touched. Run `swift-format format -i <file>` on new Swift to auto-fix, then re-lint.
+3. **`Scripts/validate-traits.swift`** — trait wiring remains valid.
+4. **`Scripts/validate-docc-coverage.swift`** — authored DocC coverage remains valid.
+5. **DocC generation** — builds cleanly when public API or DocC content changes.
+6. **Coverage gate** — `swift test --enable-all-traits --enable-code-coverage` plus `Scripts/validate-code-coverage.swift`.
 
 This applies to every kind of change, including tests, docs with Swift snippets, new command families, and bug fixes. If a lint rule is wrong for a specific construct, update `.swift-format` in the same change — do not bypass the gate.

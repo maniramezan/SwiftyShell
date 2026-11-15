@@ -62,6 +62,26 @@ for await chunk in build.standardOutput {
 let output = await build.waitForExit()
 ```
 
+## Read Lines
+
+When a tool prints one record per line, read ``SpawnedProcess/standardOutputLines`` and
+``SpawnedProcess/standardErrorLines`` instead of splitting chunks yourself. They join chunks across
+their boundaries, split on `\n` and `\r\n`, deliver empty lines as empty strings, and flush a final
+line that has no trailing newline when the process closes its output.
+
+```swift
+let process = try await Command("tail", arguments: "-f", "app.log").spawn()
+
+for await line in process.standardOutputLines {
+    if line.contains("ready") { break }
+}
+_ = await process.teardownAndWait()
+```
+
+The line streams read the same underlying stream as ``SpawnedProcess/standardOutput``, so consume
+only one of the text, byte, or line views of a stream. Lines are pulled as you read them, so a slow
+consumer keeps the existing bound of 1,024 unread chunks.
+
 ## Processes That Outlive the Launcher
 
 Use ``Command/spawnDetached(in:)`` for an independently owned emulator or service:
@@ -125,6 +145,28 @@ let output = await process.waitForExit()
 
 For processes that run forever, call ``SpawnedProcess/teardownAndWait()`` or send
 a signal explicitly before waiting.
+
+## Spawn a Pipeline
+
+Use ``Pipeline/spawn(captureOutput:in:teardown:)`` to start every pipeline stage and control the
+pipeline through one ``SpawnedPipeline`` handle. The handle streams the final stage's stdout and
+every stage's stderr, exposes each stage's process identifier and exit code, and applies signals or
+teardown to all stages. Output is streamed but not retained unless `captureOutput` is `true`.
+
+```swift
+let pipeline = try await Command("tail", arguments: "-f", "app.log")
+    .pipe(to: Command("grep", arguments: "--line-buffered", "ERROR"))
+    .spawn()
+
+for await line in pipeline.standardOutputLines {
+    print(line)
+}
+let exitCodes = await pipeline.waitForStageExitCodes()
+```
+
+``MockExecutor`` returns a ``MockSpawnedPipeline`` so pipeline-spawning behavior can be tested
+without launching processes. Custom executors must implement pipeline spawning explicitly; the
+default implementation reports unsupported configuration.
 
 ## Test Spawning Code
 

@@ -8,7 +8,8 @@ import Foundation
 ///
 /// ```swift
 /// let output = try await Pwd(context: context)
-///     .physical()    // Resolve symlinks before printing the path.
+///     // Resolve symlinks before printing the path.
+///     .physical()
 ///     .run()
 ///
 /// let path = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)

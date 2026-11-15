@@ -120,8 +120,11 @@ public struct Command: Sendable {
     // removes inherited vars; last env/unsetEnv call wins
     public func unsetEnv(_ names: String...) -> Self
     public func workingDirectory(_ path: String) -> Self
-    public func timeout(_ duration: Duration) -> Self   // TimeInterval overload is deprecated
+    // TimeInterval overload is deprecated
+    public func timeout(_ duration: Duration) -> Self
     public func outputLimit(_ bytes: Int) -> Self
+    // non-zero exit codes run() treats as success (grep/rg/diff exit 1); ShellOutput.exitCode keeps the real value
+    public func acceptingExitCodes(_ codes: Set<Int32>) -> Self
     // default .none (empty stdin)
     public func stdin(_ source: InputSource) -> Self
     public func stdout(_ destination: OutputDestination) -> Self
@@ -173,6 +176,13 @@ public protocol SpawnedProcess: Sendable {
     func terminate() async throws
     func teardownAndWait() async -> ShellOutput
     func waitForExit() async -> ShellOutput
+}
+
+public extension SpawnedProcess {
+    // Complete lines (split on \n and \r\n, final partial line flushed) built on the text streams.
+    // They share the underlying stream with standardOutput, so consume only one view of a stream.
+    var standardOutputLines: AsyncStream<String> { get }
+    var standardErrorLines: AsyncStream<String> { get }
 }
 
 public enum ProcessSignal: Int32, Sendable, Hashable {
@@ -261,8 +271,10 @@ public enum OutputDestination: Sendable, Equatable {
     case capture
     case discard
     case file(path: String, append: Bool)
-    case tee  // streams live to the parent stdout/stderr AND captures into ShellOutput
-    case teeTo(StreamKind)  // explicit parent stream; capture keeps the original child stream
+    // streams live to the parent stdout/stderr AND captures into ShellOutput
+    case tee
+    // explicit parent stream; capture keeps the original child stream
+    case teeTo(StreamKind)
     case log(path: String, append: Bool, tailBytes: Int, tee: StreamKind? = nil)
     // log writes all received bytes, retains a bounded tail, and optionally streams live.
     // Zero tailBytes retains nothing; negative values are invalid. The shared hard output
@@ -275,16 +287,19 @@ public enum OutputDestination: Sendable, Equatable {
 
 ```swift
 public struct ShellOutput: Sendable, Equatable {
-    public var stdoutData: Data      // raw captured bytes; binary output is preserved
+    // raw captured bytes; binary output is preserved
+    public var stdoutData: Data
     public var stderrData: Data
-    public var stdout: String        // lossy UTF-8 view of stdoutData (decoded on each access)
+    // lossy UTF-8 view of stdoutData (decoded on each access)
+    public var stdout: String
     public var stderr: String
     public var exitCode: Int32
     public var isSuccess: Bool
 
     public init(stdout: String = "", stderr: String = "", exitCode: Int32)
     public init(stdoutData: Data, stderrData: Data = Data(), exitCode: Int32)
-    public func validatedText(_ stream: StreamKind = .stdout) -> String?   // nil if not valid UTF-8
+    // nil if not valid UTF-8
+    public func validatedText(_ stream: StreamKind = .stdout) -> String?
 }
 ```
 
@@ -346,8 +361,10 @@ public struct Git: Sendable {
     public func env(_ name: String, _ value: String) -> Self
     public func env(_ values: [String: String]) -> Self
     public func workingDirectory(_ path: String) -> Self
-    public func timeout(_ duration: Duration) -> Self   // TimeInterval overload is deprecated
+    // TimeInterval overload is deprecated
+    public func timeout(_ duration: Duration) -> Self
     public func outputLimit(_ bytes: Int) -> Self
+    public func acceptingExitCodes(_ codes: Set<Int32>) -> Self
 
     public func status() -> GitStatusWorkflow
     public func branch() -> GitBranch
@@ -632,7 +649,8 @@ public enum GrepPattern: Sendable, Equatable, Hashable {
 }
 
 public struct Grep: RunnableCommandFamily {
-    public init(_ pattern: String, context: ShellContext = .init())       // literal
+    // literal
+    public init(_ pattern: String, context: ShellContext = .init())
     public static func regex(_ pattern: String, context: ShellContext = .init()) -> Self
 
     // standard fluent overrides (executable, env, workingDirectory, timeout, outputLimit, stdout, stderr)
@@ -658,11 +676,16 @@ fluent overrides (`executable`, `env`, `workingDirectory`, `timeout`, `outputLim
 ```swift
 public struct Ls: RunnableCommandFamily {
     public init(context: ShellContext = .init())
-    public func all(_ enabled: Bool = true) -> Self          // -a
-    public func longFormat(_ enabled: Bool = true) -> Self   // -l
-    public func humanReadable(_ enabled: Bool = true) -> Self // -h
-    public func recursive(_ enabled: Bool = true) -> Self    // -R
-    public func directoryAsFile(_ enabled: Bool = true) -> Self // -d
+    // -a
+    public func all(_ enabled: Bool = true) -> Self
+    // -l
+    public func longFormat(_ enabled: Bool = true) -> Self
+    // -h
+    public func humanReadable(_ enabled: Bool = true) -> Self
+    // -R
+    public func recursive(_ enabled: Bool = true) -> Self
+    // -d
+    public func directoryAsFile(_ enabled: Bool = true) -> Self
     public func path(_ value: String) -> Self
     public func paths(_ values: [String]) -> Self
     public func command() -> Command
@@ -671,8 +694,10 @@ public struct Ls: RunnableCommandFamily {
 
 public struct Mkdir: RunnableCommandFamily {
     public init(context: ShellContext = .init())
-    public func parents(_ enabled: Bool = true) -> Self      // -p
-    public func mode(_ value: String) -> Self                // -m
+    // -p
+    public func parents(_ enabled: Bool = true) -> Self
+    // -m
+    public func mode(_ value: String) -> Self
     public func directory(_ path: String) -> Self
     public func directories(_ paths: [String]) -> Self
     public func command() -> Command
@@ -681,8 +706,10 @@ public struct Mkdir: RunnableCommandFamily {
 
 public struct Rm: RunnableCommandFamily {
     public init(context: ShellContext = .init())
-    public func recursive(_ enabled: Bool = true) -> Self    // -r
-    public func force(_ enabled: Bool = true) -> Self        // -f
+    // -r
+    public func recursive(_ enabled: Bool = true) -> Self
+    // -f
+    public func force(_ enabled: Bool = true) -> Self
     public func path(_ value: String) -> Self
     public func paths(_ values: [String]) -> Self
     public func command() -> Command
@@ -691,8 +718,10 @@ public struct Rm: RunnableCommandFamily {
 
 public struct Cp: RunnableCommandFamily {
     public init(context: ShellContext = .init())
-    public func recursive(_ enabled: Bool = true) -> Self    // -R
-    public func force(_ enabled: Bool = true) -> Self        // -f
+    // -R
+    public func recursive(_ enabled: Bool = true) -> Self
+    // -f
+    public func force(_ enabled: Bool = true) -> Self
     public func source(_ path: String) -> Self
     public func sources(_ paths: [String]) -> Self
     public func destination(_ path: String) -> Self
@@ -702,7 +731,8 @@ public struct Cp: RunnableCommandFamily {
 
 public struct Mv: RunnableCommandFamily {
     public init(context: ShellContext = .init())
-    public func force(_ enabled: Bool = true) -> Self        // -f
+    // -f
+    public func force(_ enabled: Bool = true) -> Self
     public func source(_ path: String) -> Self
     public func sources(_ paths: [String]) -> Self
     public func destination(_ path: String) -> Self
@@ -712,9 +742,12 @@ public struct Mv: RunnableCommandFamily {
 
 public struct Chmod: RunnableCommandFamily {
     public init(context: ShellContext = .init())
-    public func recursive(_ enabled: Bool = true) -> Self    // -R
-    public func mode(_ value: FileMode) -> Self              // typed mode
-    public func mode(_ value: String) -> Self                // raw octal/symbolic string
+    // -R
+    public func recursive(_ enabled: Bool = true) -> Self
+    // typed mode
+    public func mode(_ value: FileMode) -> Self
+    // raw octal/symbolic string
+    public func mode(_ value: String) -> Self
     public func path(_ value: String) -> Self
     public func paths(_ values: [String]) -> Self
     public func command() -> Command
@@ -723,8 +756,10 @@ public struct Chmod: RunnableCommandFamily {
 
 public struct Pwd: RunnableCommandFamily {
     public init(context: ShellContext = .init())
-    public func physical(_ enabled: Bool = true) -> Self     // -P (resolve symlinks)
-    public func logical(_ enabled: Bool = true) -> Self      // -L (preserve symlinks)
+    // -P (resolve symlinks)
+    public func physical(_ enabled: Bool = true) -> Self
+    // -L (preserve symlinks)
+    public func logical(_ enabled: Bool = true) -> Self
     public func command() -> Command
     public func run() async throws -> ShellOutput
 }
@@ -797,27 +832,47 @@ public enum FindFileType: String, Sendable, Equatable, Hashable {
 
 public struct Rsync: RunnableCommandFamily {
     public init(context: ShellContext = .init())
-    public func archive(_ enabled: Bool = true) -> Self       // -a
-    public func recursive(_ enabled: Bool = true) -> Self     // -r
-    public func compress(_ enabled: Bool = true) -> Self      // -z
-    public func verbose(_ enabled: Bool = true) -> Self       // -v
-    public func quiet(_ enabled: Bool = true) -> Self         // -q
-    public func dryRun(_ enabled: Bool = true) -> Self        // -n
-    public func checksum(_ enabled: Bool = true) -> Self      // -c
-    public func update(_ enabled: Bool = true) -> Self        // -u
-    public func delete(_ enabled: Bool = true) -> Self        // --delete
+    // -a
+    public func archive(_ enabled: Bool = true) -> Self
+    // -r
+    public func recursive(_ enabled: Bool = true) -> Self
+    // -z
+    public func compress(_ enabled: Bool = true) -> Self
+    // -v
+    public func verbose(_ enabled: Bool = true) -> Self
+    // -q
+    public func quiet(_ enabled: Bool = true) -> Self
+    // -n
+    public func dryRun(_ enabled: Bool = true) -> Self
+    // -c
+    public func checksum(_ enabled: Bool = true) -> Self
+    // -u
+    public func update(_ enabled: Bool = true) -> Self
+    // --delete
+    public func delete(_ enabled: Bool = true) -> Self
     public func deleteExcluded(_ enabled: Bool = true) -> Self
-    public func links(_ enabled: Bool = true) -> Self         // -l
-    public func copyLinks(_ enabled: Bool = true) -> Self     // -L
-    public func permissions(_ enabled: Bool = true) -> Self   // -p
-    public func times(_ enabled: Bool = true) -> Self         // -t
-    public func owner(_ enabled: Bool = true) -> Self         // -o
-    public func group(_ enabled: Bool = true) -> Self         // -g
-    public func hardLinks(_ enabled: Bool = true) -> Self     // -H
-    public func sparse(_ enabled: Bool = true) -> Self        // -S
-    public func oneFileSystem(_ enabled: Bool = true) -> Self // -x
-    public func itemizeChanges(_ enabled: Bool = true) -> Self // -i
-    public func humanReadable(_ enabled: Bool = true) -> Self // -h
+    // -l
+    public func links(_ enabled: Bool = true) -> Self
+    // -L
+    public func copyLinks(_ enabled: Bool = true) -> Self
+    // -p
+    public func permissions(_ enabled: Bool = true) -> Self
+    // -t
+    public func times(_ enabled: Bool = true) -> Self
+    // -o
+    public func owner(_ enabled: Bool = true) -> Self
+    // -g
+    public func group(_ enabled: Bool = true) -> Self
+    // -H
+    public func hardLinks(_ enabled: Bool = true) -> Self
+    // -S
+    public func sparse(_ enabled: Bool = true) -> Self
+    // -x
+    public func oneFileSystem(_ enabled: Bool = true) -> Self
+    // -i
+    public func itemizeChanges(_ enabled: Bool = true) -> Self
+    // -h
+    public func humanReadable(_ enabled: Bool = true) -> Self
     public func progress(_ enabled: Bool = true) -> Self
     public func partial(_ enabled: Bool = true) -> Self
     public func existing(_ enabled: Bool = true) -> Self
@@ -1604,11 +1659,16 @@ public struct Tar: RunnableCommandFamily {
 }
 
 public enum ZipCompressionLevel: Sendable, Equatable, Hashable {
-    case store      // -0
-    case fastest    // -1
-    case `default`  // -6
-    case best       // -9
-    case custom(Int) // clamped to 0...9 at command-build time
+    // -0
+    case store
+    // -1
+    case fastest
+    // -6
+    case `default`
+    // -9
+    case best
+    // clamped to 0...9 at command-build time
+    case custom(Int)
 }
 
 public struct Zip: RunnableCommandFamily {
@@ -1620,31 +1680,46 @@ public struct Zip: RunnableCommandFamily {
     public func paths(_ values: [String]) -> Self
 
     // Mode
-    public func update(_ enabled: Bool = true) -> Self        // -u
-    public func freshen(_ enabled: Bool = true) -> Self       // -f
-    public func delete(_ enabled: Bool = true) -> Self        // -d
-    public func move(_ enabled: Bool = true) -> Self          // -m
+    // -u
+    public func update(_ enabled: Bool = true) -> Self
+    // -f
+    public func freshen(_ enabled: Bool = true) -> Self
+    // -d
+    public func delete(_ enabled: Bool = true) -> Self
+    // -m
+    public func move(_ enabled: Bool = true) -> Self
 
     // Behavior
-    public func recursive(_ enabled: Bool = true) -> Self     // -r
-    public func quiet(_ enabled: Bool = true) -> Self         // -q
-    public func verbose(_ enabled: Bool = true) -> Self       // -v
-    public func junkPaths(_ enabled: Bool = true) -> Self     // -j
-    public func storeSymlinks(_ enabled: Bool = true) -> Self // -y
-    public func stripExtraFields(_ enabled: Bool = true) -> Self // -X
+    // -r
+    public func recursive(_ enabled: Bool = true) -> Self
+    // -q
+    public func quiet(_ enabled: Bool = true) -> Self
+    // -v
+    public func verbose(_ enabled: Bool = true) -> Self
+    // -j
+    public func junkPaths(_ enabled: Bool = true) -> Self
+    // -y
+    public func storeSymlinks(_ enabled: Bool = true) -> Self
+    // -X
+    public func stripExtraFields(_ enabled: Bool = true) -> Self
 
     // Compression and split
     public func compressionLevel(_ level: ZipCompressionLevel) -> Self
-    public func splitSize(_ value: String) -> Self            // -s <size>
+    // -s <size>
+    public func splitSize(_ value: String) -> Self
 
     // Security
-    public func encryptInteractive(_ enabled: Bool = true) -> Self // -e
-    public func password(_ value: String) -> Self             // -P <pwd>  (argv-visible)
+    // -e
+    public func encryptInteractive(_ enabled: Bool = true) -> Self
+    // -P <pwd>  (argv-visible)
+    public func password(_ value: String) -> Self
 
     // Filtering (positional, after archive+paths)
-    public func include(_ pattern: String) -> Self            // -i <pattern>
+    // -i <pattern>
+    public func include(_ pattern: String) -> Self
     public func includes(_ patterns: [String]) -> Self
-    public func exclude(_ pattern: String) -> Self            // -x <pattern>
+    // -x <pattern>
+    public func exclude(_ pattern: String) -> Self
     public func excludes(_ patterns: [String]) -> Self
 
     public func command() -> Command
@@ -1669,23 +1744,36 @@ public struct Unzip: RunnableCommandFamily {
     public func excludes(_ patterns: [String]) -> Self
 
     // Mode
-    public func list(_ enabled: Bool = true) -> Self          // -l
-    public func test(_ enabled: Bool = true) -> Self          // -t
-    public func printToStdout(_ enabled: Bool = true) -> Self // -p
-    public func freshen(_ enabled: Bool = true) -> Self       // -f
-    public func updateOnly(_ enabled: Bool = true) -> Self    // -u
+    // -l
+    public func list(_ enabled: Bool = true) -> Self
+    // -t
+    public func test(_ enabled: Bool = true) -> Self
+    // -p
+    public func printToStdout(_ enabled: Bool = true) -> Self
+    // -f
+    public func freshen(_ enabled: Bool = true) -> Self
+    // -u
+    public func updateOnly(_ enabled: Bool = true) -> Self
 
     // Behavior
-    public func destination(_ path: String) -> Self           // -d <dir>
-    public func overwrite(_ enabled: Bool = true) -> Self     // -o
-    public func neverOverwrite(_ enabled: Bool = true) -> Self // -n
-    public func quiet(_ enabled: Bool = true) -> Self         // -q
-    public func junkPaths(_ enabled: Bool = true) -> Self     // -j
-    public func restoreSecurityMetadata(_ enabled: Bool = true) -> Self // -K; restores setuid/setgid/sticky bits
-    public func password(_ value: String) -> Self             // -P <pwd>  (argv-visible)
+    // -d <dir>
+    public func destination(_ path: String) -> Self
+    // -o
+    public func overwrite(_ enabled: Bool = true) -> Self
+    // -n
+    public func neverOverwrite(_ enabled: Bool = true) -> Self
+    // -q
+    public func quiet(_ enabled: Bool = true) -> Self
+    // -j
+    public func junkPaths(_ enabled: Bool = true) -> Self
+    // -K; restores setuid/setgid/sticky bits
+    public func restoreSecurityMetadata(_ enabled: Bool = true) -> Self
+    // -P <pwd>  (argv-visible)
+    public func password(_ value: String) -> Self
 
     // Typed listing
-    public func entries() -> Workflow<[UnzipEntry]>           // runs `unzip -l` and parses
+    // runs `unzip -l` and parses
+    public func entries() -> Workflow<[UnzipEntry]>
 
     public func command() -> Command
     public func run() async throws -> ShellOutput
@@ -1779,13 +1867,20 @@ public struct Brew: RunnableCommandFamily {
     public func formulae(_ names: [String]) -> Self
 
     // Flags
-    public func cask(_ enabled: Bool = true) -> Self         // --cask
-    public func formulaFlag(_ enabled: Bool = true) -> Self  // --formula
-    public func force(_ enabled: Bool = true) -> Self        // --force
-    public func quiet(_ enabled: Bool = true) -> Self        // --quiet
-    public func verbose(_ enabled: Bool = true) -> Self      // --verbose
-    public func dryRun(_ enabled: Bool = true) -> Self       // --dry-run
-    public func greedy(_ enabled: Bool = true) -> Self       // --greedy
+    // --cask
+    public func cask(_ enabled: Bool = true) -> Self
+    // --formula
+    public func formulaFlag(_ enabled: Bool = true) -> Self
+    // --force
+    public func force(_ enabled: Bool = true) -> Self
+    // --quiet
+    public func quiet(_ enabled: Bool = true) -> Self
+    // --verbose
+    public func verbose(_ enabled: Bool = true) -> Self
+    // --dry-run
+    public func dryRun(_ enabled: Bool = true) -> Self
+    // --greedy
+    public func greedy(_ enabled: Bool = true) -> Self
 
     public func command() -> Command
     public func run() async throws -> ShellOutput
@@ -1807,12 +1902,18 @@ public struct JqArgument: Sendable, Equatable, Hashable {
 public struct Jq: RunnableCommandFamily {
     public init(_ filter: String = ".", context: ShellContext = .init())
     public func filter(_ value: String) -> Self
-    public func rawOutput(_ enabled: Bool = true) -> Self    // -r
-    public func compactOutput(_ enabled: Bool = true) -> Self // -c
-    public func slurp(_ enabled: Bool = true) -> Self        // -s
-    public func nullInput(_ enabled: Bool = true) -> Self    // -n
-    public func sortKeys(_ enabled: Bool = true) -> Self     // -S
-    public func arg(_ name: String, _ value: String) -> Self // --arg
+    // -r
+    public func rawOutput(_ enabled: Bool = true) -> Self
+    // -c
+    public func compactOutput(_ enabled: Bool = true) -> Self
+    // -s
+    public func slurp(_ enabled: Bool = true) -> Self
+    // -n
+    public func nullInput(_ enabled: Bool = true) -> Self
+    // -S
+    public func sortKeys(_ enabled: Bool = true) -> Self
+    // --arg
+    public func arg(_ name: String, _ value: String) -> Self
     public func file(_ path: String) -> Self
     public func files(_ paths: [String]) -> Self
     public func command() -> Command
@@ -1828,9 +1929,11 @@ public struct MockExecutor: CommandExecutor {
 
     public init(handler: @escaping Handler)
     public init(stdout: String = "", stderr: String = "", exitCode: Int32 = 0)
-    public init(stubs: [Stub], fallback: ShellOutput? = nil)   // unmatched + nil fallback → commandNotFound(executableName)
+    // unmatched + nil fallback → commandNotFound(executableName)
+    public init(stubs: [Stub], fallback: ShellOutput? = nil)
 
-    public var recordedCommands: [Command] { get }   // every command received, in order; copies share it
+    // every command received, in order; copies share it
+    public var recordedCommands: [Command] { get }
 
     public struct Stub: Sendable {
         public init(_ executable: String, arguments: [String]? = nil, returning output: ShellOutput)
@@ -2198,7 +2301,7 @@ Declared in `Package.swift`:
 Consumers select families with `traits:` on `.package(...)`:
 
 ```swift
-.package(url: "...", from: "0.3.0", traits: ["Git", "Grep"])
+.package(url: "...", from: "0.7.0", traits: ["Git", "Grep"])
 ```
 
 ### Wiring Contract
@@ -2273,11 +2376,13 @@ Before submitting any change to this codebase, verify:
 
 ## Hard Gate: Tests + swift-format + DocC
 
-A change is not done — do not declare completion, open a PR, or hand back to the user — until these gates pass on every file you touched:
+A change is not done — do not declare completion, open a PR, or hand back to the user — until all six gates pass on every file you touched:
 
 1. `swift test -Xswiftc -warnings-as-errors` — all tests green.
 2. `swift-format lint --strict` — no errors on changed Swift files. For new Swift, run `swift-format format -i <file>` first to auto-fix, then re-lint. Do not run `swift-format` on DocC Markdown; validate `.docc/*.md` changes with DocC coverage and generation instead.
 3. `swift -warnings-as-errors Scripts/validate-docc-coverage.swift` — authored DocC links and command-family examples are present.
 4. `swift package -Xswiftc -warnings-as-errors --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
+5. `swift -warnings-as-errors Scripts/validate-traits.swift` — package trait wiring remains valid.
+6. `swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors` and `swift -warnings-as-errors Scripts/validate-code-coverage.swift --input <codecov-path> --minimum-line-coverage 84 --all-traits` — the coverage gate remains valid.
 
 The repo ships a `.swift-format` config at the root; use it for Swift source. The tree is currently fully compliant (`swift-format lint --strict --recursive Sources Tests Scripts Benchmarks/Benchmarks Benchmarks/Package.swift` exits clean) — keep it that way. `swift-format` parses inputs as Swift, so Markdown-only documentation changes should use the DocC validation gates rather than direct Markdown linting with `swift-format`. If a lint rule is genuinely wrong for a specific Swift construct, update `.swift-format` in the same change rather than skipping the gate.

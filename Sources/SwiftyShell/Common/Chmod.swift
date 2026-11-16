@@ -9,7 +9,8 @@ import Foundation
 ///
 /// ```swift
 /// try await Chmod(context: context)
-///     .recursive()    // Apply the permission change to descendants too.
+///     // Apply the permission change to descendants too.
+///     .recursive()
 ///     .mode(
 ///         FileMode(
 ///             owner: [.read, .write, .execute],

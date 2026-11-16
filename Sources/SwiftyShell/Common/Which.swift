@@ -70,13 +70,10 @@ public struct Which: RunnableCommandFamily {
         let command = command()
         let context = state.config.context
         return Workflow {
-            do {
-                let output = try await command.run(in: context)
-                let path = try output.validatedStdout(for: command).trimmingCharacters(in: .whitespacesAndNewlines)
-                return path.isEmpty ? .notFound : .found(path: path)
-            } catch let ShellError.exitFailure(_, output) where output.exitCode == 1 {
-                return .notFound
-            }
+            let output = try await command.acceptingExitCodes([1]).run(in: context)
+            guard output.exitCode == 0 else { return .notFound }
+            let path = try output.validatedStdout(for: command).trimmingCharacters(in: .whitespacesAndNewlines)
+            return path.isEmpty ? .notFound : .found(path: path)
         }
     }
 }

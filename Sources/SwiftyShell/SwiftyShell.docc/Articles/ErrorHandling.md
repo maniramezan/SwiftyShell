@@ -79,6 +79,19 @@ do {
 }
 ```
 
+Some tools use a non-zero exit code as a normal answer: `grep` and `rg` exit `1` when nothing
+matches, and `diff` exits `1` when inputs differ. Accept those codes with
+``Command/acceptingExitCodes(_:)`` instead of catching `exitFailure`. The output keeps the real exit
+code, so you can still branch on it. Signals are never accepted, and in a ``Pipeline`` the set applies
+to the stage that carries it.
+
+```swift
+let output = try await Command("grep", arguments: "TODO", "Package.swift")
+    .acceptingExitCodes([1])
+    .run(in: context)
+let hasMatches = output.exitCode == 0
+```
+
 #### `spawnError`
 
 The operating system could not create the subprocess — for example, because the file is not executable, resource limits are exhausted, or the executable path does not exist.

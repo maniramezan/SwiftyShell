@@ -46,7 +46,8 @@ public struct Pipeline: Sendable {
     /// ```swift
     /// let pipeline = Command("ls", arguments: "-la")
     ///     .pipe(to: Command("grep", arguments: ".swift"))
-    ///     .pipe(to: Command("wc", arguments: "-l"))   // appended via this method
+    ///     // Appended via this method.
+    ///     .pipe(to: Command("wc", arguments: "-l"))
     /// ```
     ///
     /// - Parameter next: The command to append as the new final stage.
@@ -74,6 +75,31 @@ public struct Pipeline: Sendable {
 }
 
 extension Pipeline {
+    /// Runs the pipeline and reports how every stage ended, without failing on exit codes.
+    ///
+    /// ``run(in:)`` stops at the first failing stage and reports only that one, like a shell with
+    /// `pipefail`. Use this when each stage's exit code matters, as in `diff a b | head`, where the
+    /// first stage's exit `1` means "different" rather than "broken". No stage's exit code, accepted
+    /// or not, raises ``ShellError/exitFailure(command:output:)-enum.case``, so a failure in one stage
+    /// does not stop the others. Launch failures, timeouts, output-limit overflows, and cancellation
+    /// still throw.
+    ///
+    /// ```swift
+    /// let result = try await Command("grep", arguments: "TODO", "Package.swift")
+    ///     .pipe(to: Command("wc", arguments: "-l"))
+    ///     .runReportingStages(in: context)
+    /// let grepFoundNothing = result.stageExitCodes[0] == 1
+    /// ```
+    ///
+    /// - Parameter context: The shell context that supplies defaults to every stage.
+    /// - Returns: The final stage's output and the exit code of every stage.
+    /// - Throws: ``ShellError`` for any failure that is not an exit code. Custom executors that do not
+    ///   implement ``CommandExecutor/executeReportingStages(_:in:)`` throw
+    ///   ``ShellError/invalidConfiguration(description:)``.
+    public func runReportingStages(in context: ShellContext = .init()) async throws -> PipelineResult {
+        try await context.executor.executeReportingStages(self, in: context)
+    }
+
     /// Throws when a stage other than the first sets an ``InputSource``.
     ///
     /// Later stages read the previous stage's stdout, so their own source could never be used.
@@ -85,6 +111,35 @@ extension Pipeline {
                     "Only the first pipeline stage may set stdin; later stages read the previous stage's stdout"
             )
         }
+    }
+}
+
+/// The result of ``Pipeline/runReportingStages(in:)``: the final output plus every stage's exit code.
+public struct PipelineResult: Sendable, Equatable {
+    /// The final stage's stdout with every stage's stderr concatenated in stage order.
+    ///
+    /// ``ShellOutput/exitCode`` is the final stage's exit code.
+    public let output: ShellOutput
+
+    /// The exit code of each stage in pipeline order.
+    ///
+    /// A stage terminated by a signal reports `128 + signal`. A stage that was cancelled before it
+    /// finished reports `-1`.
+    public let stageExitCodes: [Int32]
+
+    /// Creates a pipeline result.
+    ///
+    /// - Parameters:
+    ///   - output: The final stage's stdout with every stage's stderr.
+    ///   - stageExitCodes: The exit code of each stage in pipeline order.
+    public init(output: ShellOutput, stageExitCodes: [Int32]) {
+        self.output = output
+        self.stageExitCodes = stageExitCodes
+    }
+
+    /// Whether every stage exited with code `0`.
+    public var allStagesSucceeded: Bool {
+        stageExitCodes.allSatisfy { $0 == 0 }
     }
 }
 

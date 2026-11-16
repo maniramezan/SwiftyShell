@@ -40,7 +40,8 @@ public struct JqArgument: Sendable, Equatable, Hashable {
 ///
 /// ```swift
 /// let output = try await Jq(".name", context: context)
-///     .rawOutput()    // Emit the string value directly, without JSON quotes.
+///     // Emit the string value directly, without JSON quotes.
+///     .rawOutput()
 ///     .file("package.json")
 ///     .run()
 ///

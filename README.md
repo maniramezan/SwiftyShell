@@ -33,10 +33,6 @@ Typed command families are opt-in through SwiftPM package traits. The default pa
 
 SwiftyShell is not a security boundary. Validate values according to the invoked tool, especially interpreter input, raw options, executable overrides, environment values, and writable paths.
 
-## License
-
-SwiftyShell is available under the MIT license. See [LICENSE](LICENSE) for details.
-
 ## Build output for automation
 
 Use `.stdout(.teeTo(.stderr))` when a CLI writes JSON to stdout. Captured output retains its
@@ -54,6 +50,12 @@ let output = try await Command("./gradlew", arguments: "assembleRelease")
 Filling a tail does not terminate the build. The command's shared hard output limit still applies
 to retained bytes. See the `OutputDestination` DocC page for pipeline, spawn, and mock behavior.
 
-The upcoming 0.7.0 release requires Swift 6.2 or later, supports macOS 15 or later and Linux, and
+## Requirements
+
+SwiftyShell requires Swift 6.2 or later, supports macOS 15 or later and Linux, and
 uses swift-subprocess 1.0. Select a compatible toolchain in local development and CI before updating.
 Typed command families remain opt-in through package traits; core execution requires no traits.
+
+## License
+
+SwiftyShell is available under the MIT license. See [LICENSE](LICENSE) for details.

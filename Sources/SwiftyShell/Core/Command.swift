@@ -98,6 +98,17 @@ public struct Command: Sendable {
     /// ``outputLimit(_:)``.
     public var outputLimitOverride: Int? { options.outputLimitOverride }
 
+    /// Non-zero exit codes that ``run(in:)`` treats as success.
+    ///
+    /// Empty by default, so only exit code `0` succeeds. Exit code `0` always succeeds regardless of
+    /// this set. Set with ``acceptingExitCodes(_:)``.
+    public var acceptedExitCodes: Set<Int32> { options.acceptedExitCodes }
+
+    /// Whether stderr is merged into stdout, like `2>&1` in a shell.
+    ///
+    /// `false` by default. Set with ``mergingStderrIntoStdout()``.
+    public var mergesStderrIntoStdout: Bool { options.mergesStderrIntoStdout }
+
     /// The stdout handling strategy for this command.
     ///
     /// Defaults to ``OutputDestination/capture``, which retains stdout in ``ShellOutput/stdout``.
@@ -308,7 +319,8 @@ public struct Command: Sendable {
     ///
     /// ```swift
     /// try await Command("swift", arguments: "build")
-    ///     .timeout(.seconds(120))   // abort if the build runs longer than two minutes
+    ///     // Abort if the build runs longer than two minutes.
+    ///     .timeout(.seconds(120))
     ///     .run(in: context)
     /// ```
     ///
@@ -339,7 +351,8 @@ public struct Command: Sendable {
     ///
     /// ```swift
     /// try await Command("ls", arguments: "-R", "/")
-    ///     .outputLimit(1_048_576)   // cap captured output at 1 MB
+    ///     // Cap captured output at 1 MB.
+    ///     .outputLimit(1_048_576)
     ///     .run(in: context)
     /// ```
     ///
@@ -347,6 +360,57 @@ public struct Command: Sendable {
     /// - Returns: A new ``Command`` with the output-limit override applied.
     public func outputLimit(_ bytes: Int) -> Self {
         modified(self) { $0.options.outputLimitOverride = bytes }
+    }
+
+    /// Returns a copy of the command that treats the given non-zero exit codes as success.
+    ///
+    /// Many tools use a non-zero exit code as a normal answer: `grep` and `rg` exit `1` when
+    /// nothing matches, `diff` and `git diff --exit-code` exit `1` when inputs differ. Accepting
+    /// those codes lets ``run(in:)`` return normally instead of throwing
+    /// ``ShellError/exitFailure(command:output:)-enum.case``. Exit code `0` always succeeds, and
+    /// ``ShellOutput/exitCode`` keeps the real exit code so callers can branch on it. Termination
+    /// by a signal is never accepted. A later call replaces the earlier set.
+    ///
+    /// In a ``Pipeline`` the set applies to the stage that carries it. It has no effect on
+    /// ``spawn(in:teardown:)``, which never throws for a non-zero exit.
+    ///
+    /// ```swift
+    /// let output = try await Command("grep", arguments: "TODO", "Package.swift")
+    ///     // Exit code 1 means no matches, not failure.
+    ///     .acceptingExitCodes([1])
+    ///     .run(in: context)
+    /// let hasMatches = output.exitCode == 0
+    /// ```
+    ///
+    /// - Parameter codes: The non-zero exit codes to treat as success.
+    /// - Returns: A new ``Command`` with the accepted exit codes applied.
+    public func acceptingExitCodes(_ codes: Set<Int32>) -> Self {
+        modified(self) { $0.options.acceptedExitCodes = codes }
+    }
+
+    /// Returns a copy of the command that merges stderr into stdout, like `2>&1` in a shell.
+    ///
+    /// The child's stderr is attached to the same pipe or file as its stdout, so the two streams
+    /// arrive interleaved in the order the process wrote them. Everything is then routed by
+    /// ``stdout(_:)`` and appears in ``ShellOutput/stdout``; ``ShellOutput/stderr`` stays empty and
+    /// the bytes of both streams count toward the output limit together. In a ``Pipeline`` a merged
+    /// stage sends its stderr to the next stage, as `cmd1 2>&1 | cmd2` does.
+    ///
+    /// Because stderr has no destination of its own, combining this with ``stderr(_:)`` set to
+    /// anything but ``OutputDestination/capture``, or with ``spawnDetached(in:)``, fails with
+    /// ``ShellError/invalidConfiguration(description:)``. Live `spawn` handles deliver the merged bytes on
+    /// ``SpawnedProcess/standardOutput`` and leave ``SpawnedProcess/standardError`` empty.
+    ///
+    /// ```swift
+    /// let output = try await Command("make")
+    ///     .mergingStderrIntoStdout()
+    ///     .stdout(.log(path: "build.log", append: false, tailBytes: 65_536))
+    ///     .run(in: context)
+    /// ```
+    ///
+    /// - Returns: A new ``Command`` that merges stderr into stdout.
+    public func mergingStderrIntoStdout() -> Self {
+        modified(self) { $0.options.mergesStderrIntoStdout = true }
     }
 
     /// Returns a copy of the command that reads its stdin from the given source.
@@ -395,7 +459,8 @@ public struct Command: Sendable {
     ///
     /// ```swift
     /// try await Command("make", arguments: "clean")
-    ///     .stderr(.discard)   // suppress noisy progress messages
+    ///     // Suppress noisy progress messages.
+    ///     .stderr(.discard)
     ///     .run(in: context)
     /// ```
     ///
@@ -432,7 +497,8 @@ public struct Command: Sendable {
     ///
     /// Resolution, environment merging, working-directory selection, timeout and output-limit
     /// enforcement, and exit-code handling are all delegated to ``ShellContext/executor``. A
-    /// non-zero exit raises ``ShellError/exitFailure(command:output:)-enum.case``; other failure modes
+    /// non-zero exit raises ``ShellError/exitFailure(command:output:)-enum.case`` unless the code is
+    /// listed in ``acceptedExitCodes``; other failure modes
     /// surface as the matching ``ShellError`` case.
     ///
     /// ```swift
@@ -511,6 +577,11 @@ public struct Command: Sendable {
         return try await context.executor.spawn(command, in: context, teardown: teardown)
     }
 
+    /// Returns a copy that does or does not retain output for ``spawn(captureOutput:in:teardown:)``.
+    func retainingSpawnOutput(_ retains: Bool) -> Command {
+        modified(self) { $0.spawnRetainsOutput = retains }
+    }
+
     /// Returns a shell-quoted string representation of the command suitable for display or logging.
     ///
     /// Components that are empty or contain anything other than ASCII letters, digits, and
@@ -552,6 +623,8 @@ extension Command: CustomDebugStringConvertible {
         if let wd = workingDirectoryOverride { parts.append("workingDirectory: \(wd.debugDescription)") }
         if let timeout = timeoutOverride { parts.append("timeout: \(timeout)") }
         if let limit = outputLimitOverride { parts.append("outputLimit: \(limit)") }
+        if mergesStderrIntoStdout { parts.append("mergesStderrIntoStdout: true") }
+        if !acceptedExitCodes.isEmpty { parts.append("acceptedExitCodes: \(acceptedExitCodes.sorted())") }
         if stdinSource != .none { parts.append("stdin: \(stdinSource.debugSummary)") }
         if stdoutDestination != .capture { parts.append("stdout: \(stdoutDestination)") }
         if stderrDestination != .capture { parts.append("stderr: \(stderrDestination)") }

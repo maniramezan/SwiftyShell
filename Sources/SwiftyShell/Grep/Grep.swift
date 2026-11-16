@@ -42,7 +42,8 @@ public enum GrepPattern: Sendable, Equatable, Hashable {
 /// ```swift
 /// let result = try await Grep("TODO", context: context)
 ///     .file("Sources/main.swift")
-///     .lineNumbers()    // Prefix each matching line with its line number.
+///     // Prefix each matching line with its line number.
+///     .lineNumbers()
 ///     .run()
 ///
 /// print(result.stdout)
@@ -53,8 +54,10 @@ public enum GrepPattern: Sendable, Equatable, Hashable {
 ///
 /// ```swift
 /// let result = try await Grep.regex("^import\\s+Foundation", context: context)
-///     .recursive()     // Search below Sources/.
-///     .ignoreCase()    // Match imports regardless of case.
+///     // Search below Sources/.
+///     .recursive()
+///     // Match imports regardless of case.
+///     .ignoreCase()
 ///     .file("Sources/")
 ///     .run()
 /// ```

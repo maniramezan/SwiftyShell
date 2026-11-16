@@ -14,7 +14,8 @@ let output = try await Command("ls")
     .pipe(to: Fzf(context: context).filter("main").command())
     .run(in: context)
 
-print(output.stdout)  // Lines matching "main"
+// Lines matching "main"
+print(output.stdout)
 ```
 
 Build a configured command for inspection or for a caller-supplied execution environment:

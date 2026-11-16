@@ -65,7 +65,8 @@ so the string can be pasted into `sh`, `bash`, or `zsh` to run the same argv.
 
 ```swift
 let command = Command("git", arguments: "commit", "-m", "it's $HOME")
-print(command)  // git commit -m 'it'\''s $HOME'
+// git commit -m 'it'\''s $HOME'
+print(command)
 ```
 
 ## Topics
@@ -96,6 +97,7 @@ print(command)  // git commit -m 'it'\''s $HOME'
 - ``workingDirectory(_:)``
 - ``timeout(_:)-(Duration)``
 - ``outputLimit(_:)``
+- ``acceptingExitCodes(_:)``
 
 ### Providing Input
 
@@ -128,6 +130,7 @@ print(command)  // git commit -m 'it'\''s $HOME'
 - ``workingDirectoryOverride``
 - ``timeoutOverride``
 - ``outputLimitOverride``
+- ``acceptedExitCodes``
 - ``stdinSource``
 - ``stdoutDestination``
 - ``stderrDestination``

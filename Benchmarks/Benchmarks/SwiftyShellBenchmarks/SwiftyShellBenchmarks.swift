@@ -58,6 +58,52 @@ let benchmarks: @Sendable () -> Void = {
         }
     }
 
+    // A bounded tail fed by many read chunks. The tail holds many chunks at once, so the cost of
+    // trimming it per append is what this measures.
+    Benchmark("output/log-tail-64MiB", configuration: processConfiguration) { benchmark in
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("swiftyshell-benchmark-\(UUID().uuidString).log").path
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        for _ in benchmark.scaledIterations {
+            blackHole(try await producer.stdout(.log(path: path, append: false, tailBytes: 32 * 1024 * 1024)).run())
+        }
+    }
+
+    // Live tee of captured output. The parent's stderr is pointed at the null device for the run so
+    // the benchmark measures routing cost rather than terminal speed.
+    Benchmark("output/tee-64MiB", configuration: processConfiguration) { benchmark in
+        let savedStandardError = dup(STDERR_FILENO)
+        let nullDevice = open("/dev/null", O_WRONLY)
+        if savedStandardError >= 0, nullDevice >= 0 {
+            dup2(nullDevice, STDERR_FILENO)
+        }
+        defer {
+            if savedStandardError >= 0 {
+                dup2(savedStandardError, STDERR_FILENO)
+                close(savedStandardError)
+            }
+            if nullDevice >= 0 {
+                close(nullDevice)
+            }
+        }
+        for _ in benchmark.scaledIterations {
+            blackHole(try await producer.stdout(.teeTo(.stderr)).run())
+        }
+    }
+
+    // Streaming 64 MiB through a spawned process and draining the byte stream.
+    Benchmark("spawn/stream-64MiB", configuration: processConfiguration) { benchmark in
+        for _ in benchmark.scaledIterations {
+            let process = try await producer.spawn()
+            var total = 0
+            for await chunk in process.standardOutputData {
+                total += chunk.count
+            }
+            blackHole(total)
+            blackHole(await process.waitForExit())
+        }
+    }
+
     // Three processes connected by pipes, capturing only the final stage's small output.
     Benchmark("pipeline/3-stage-64MiB", configuration: processConfiguration) { benchmark in
         for _ in benchmark.scaledIterations {

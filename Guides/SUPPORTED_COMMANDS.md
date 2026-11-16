@@ -49,7 +49,7 @@ For the complete trait reference and recipes, see the DocC [Selecting Command Fa
 ```swift
 .package(
     url: "https://github.com/maniramezan/SwiftyShell.git",
-    from: "0.3.0",
+    from: "0.7.0",
     traits: ["Git", "Grep", "Fzf"]
 )
 ```

@@ -18,6 +18,14 @@ Typed git client: `Git`, `GitStatus`, `GitStatusWorkflow`, `GitSubmodule`, `GitS
 
 Typed `grep` wrapper: `Grep` and `GrepPattern`.
 
+### `Sources/SwiftyShell/Fzf/`
+
+Typed wrapper for the fzf fuzzy finder: `Fzf` and its supporting option types in `FzfTypes.swift`.
+
+### `Sources/SwiftyShell/Rg/`
+
+Typed wrapper for ripgrep: `Rg`.
+
 ### `Sources/SwiftyShell/Brew/`
 
 Typed wrapper for the Homebrew package manager: `Brew` and `BrewSubcommand`.
@@ -100,6 +108,10 @@ DocC documentation catalog. `SwiftyShell.md` is the top-level landing page. Arti
 - `GettingStarted.md` — installation, first command, pipelines, testing
 - `SelectingCommandFamilies.md` — package trait reference and recipes
 - `BuildingCommandFamilies.md` — how to author a new typed command family
+- `CoreConcepts.md` — commands, contexts, output routing, and execution semantics
+- `ErrorHandling.md` — `ShellError` cases, exit codes, and recovery patterns
+- `SpawningProcesses.md` — long-running processes, live streams, and teardown
+- `UsingAIAssistants.md` — guidance for AI assistants generating SwiftyShell code
 
 ### `Tests/SwiftyShellTests/`
 
@@ -108,6 +120,10 @@ Test suite. Sub-folders mirror the source layout: `Brew/`, `Bun/`, `Cargo/`, `Co
 ### `Scripts/`
 
 `validate-traits.swift` — single-file Swift script that enforces the trait wiring contract: every gated source/test file is wrapped in the matching `#if <Trait>`, every family directory has a corresponding trait declaration in `Package.swift`, and the `All` umbrella transitively enables every per-family trait. CI runs this before any build job; run it locally with `swift -warnings-as-errors Scripts/validate-traits.swift`.
+
+`validate-code-coverage.swift` — single-file Swift script that checks line coverage from a `swift test --enable-code-coverage` report against a minimum and, with `--all-traits`, requires every compiled source file to appear. Run it as shown in the Definition of Done below.
+
+`linux-build.sh`, `linux-test.sh`, `linux-ci.sh`, `linux-shell.sh`, and `docker-linux-swift.sh` — helpers that build, test, or open a shell inside a Linux Swift container so Linux behavior can be checked from macOS. See `Guides/DEVELOPMENT.md`.
 
 `validate-docc-coverage.swift` — single-file Swift script that enforces authored DocC coverage: every public top-level symbol must be linked from the DocC catalog, and every public command family must have user-facing DocC with Swift examples and a topics section. CI runs this before build/test jobs; run it locally with `swift -warnings-as-errors Scripts/validate-docc-coverage.swift`.
 
@@ -153,7 +169,7 @@ swift-format lint --strict --recursive <path(s)>
 
 ## Definition of Done — HARD GATE
 
-Do not mark a task complete, declare work finished, or hand back to the user until both of the following pass on every file you added or modified:
+Do not mark a task complete, declare work finished, or hand back to the user until all six of the following pass on every file you added or modified:
 
 1. `swift test -Xswiftc -warnings-as-errors` — all tests green.
 2. `swift-format lint --strict` — no errors on Swift files you touched. If you just wrote new Swift, run `swift-format format -i <file>` first so auto-fixable issues are corrected, then re-lint to confirm. Do not run `swift-format` on DocC Markdown; validate `.docc/*.md` changes with DocC coverage and generation instead.
@@ -162,7 +178,7 @@ Do not mark a task complete, declare work finished, or hand back to the user unt
 5. `swift package -Xswiftc -warnings-as-errors --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
 6. `swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors` and `swift -warnings-as-errors Scripts/validate-code-coverage.swift --input <codecov-path> --minimum-line-coverage 84 --all-traits` — the coverage gate remains valid and includes every compiled source file.
 
-This applies to any code change (new command families, bug fixes, doc snippets that live in Swift, tests). Do not skip either gate. If a lint rule feels wrong for a specific construct, propose a `.swift-format` change in the same PR rather than bypassing the check.
+This applies to any code change (new command families, bug fixes, doc snippets that live in Swift, tests). Do not skip any gate. If a lint rule feels wrong for a specific construct, propose a `.swift-format` change in the same PR rather than bypassing the check.
 
 The repository ships a `.swift-format` config at the repo root that encodes the project's 4-space indentation, 120-column line length, and other style rules. The tree is currently fully compliant — `swift-format lint --strict --recursive Sources Tests Scripts Benchmarks/Benchmarks Benchmarks/Package.swift` exits clean, and CI runs the same command on every push. Keep it that way. `swift-format` parses inputs as Swift source, so Markdown-only documentation changes should use the DocC validation gates rather than direct Markdown linting with `swift-format`.
 
@@ -207,9 +223,19 @@ Built-in execution failures surface as `ShellError`. Workflow closures, transfor
 
 ### Execution Engine
 
+Captured and tail output is stored as per-stream `ChunkList`s in `OutputCaptureStore`; a bounded `.log` tail drops from the front with an index offset (amortized O(1)) rather than `removeFirst()`, and `Benchmarks/` covers log, tee, and spawn streaming so regressions show in the allocation gate.
+
 `SubprocessExecutor` (in `Internal/Execution/`) is `public` because `ShellContext.init` defaults to it. The `Internal/` folder label is organizational — it does not imply the type is hidden from callers.
 
 The production executor uses the `swift-subprocess` package for process lifecycle management. Keep SwiftyShell's public error semantics stable when changing it: map built-in execution failures into `ShellError`, preserve captured partial output on timeout/output-limit/cancellation paths, and keep `MockExecutor` behavior aligned with production where practical. `run()` hands `.discard` and `.file` destinations to the child as `.discarded` / `.fileDescriptor` outputs (only `.capture` / `.tee` streams are read by SwiftyShell, via the generic `runRouted` helpers), maps `Command.stdinSource` (`InputSource`, empty by default) to `NoInput` or a `FileDescriptorInput` (text/bytes via a Linux `memfd_create` file or, on Darwin, a SwiftyShell-fed `F_SETNOSIGPIPE` pipe; never swift-subprocess `DataInput`, which traps or raises SIGPIPE when the child exits without reading) (spawned processes use the same mapping through the type-erased `SpawnedExecution`) and gets forced teardown from swift-subprocess itself: each configuration's `teardownSequence` sends `SIGKILL` to the command's process group, and swift-subprocess runs it whenever the awaiting task is cancelled or the body closure throws. Don't reintroduce SwiftyShell-side process bookkeeping for this. `run()` returns once the command's process exits: swift-subprocess then stops waiting for the output pipes to close, so a background descendant's later output is not captured (see ARCHITECTURE.md, Timeout & Cancellation). Spawned processes carry their `TeardownStrategy` as the teardown sequence, with every step (and the final kill) sent to the process group.
+
+### Accepted exit codes
+
+`Command.acceptingExitCodes(_:)` (also on `ToolConfiguration` and every `ToolConfigurableCommandFamily`) lists non-zero exit codes that `run()` and pipeline stages treat as success, for tools such as `grep`, `rg`, and `diff` that use exit `1` as an answer. `ShellOutput.exitCode` keeps the real value, exit `0` always succeeds, signal terminations are never accepted, and a pipeline applies each stage's own set. `MockExecutor` mirrors this. It does not affect `spawn`, which never throws for an exit code. Prefer it over catching `ShellError.exitFailure` (see `Which.lookup()`).
+
+### Spawned line streams
+
+`SpawnedProcess.standardOutputLines` / `standardErrorLines` are protocol-extension `AsyncStream<String>` views over the text streams, split on `\n` and `\r\n` with a final partial line flushed. They share the underlying stream, so a caller consumes only one view. They are pull-based, so custom `SpawnedProcess` conformers and `MockSpawnedProcess` get them for free.
 
 ### Detached processes
 

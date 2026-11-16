@@ -9,7 +9,8 @@ import Foundation
 ///
 /// ```swift
 /// try await Cp(context: context)
-///     .recursive()    // Required when the source is a directory.
+///     // Required when the source is a directory.
+///     .recursive()
 ///     .source("/path/to/source")
 ///     .destination("/path/to/dest")
 ///     .run()

@@ -143,6 +143,16 @@ public extension ToolConfigurableCommandFamily {
     func outputLimit(_ bytes: Int) -> Self {
         updatingConfiguration { $0.outputLimit(bytes) }
     }
+
+    /// Returns a copy of the family that treats the given non-zero exit codes as success.
+    ///
+    /// See ``Command/acceptingExitCodes(_:)`` for the underlying semantics.
+    ///
+    /// - Parameter codes: The non-zero exit codes to treat as success.
+    /// - Returns: A new family value with the accepted exit codes applied.
+    func acceptingExitCodes(_ codes: Set<Int32>) -> Self {
+        updatingConfiguration { $0.acceptingExitCodes(codes) }
+    }
 }
 
 /// A typed command family that supports explicit stdout and stderr destinations.

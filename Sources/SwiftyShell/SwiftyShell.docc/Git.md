@@ -31,8 +31,10 @@ empty result or clean repository.
 let entries = try await Git(context: context)
     .workingDirectory(repoPath)
     .submodule()
-    .recursive()        // Include submodules inside submodules.
-    .statusEntries()    // Parse `git submodule status` into Swift values.
+    // Include submodules inside submodules.
+    .recursive()
+    // Parse `git submodule status` into Swift values.
+    .statusEntries()
     .run()
 
 for entry in entries {
@@ -63,10 +65,14 @@ parallel when the installed git version supports it.
 try await Git(context: context)
     .workingDirectory(repoPath)
     .submodule()
-    .update()                // Select `git submodule update`.
-    .initializeOnUpdate()    // Add `--init` for missing submodules.
-    .recursive()             // Add `--recursive` for nested submodules.
-    .jobs(4)                 // Add `--jobs 4` for parallel fetches.
+    // Select `git submodule update`.
+    .update()
+    // Add `--init` for missing submodules.
+    .initializeOnUpdate()
+    // Add `--recursive` for nested submodules.
+    .recursive()
+    // Add `--jobs 4` for parallel fetches.
+    .jobs(4)
     .run()
 ```
 
@@ -85,8 +91,10 @@ try await Git(context: context)
     .workingDirectory(repoPath)
     .submodule()
     .update()
-    .remote()                  // Follow each submodule's configured remote branch.
-    .updateStrategy(.merge)    // Merge remote updates instead of detached checkout.
+    // Follow each submodule's configured remote branch.
+    .remote()
+    // Merge remote updates instead of detached checkout.
+    .updateStrategy(.merge)
     .recursive()
     .run()
 ```
@@ -136,23 +144,30 @@ local git config. `summary` returns raw ``ShellOutput`` describing commit ranges
 try await Git(context: context)
     .workingDirectory(repoPath)
     .submodule()
-    .sync()         // Apply .gitmodules URL changes to local submodule config.
-    .recursive()    // Include nested submodules.
+    // Apply .gitmodules URL changes to local submodule config.
+    .sync()
+    // Include nested submodules.
+    .recursive()
     .run()
 
 let summary = try await Git(context: context)
     .workingDirectory(repoPath)
     .submodule()
-    .summary()             // Show submodule commit differences.
-    .cached()              // Compare against the index instead of the worktree.
-    .summaryLimit(10)      // Limit commit lines per submodule.
+    // Show submodule commit differences.
+    .summary()
+    // Compare against the index instead of the worktree.
+    .cached()
+    // Limit commit lines per submodule.
+    .summaryLimit(10)
     .run()
 
 let foreachOutput = try await Git(context: context)
     .workingDirectory(repoPath)
     .submodule()
-    .foreach("git status --short")    // Run this command in each submodule.
-    .recursive()                       // Also visit nested submodules.
+    // Run this command in each submodule.
+    .foreach("git status --short")
+    // Also visit nested submodules.
+    .recursive()
     .run()
 ```
 

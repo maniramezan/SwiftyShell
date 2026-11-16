@@ -16,7 +16,8 @@ import Foundation
 ///     .workingDirectory("/path/to/repo")
 ///     .status()
 ///     .require(\.state, equals: .noChanges, else: MyError.dirtyTree)
-///     .pull()    // Runs only after the status requirement succeeds.
+///     // Runs only after the status requirement succeeds.
+///     .pull()
 ///     .run()
 /// ```
 ///

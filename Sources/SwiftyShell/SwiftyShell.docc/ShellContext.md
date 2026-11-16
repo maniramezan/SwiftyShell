@@ -34,7 +34,8 @@ every call inherits them. You can opt into an output cap if needed:
 let buildContext = ShellContext(
     workingDirectory: "/var/app",
     defaultTimeout: .seconds(120),
-    defaultOutputLimit: 50_000_000   // 50 MB for verbose build output
+    // 50 MB for verbose build output
+    defaultOutputLimit: 50_000_000
 )
 
 try await Command("swift", arguments: "build", "--verbose").run(in: buildContext)

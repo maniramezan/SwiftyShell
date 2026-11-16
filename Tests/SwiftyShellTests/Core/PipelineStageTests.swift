@@ -85,7 +85,7 @@ struct PipelineStageTests {
             .spawn()
         try await pipeline.terminate()
         let codes = await pipeline.waitForStageExitCodes()
-        #expect(codes == [128 + 15, 128 + 15])
+        #expect(codes == [Int32(128 + 15), Int32(128 + 15)])
     }
 
     @Test func spawnedPipelineRejectsStdinOnLaterStage() async {

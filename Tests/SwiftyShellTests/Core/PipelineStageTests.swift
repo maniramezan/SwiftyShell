@@ -70,7 +70,7 @@ struct PipelineStageTests {
 
     @Test func teardownStopsEveryStage() async throws {
         let pipeline = try await Command("sleep", arguments: "30")
-            .pipe(to: Command("cat"))
+            .pipe(to: Command("sleep", arguments: "30"))
             .spawn(teardown: .immediate)
         let output = await pipeline.teardownAndWait()
         #expect(output.exitCode != 0)
@@ -81,7 +81,7 @@ struct PipelineStageTests {
 
     @Test func signalReachesEveryStage() async throws {
         let pipeline = try await Command("sleep", arguments: "30")
-            .pipe(to: Command("cat"))
+            .pipe(to: Command("sleep", arguments: "30"))
             .spawn()
         try await pipeline.terminate()
         let codes = await pipeline.waitForStageExitCodes()

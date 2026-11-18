@@ -178,7 +178,7 @@ Do not mark a task complete, declare work finished, or hand back to the user unt
 5. `swift package -Xswiftc -warnings-as-errors --allow-writing-to-directory docs generate-documentation --target SwiftyShell --output-path docs --transform-for-static-hosting --hosting-base-path SwiftyShell` — DocC builds cleanly when public API or DocC content changes.
 6. `swift test --enable-all-traits --enable-code-coverage -Xswiftc -warnings-as-errors` and `swift -warnings-as-errors Scripts/validate-code-coverage.swift --input <codecov-path> --minimum-line-coverage 84 --all-traits` — the coverage gate remains valid and includes every compiled source file.
 
-This applies to any code change (new command families, bug fixes, doc snippets that live in Swift, tests). Do not skip any gate. If a lint rule feels wrong for a specific construct, propose a `.swift-format` change in the same PR rather than bypassing the check.
+This applies to any code change (new command families, bug fixes, doc snippets that live in Swift, tests). If a lint rule feels wrong for a specific construct, propose a `.swift-format` change in the same PR rather than bypassing the check.
 
 The repository ships a `.swift-format` config at the repo root that encodes the project's 4-space indentation, 120-column line length, and other style rules. The tree is currently fully compliant — `swift-format lint --strict --recursive Sources Tests Scripts Benchmarks/Benchmarks Benchmarks/Package.swift` exits clean, and CI runs the same command on every push. Keep it that way. `swift-format` parses inputs as Swift source, so Markdown-only documentation changes should use the DocC validation gates rather than direct Markdown linting with `swift-format`.
 
@@ -193,9 +193,9 @@ The repository ships a `.swift-format` config at the repo root that encodes the 
 - Every typed client exposes `executable(_:)`, `env(_:_:)`, `workingDirectory(_:)`, `timeout(_:)`, `outputLimit(_:)`, `command() -> Command`, and `run() async throws`; clients conforming to `RunnableCommandFamily` also inherit `spawn(teardown:) async throws`
 - `ShellContext` is infrastructure, not a command namespace — `Command("pwd")` not `context.pwd()`
 
-### Documentation — MANDATORY
+### Documentation
 
-**Every public declaration must have a `///` doc comment. No exceptions.**
+Every public declaration must have a `///` doc comment.
 
 This applies to:
 - `public struct`, `public class`, `public enum`, `public protocol`
@@ -211,7 +211,7 @@ This applies to:
 4. Use ``SymbolName`` double-backtick links to cross-reference related types
 5. Include a code example in the type-level doc for all types that are primary API surface
 
-**When you add or modify any public declaration, write or update its doc comment in the same change. Do not leave undocumented public API.**
+When you add or modify a public declaration, write or update its doc comment in the same change.
 
 **When you add or modify any public code, command family, command method, workflow, parser result, or reusable behavior, update authored DocC in `Sources/SwiftyShell/SwiftyShell.docc/` in the same change.** Doc comments alone are not enough. New public symbols must be discoverable from DocC pages, and every public command family must have user-facing DocC with realistic Swift examples and a `## Topics` section.
 
